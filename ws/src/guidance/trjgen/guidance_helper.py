@@ -75,17 +75,6 @@ def integrationStep(X, u, dt, direction):
         A = np.linalg.inv(A)
         B = -1.0 * np.matmul(A, B)
   
-#    print("A")
-#    print(A)
-#
-#    print("\nB")
-#    print(B)
-#
-#    print("\nX")
-#    print(X)
-#
-#    print("\nu")
-#    print(u)
     X = np.matmul(A, X) + np.matmul(B, u)
     return X
 
@@ -143,63 +132,39 @@ def genInterpolProblem(tg, vtg, atg, yaw, t_impact):
     Z = np.array([[]])
     W = np.array([[]])
     
-    xtrg = np.array([tg[0], vtg[0], atg[0]]) 
-    ytrg = np.array([tg[1], vtg[1], atg[1]])
-    ztrg = np.array([tg[2], vtg[2], atg[2]]) 
+    xtrg = np.array([tg[0], vtg[0], atg[0], 0]) 
+    ytrg = np.array([tg[1], vtg[1], atg[1], 0])
+    ztrg = np.array([tg[2], vtg[2], atg[2], 0]) 
     
     
-    X = AddConstraint(X, np.array([0,0,0]))
-    Y = AddConstraint(Y, np.array([0,0,0]))
-    Z = AddConstraint(Z, np.array([0,0,0]))
-    W = AddConstraint(W, np.array([0,0,0]))
+    X = AddConstraint(X, np.array([0,0,0,0]))
+    Y = AddConstraint(Y, np.array([0,0,0,0]))
+    Z = AddConstraint(Z, np.array([0,0,0,0]))
+    W = AddConstraint(W, np.array([0,0,0,0]))
 
     knots = np.array([0.0])
-    N = 4
-    for i in range(0):
-        xst = np.array([tg[0] * (i + 1)/(N + 1), np.nan, np.nan]) 
+    N = 0
+    for i in range(N):
+        xst = np.array([tg[0] * (i + 1)/(N + 1), np.nan, np.nan, np.nan]) 
         X = AddConstraint(X, xst)
 
-        yst = np.array([tg[1] * (i + 1)/(N + 1), np.nan, np.nan])
+        yst = np.array([tg[1] * (i + 1)/(N + 1), np.nan, np.nan, np.nan])
         Y = AddConstraint(Y, yst)
 
-        zst = np.array([tg[2] * (i + 1)/(N + 1), np.nan, np.nan]) 
+        zst = np.array([tg[2] * (i + 1)/(N + 1), np.nan, np.nan, np.nan]) 
         Z = AddConstraint(Z, zst)
     
-        W = AddConstraint(W, np.array([0,np.nan,0]))
+        W = AddConstraint(W, np.array([0, np.nan, np.nan, 0]))
 
         knots = np.append(knots, t_impact * (i + 1)/(N + 1))
 
     X = AddConstraint(X, xtrg)
     Y = AddConstraint(Y, ytrg)
     Z = AddConstraint(Z, ztrg)
-    W = AddConstraint(W, np.array([0,yaw,0]))
-    
+    W = AddConstraint(W, np.array([0, yaw, 0, 0]))
+  
+    print(Y)
     knots = np.append(knots, t_impact)
-
-    print(X)
-
-#    xst = np.array([tg[0]/2.0, np.nan, np.nan]) 
-#    yst = np.array([tg[1]/2.0, np.nan, np.nan])
-#    zst = np.array([tg[2]/2.0, np.nan, np.nan]) 
-#
-#    X = AddConstraint(X, np.array([0,0,0]))
-#    X = AddConstraint(X, xst)
-#    X = AddConstraint(X, xtrg)
-#    
-#    Y = AddConstraint(Y, np.array([0,0,0]))
-#    Y = AddConstraint(Y, yst)
-#    Y = AddConstraint(Y, ytrg)
-#    
-#    Z = AddConstraint(Z, np.array([0,0,0]))
-#    Z = AddConstraint(Z, zst)
-#    Z = AddConstraint(Z, ztrg)
-#
-#    W = AddConstraint(W, np.array([0,0,0]))
-#    W = AddConstraint(W, np.array([0,np.nan,0]))
-#    W = AddConstraint(W, np.array([0,yaw,0]))
-   
-    # Generate the knots vector
-#    knots = np.array([0.0, t_impact/2.0, t_impact])
 
     print("\n\n ===============  Generated Waypoints ============ ")
     print("Relative Target = \n", tg)

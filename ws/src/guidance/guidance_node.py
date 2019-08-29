@@ -48,7 +48,7 @@ def handle_genImpTrjAuto(req):
     It uses a 7 degree polynomial, such that the trajectory is also
     uploadable on the vehicle for onboard tracking.
     """
-    ndeg = 7
+    ndeg = 12
     a_norm = req.a_norm
     v_norm = req.v_norm
 
@@ -81,10 +81,10 @@ def handle_genImpTrjAuto(req):
     rospy.loginfo("Vehicle = [" + str(start_pos[0]) + " " +
             str(start_pos[1]) + " " + str(start_pos[2]) + "]")
 
+    # =================================================================
     # Time to go
     t_impact = req.t2go
     t_impact = np.linalg.norm(tg_pos)/0.8
-
 
     DT = 0.1 
     (p_pre, v_pre, a_dem) = computeTerminalTrjStart(tg_pos, tg_q, v_norm, a_norm, DT) 
@@ -107,11 +107,6 @@ def handle_genImpTrjAuto(req):
     my_traj.writeTofile(Dt, '/tmp/toTarget.csv')
 
     t = Thread(target=rep_ImpactTrajectory, args=(my_traj, start_pos, max(knots), DT, frequency)).start()
-
-#    (Dt, polysX, polysY, polysZ, polysW) = tj.ppFromfile('/tmp/toTarget.csv')
-#
-#    my_traj = trj.Trajectory(polysX, polysY, polysZ, polysW)
-#    t = Thread(target=rep_trajectory, args=(my_traj,start_pos, max(knots), frequency)).start()
 
     return True
 
@@ -202,69 +197,6 @@ def handle_genTrackTrj(req):
 
     t = Thread(target=rep_trajectory, 
             args=(my_traj, start_pos, t_impact, frequency)).start()
-
-    return True 
-
-
-def handle_genGotoTrj(req):
-    tg_p = req.target_p
-    tg_v = req.target_v
-    tg_a = req.target_a
-    t_impact = req.tg_time
-     
-    # Times (Absolute and intervals)
-    knots = np.array([0, t_impact]) # One second each piece
-
-    # Polynomial characteristic:  order
-    ndeg = 7
-    nconstr = 4
-
-    X = np.array([
-        [ 0.0,    tg_p[0]],
-        [ 0.0,    tg_v[0]],
-        [ 0.0,    tg_a[0]],
-        [ 0.0,    0.0],
-        ])
-
-    Y = np.array([
-        [ 0.0,    tg_p[1]],
-        [ 0.0,    tg_v[1]],
-        [ 0.0,    tg_a[1]],
-        [ 0.0,    0.0],
-        ])
-    
-    Z = np.array([
-        [ 0.0,    tg_p[2]],
-        [ 0.0,    tg_v[2]],
-        [ 0.0,    tg_a[2]],
-        [ 0.0,    0.0],
-        ])
-
-    W = np.array([
-        [ 0.0,    0.0],
-        [ 0.0,    0.0],
-        [ 0.0,    0.0],
-        [ 0.0,    0.0],
-        ])
-
-    ppx = pw.PwPoly(X, knots, ndeg)
-    ppy = pw.PwPoly(Y, knots, ndeg)
-    ppz = pw.PwPoly(Z, knots, ndeg)
-    ppw = pw.PwPoly(W, knots, ndeg)
-
-    frequency = rospy.get_param('~freq', 30.0);
-
-    my_traj = trj.Trajectory(ppx, ppy, ppz, ppw)
-
-    start_pos = [current_odometry.pose.pose.position.x, 
-            current_odometry.pose.pose.position.y, 
-            current_odometry.pose.pose.position.z]
-
-    t = Thread(target=rep_trajectory, 
-            args=(my_traj, start_pos, t_impact, frequency)).start()
-
-    if (tg_v.all() == 0.0 and tg_a.all() == 0.0):
-        my_traj.writeTofile(Dt, '/tmp/goToTrajectory.csv')
 
     return True 
 

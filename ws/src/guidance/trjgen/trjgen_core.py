@@ -65,7 +65,10 @@ def interpolPolys(X, deg, T, is_abstime):
     [A, b] = buildInterpolationProblem(X, deg, T, is_abstime)
 
     nullx = null_space(A)
-
+    
+    if (nullx.size == 0):
+        print("Null space is void")
+    
     # Define the time vector
     Dt = np.zeros((nWp - 1), dtype=float)
 
@@ -76,6 +79,7 @@ def interpolPolys(X, deg, T, is_abstime):
         Dt = T
 
     Q = genQ(Dt, deg, 2)
+
     # M1x = F^T * Q * F
     M1x = (np.matmul(np.matmul(nullx.transpose(), Q), nullx))
     # M2x = - M1x * F^T * Q
@@ -86,10 +90,8 @@ def interpolPolys(X, deg, T, is_abstime):
     inv_AA_T = np.linalg.inv(np.matmul(A, A.transpose()))
     pseudoInv =  np.matmul(A.transpose(), inv_AA_T) 
     sol_min_norm = np.matmul(pseudoInv, b)
-    res = np.matmul(A, sol_min_norm)
-
-    #[sol, res, _, _] = linalg.lstsq(A, b)
-
+    res = np.matmul(A, sol_min_norm)        
+ 
     vx = np.matmul(M2x, sol_min_norm)
 
     # Interpolate (with sol_min_norm) and minimize the snap 
