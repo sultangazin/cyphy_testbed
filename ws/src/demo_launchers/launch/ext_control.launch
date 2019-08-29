@@ -13,7 +13,7 @@
   <arg name="massThrust" value="132000" />
 
   <arg name="kp_xy" value="8.9" />
-  <arg name="kd_xy" value="2.5" />
+  <arg name="kd_xy" value="2.2" />
   <arg name="ki_xy" value="0.0" />
   <arg name="i_range_xy" value="0.0" />
 
