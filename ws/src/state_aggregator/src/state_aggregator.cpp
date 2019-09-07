@@ -314,8 +314,9 @@ void StateAggregator::onNewPose(
     // the delay
     if (t_delay_ > 0.0) {
         p_pf_ = p_ + vel_ * t_delay_;
-        q_pf_ = qsum(q_, qsm(qd_, t_delay_));
-        q_pf_ = q_pf_.normalized();
+        //q_pf_ = qsum(q_, qsm(qd_, t_delay_));
+        //q_pf_ = q_pf_.normalized();
+        q_pf_ = q_;
     } else {
         p_pf_ = p_;
         q_pf_ = q_;
