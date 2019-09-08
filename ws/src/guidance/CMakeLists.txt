@@ -22,4 +22,5 @@ generate_messages()
 catkin_package(
 	CATKIN_DEPENDS 
     rospy
+    testbed_msgs
 	message_runtime)
