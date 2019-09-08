@@ -4,7 +4,39 @@ import time
 import rospy
 
 
-############################   Helper functions
+################ HELPERS #################
+def posFromPoseMsg(pose_msg):
+    pos = np.array([pose_msg.pose.position.x, 
+                pose_msg.pose.position.y, 
+                pose_msg.pose.position.z])
+    return pos
+
+def quatFromPoseMsg(pose_msg):
+    quat = np.array([pose_msg.pose.orientation.w,
+        pose_msg.pose.orientation.x, 
+        pose_msg.pose.orientation.y,
+        pose_msg.pose.orientation.z])
+    return quat 
+
+def posFromOdomMsg(odom_msg):
+    pos = np.array([odom_msg.p.x, 
+                odom_msg.p.y, 
+                odom_msg.p.z])
+    return pos
+
+def velFromOdomMsg(odom_msg):
+    vel = np.array([odom_msg.v.x, 
+                odom_msg.v.y, 
+                odom_msg.v.z])
+    return vel
+
+def quatFromOdomMsg(odom_msg):
+    quat = np.array([odom_msg.q.w,
+        odom_msg.q.x, 
+        odom_msg.q.y,
+        odom_msg.q.z])
+    return quat 
+
 
 def quat2yaw(q):
     yaw = math.atan2(2.0 * (q[0] * q[3] + q[1] * q[2]),
@@ -173,6 +205,45 @@ def genInterpolProblem(tg, vtg, atg, yaw, t_impact):
     print("\n")
 
     return (X, Y, Z, W, knots)
+
+
+
+def genInterpolationMatrices(start_vel, tg_prel, tg_v, tg_a):
+    """
+    Generate interpolation matrices for a given starting speed
+    and a generic end point. The position is considered to be
+    relative to the vehicle.
+    """
+    X = np.array([
+        [ 0.0,          tg_prel[0]],
+        [ start_vel[0], tg_v[0]],
+        [ 0.0,          tg_a[0]],
+        [ 0.0,          0.0],
+        ])
+
+    Y = np.array([
+        [ 0.0,          tg_prel[1]],
+        [ start_vel[1], tg_v[1]],
+        [ 0.0,          tg_a[1]],
+        [ 0.0,          0.0],
+        ])
+    
+    Z = np.array([
+        [ 0.0,          tg_prel[2]],
+        [ start_vel[2], tg_v[2]],
+        [ 0.0,          tg_a[2]],
+        [ 0.0,          0.0],
+        ])
+
+    W = np.array([
+        [ 0.0,    0.0],
+        [ 0.0,    0.0],
+        [ 0.0,    0.0],
+        [ 0.0,    0.0],
+        ])
+
+    return (X, Y, Z, W)
+
 
 
 def genInterpolMatricesBezier(tg, tg_q, yaw, v_norm, a_norm):
