@@ -11,10 +11,10 @@
     ============================================================================
     Trajectory Generation Service
     -->
-    <node name="Guidance_Node" pkg="guidance" type="guidance_node.py" output="screen"> 
+    <node name="Guidance_Node" pkg="guidance" type="guidance_node_.py" output="screen"> 
             <param name="target_frame" value="$(arg vehicle_frame)" type='str' />
             <param name="topics/in_tg_pose_topic" value="/vrpn_client_node/target/pose" type="str" />
-            <param name="topics/in_vehicle_odom_topic" value="external_odom" type='str' />
+            <param name="topics/in_vehicle_odom_topic" value="external_codom" type='str' />
             <param name="topics/out_ctrl_setpoint" value="setpoint" type="str" />
     </node>
 
@@ -32,7 +32,7 @@
 		<include file="$(find demo_launchers)/launch/ext_control.launch">
 			<arg name="topics/setpoint_topic" value="/cf1/setpoint" />
 			<arg name="topics/control_topic" value="/cf1/control" />
-			<arg name="topics/state_topic" value="/cf1/external_odom" />
+			<arg name="topics/state_topic" value="/cf1/external_codom" />
 		</include>
 
     -->
