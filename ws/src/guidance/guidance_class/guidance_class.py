@@ -1,0 +1,488 @@
+# Guidance class
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../trjgen')))
+
+import numpy as np
+import enum
+
+import rospy
+from tf.transformations import euler_from_matrix
+
+from testbed_msgs.msg import CustOdometryStamped
+from testbed_msgs.msg import ControlSetpoint 
+from geometry_msgs.msg import PoseStamped
+
+from guidance.srv import GenImpTrajectoryAuto
+from guidance.srv import GenTrackTrajectory
+
+import trjgen.class_pwpoly as pw
+import trjgen.class_trajectory as trj
+import trjgen.trjgen_helpers as trjh
+import trjgen.trjgen_core as tj
+
+import trjgen.class_bz as bz
+import trjgen.class_bztraj as bz_t
+
+from guidance_helper import *
+
+class TrajectoryType(enum.Enum):
+    FullTrj = 0
+    AttTrj = 1
+
+class MissionType(enum.Enum):
+    Simple = 0
+    Composite = 1
+
+################ MISSION CLASS ##################
+# This class contains the information about the 
+# current mission.
+class Mission:
+    def __init__(self):
+        self.start_pos = np.zeros(3, dtype=float)        
+        self.start_vel = np.zeros(3, dtype=float) 
+        self.start_acc = np.zeros(3, dtype=float)
+        
+        self.end_pos = np.zeros(3, dtype=float)        
+        self.end_vel = np.zeros(3, dtype=float) 
+        self.end_acc = np.zeros(3, dtype=float)
+
+        self.t_start = 0.0
+        self.t_stop = np.array([0.0]) 
+
+        # Variables for storing the current control ref
+        self.X = np.zeros(3, dtype=float)
+        self.Y = np.zeros(3, dtype=float)
+        self.Z = np.zeros(3, dtype=float)
+        self.W = np.zeros(3, dtype=float)
+        self.R = np.eye(3)
+        self.Omega = np.zeros(3, dtype=float)
+
+        self.isActive = False 
+        self.TrjType = TrajectoryType.FullTrj 
+        self.MissType = MissionType.Simple
+ 
+    def update(self, p, tg_p, trj_gen, start_time, stop_time,
+            v = None, a = None, tg_v = None, tg_a = None, mtype = MissionType.Simple):
+        # Update the starting point
+        self.start_pos = p
+        if (v is not None):
+            self.start_vel = v
+        else:
+            self.start_vel = np.zeros(3, dtype=float)
+        if (a is not None):
+            self.start_acc = a
+        else:
+            self.start_acc = np.zeros(3, dtype=float)
+
+         # Update the target point
+        self.end_pos = tg_p
+        if (tg_v is not None):
+            self.end_vel = tg_v
+        else:
+            self.end_vel = np.zero(3, dtype=float)
+        if (tg_a is not None):
+            self.end_acc = tg_a
+        else:
+            self.end_acc = np.zero(3, dtype=float)
+    
+        self.trj_gen = trj_gen
+         
+        self.t_start = start_time
+        self.t_stop = stop_time
+
+        self.NumberOfPieces = stop_time.size
+
+        self.TrjType = TrajectoryType.FullTrj
+        self.MissType = mtype
+        self.isActive = True
+    
+    def getRef(self, t):
+        rel_t = t - self.t_start
+
+        # Check whether we are over the first piece
+        if (self.MissType == MissionType.Composite):
+            if (t > self.t_stop[0]):
+                self.TrjType = TrajectoryType.AttTrj
+
+        (X, Y, Z, W, R, Omega) = self.trj_gen.eval(rel_t)
+        X[0] = X[0] + self.start_pos[0]
+        Y[0] = Y[0] + self.start_pos[1]
+        Z[0] = Z[0] + self.start_pos[2]
+
+        return (X, Y, Z, W, R, Omega)
+        
+
+    def queryStatus(self, t):
+        """
+        Return the status of the Mission
+        looking at the time of the planned
+        trajectory.
+        """
+        if (t > np.max(self.t_stop)):
+            self.isActive = False
+            return self.isActive
+        else:
+            self.isActive = True 
+            return self.isActive
+        
+    def queryMissionType(self):
+        """
+        Return the type of mission: Composite or Simple
+        """
+        return self.MissType
+
+    def queryTrjType(self):
+        """
+        Return the type of trajectory to track: Full or Att
+        """
+        return self.TrjType
+
+    def getStartTime(self):
+        return self.t_start
+
+    def getStopTime(self):
+        return self.t_stop
+    
+    def getStart(self):
+        return self.start_pos
+
+    def getEnd(self):
+        return (self.end_pos, self.end_vel, self.end_acc)
+
+ 
+    
+################# TRAJECTORY GENERATOR ###############
+# This class incapsulates the polynomial trajectory
+# generators.
+class TrajectoryGenerator:
+    
+    def __init__(self, trj_obj):
+        # Set the trajectory object
+        self.trj_obj = trj_obj
+        # Set the duration of the current trajectory
+        self.t_stop = trj_obj.duration
+
+    def eval(self, t): 
+        """
+        Eval the trajectory object at time 't'
+        """
+        X = np.zeros(3, dtype=float)
+        Y = np.zeros(3, dtype=float)
+        Z = np.zeros(3, dtype=float)
+        W = np.zeros(3, dtype=float)
+        R = np.eye(3)
+        Omega = np.zeros(3, dtype=float)
+   
+        if (t <= self.t_stop):
+            # Update the current reference
+            (X, Y, Z, W, R, Omega) = self.trj_obj.eval(t, [0, 1, 2, 3])
+        else:
+            (X, Y, Z, W, R, Omega) = self.trj_obj.eval(self.t_stop, [0, 1, 2, 3])
+
+        return (X, Y, Z, W, R, Omega)
+
+
+################# GUIDANCE CLASS #####################
+class GuidanceClass:
+
+    def __init__(self):
+
+        self.initData()
+
+        self.loadParameters()
+
+        self.registerCallbacks()
+
+        self.registerServices()
+
+        self.advertiseTopics()
+
+        rospy.loginfo("\n [%s] Guidance Initialized!"%rospy.get_name()) 
+
+
+    def initData(self):
+        self.current_odometry = CustOdometryStamped()
+        self.current_target = PoseStamped()
+
+        # Mission object to store information about
+        # the current status of the plan.
+        self.current_mission = Mission()
+        
+        self.StopUpdating = False 
+
+
+    def loadParameters(self):
+        self.vehicle_mass = rospy.get_param('~vehicle_mass', 0.032)
+
+        self.target_frame = rospy.get_param('~target_frame', 'cf1')
+     
+        # Load the name of the Output Topics 
+        self.ctrlsetpoint_topic_ = rospy.get_param('topics/out_ctrl_setpoint', "setpoint")
+
+        # Load the name of the Input Topics
+        self.dr_odom_topic_ = rospy.get_param('topics/in_vehicle_odom_topic', 'external_codom')    
+        self.tg_pose_topic_ = rospy.get_param('topics/in_tg_pose_topic', "/vrpn_client_node/target/pose")
+
+ 
+    def registerCallbacks(self):
+        # Subscribe to vehicle state update
+        rospy.Subscriber(self.dr_odom_topic_, CustOdometryStamped, self.odom_callback)
+        rospy.Subscriber(self.tg_pose_topic_, PoseStamped, self.tg_callback)
+
+
+    def registerServices(self):
+        # Services 
+        self.service_track = rospy.Service('gen_TrackTrajectory', 
+            GenTrackTrajectory, self.handle_genTrackTrj)
+
+        self.service_imp_auto = rospy.Service('gen_ImpTrajectoryAuto', 
+            GenImpTrajectoryAuto, self.handle_genImpTrjAuto)
+
+
+    def advertiseTopics(self):
+        # Setpoint Publisher
+        self.ctrl_setpoint_pub = rospy.Publisher(self.ctrlsetpoint_topic_, 
+            ControlSetpoint, queue_size=10)
+ 
+
+    ###### CALLBACKS
+    # On new vehicle information
+    def odom_callback(self, odometry_msg):
+
+        # Update the pose/twist information of the controlled vehicle
+        self.current_odometry = odometry_msg
+       
+        # Evaluate where I am in the trajectory, using time information.
+        t = rospy.get_time()
+        isActive = self.current_mission.queryStatus(t)
+        
+        # Prepare the current setpoint message
+        rtime = rospy.get_rostime()
+        output_msg = ControlSetpoint()
+        output_msg.header.stamp = rtime
+
+        if (isActive): # I still have to finish tracking the trajectory
+            self.StopUpdating = False  
+            (X, Y, Z, W, R, Omega) = self.current_mission.getRef(t)
+
+            if (self.current_mission.queryTrjType() == TrajectoryType.FullTrj):
+                output_msg.setpoint_type = "FullTracking"
+            else:
+                output_msg.setpoint_type = "AttitudeTracking"
+             
+            # Fill  the trajectory object
+            output_msg.p.x = X[0]
+            output_msg.p.y = Y[0]
+            output_msg.p.z = Z[0]
+            output_msg.v.x = X[1] 
+            output_msg.v.y = Y[1]
+            output_msg.v.z = Z[1]
+            output_msg.a.x = X[2]
+            output_msg.a.y = Y[2]
+            output_msg.a.z = Z[2]
+
+            # Evaluate the thrust margin of the trjectory at the current time
+            mass = 0.032;
+            thr_lim = 9.81 * mass * 1.5
+            (ffthrust, available_thrust) = trjh.getlimits(X, Y, Z, mass, thr_lim)
+            if (available_thrust < 0):
+                rospy.loginfo("Exceding thrust limits!!")
+                rospy.loginfo("\t" + str(available_thrust))
+
+            # Conver the Rotation matrix to euler angles
+            (roll, pitch, yaw) = euler_from_matrix(R)
+            output_msg.rpy.x = roll
+            output_msg.rpy.y = pitch
+            output_msg.rpy.z = yaw
+            output_msg.brates.x = Omega[0]
+            output_msg.brates.y = Omega[1]
+            output_msg.brates.z = Omega[2]
+
+        else: # The trajectory is over... 
+            self.StopUpdating = True
+            (keep_pos, _, _) = self.current_mission.getEnd() 
+            output_msg.p.x = keep_pos[0]
+            output_msg.p.y = keep_pos[1]
+            output_msg.p.z = keep_pos[2]
+            
+            output_msg.v.x = 0.0 
+            output_msg.v.y = 0.0
+            output_msg.v.z = 0.0
+            output_msg.a.x = 0.0
+            output_msg.a.y = 0.0
+            output_msg.a.z = 0.0
+ 
+        # Pubblish the evaluated trajectory
+        if (not self.StopUpdating):
+            self.ctrl_setpoint_pub.publish(output_msg)
+
+        return
+
+
+    # On new target information
+    def tg_callback(self, pose_msg):
+        self.current_target = pose_msg
+        return
+
+
+    ###### SERVICES
+    # Service handler: Generation of generic trajectory piece
+    def handle_genTrackTrj(self, req):
+        """
+        Generate a tracking trajectory to reach an absolute waypoint 
+        with a given velocity and acceleration.
+        """
+        start_pos = posFromOdomMsg(self.current_odometry)
+        start_vel = velFromOdomMsg(self.current_odometry)
+        
+        t_end = req.tg_time
+        
+        tg_v = req.target_v
+        tg_a = req.target_a
+
+
+        # A little logic considering what could have been requested
+        if (req.ref == "Absolute"):
+            tg_p = req.target_p
+            tg_prel = tg_p - start_pos
+        elif (req.ref == "Relative"):
+            tg_prel = req.target_p
+            # Detect if you are requesting a landing
+            if ((start_pos[2] + tg_prel[2]) <= 0):
+                # I have to redefine because I cannot mutate tuples
+                tg_prel = [tg_prel[0], tg_prel[1], -start_pos[2]]
+                # Automatically calculate the time to land, if not specified
+                if (t_end == 0.0):
+                    t_end = (start_pos[2]/0.3)
+                tg_v = np.zeros((3))
+                tg_a = np.zeros((3))
+        else:
+            rospy.loginfo("Error passing reference to guidance")
+                 
+        rospy.loginfo("Target = [%.3f, %.3f, %.3f]" % (tg_prel[0], tg_prel[1], tg_prel[2]))
+
+        (X, Y, Z, W) = genInterpolationMatrices(start_vel, tg_prel, tg_v, tg_a)
+        
+        # Times (Absolute and intervals)
+        knots = np.array([0, t_end]) # One second each piece
+
+        # Polynomial characteristic:  order
+        ndeg = 7
+
+        ppx = pw.PwPoly(X, knots, ndeg)
+        ppy = pw.PwPoly(Y, knots, ndeg)
+        ppz = pw.PwPoly(Z, knots, ndeg)
+        ppw = pw.PwPoly(W, knots, ndeg) 
+        traj_obj = trj.Trajectory(ppx, ppy, ppz, ppw)
+
+        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(X[0,1], Y[0,1], Z[0,1]))
+        print("Solution: [%.3f, %.3f, %.3f]"%(ppx.eval(t_end, 0), ppy.eval(t_end, 0), ppz.eval(t_end, 0)))
+
+        # Update the mission object
+        t_start = rospy.get_time()
+        self.current_mission.update(
+                p = start_pos,
+                v = start_vel, 
+                tg_p = tg_prel, 
+                tg_v = tg_v, 
+                tg_a = tg_a,
+                trj_gen = traj_obj,
+                start_time = t_start,
+                stop_time = np.array([t_end + t_start])
+                )
+
+        return True 
+
+    def handle_genImpTrjAuto(self, req):
+        """
+        Generate a impact trajectory just specifying the modulus of the 
+        acceleration, speed and the time to go.
+        """
+        ndeg = 15
+        a_norm = req.a_norm
+        v_norm = req.v_norm
+
+        # Take the current pose of the vehicle
+        start_pos = posFromOdomMsg(self.current_odometry)
+        start_vel = velFromOdomMsg(self.current_odometry)
+
+        start_orientation = quatFromOdomMsg(self.current_odometry)
+        start_yaw = quat2yaw(start_orientation)
+
+        # Take the current target pose
+        tg_pos = posFromPoseMsg(self.current_target)
+
+        tg_q = quatFromPoseMsg(self.current_target) 
+
+        tg_yaw = quat2yaw(tg_q)
+
+        tg_z = quat2Z(tg_q)
+        rospy.loginfo("\nOn Target in " + str(req.t2go) + " sec!")
+        rospy.loginfo("Target = [" + str(tg_pos[0]) + " " +
+                str(tg_pos[1]) + " " + str(tg_pos[2]) + "]")
+        rospy.loginfo("Target Z = [" + str(tg_z[0]) + " " +
+                str(tg_z[1]) + " " + str(tg_z[2]) + "]")
+        rospy.loginfo("Vehicle = [" + str(start_pos[0]) + " " +
+                str(start_pos[1]) + " " + str(start_pos[2]) + "]")
+
+        # =================================================================
+        # Time to go
+        T = req.t2go
+        DT = 0.01 
+        (tg_pre, tg_v, tg_a) = computeTerminalTrjStart(tg_pos, tg_q, v_norm, a_norm, DT) 
+     
+        # Generate the interpolation matrices to reach the pre-impact point
+        (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(start_vel, tg_pos - start_pos, tg_v, tg_a)
+
+        # Generation of the trajectory with Bezier curves
+        x_lim = [3.0, 5.5, 11.0]
+
+        y_lim = [3.0, 5.5, 11.0]
+        z_lim = [1.8, 2.5, 4.0]
+
+        x_cnstr = np.array([[-x_lim[0], x_lim[0]], [-x_lim[1], x_lim[1]], [-x_lim[2], x_lim[2]]])
+        y_cnstr = np.array([[-y_lim[0], y_lim[0]], [-y_lim[1], y_lim[1]], [-y_lim[2], y_lim[2]]])
+        z_cnstr = np.array([[-0.9, z_lim[0]], [-z_lim[1], z_lim[1]], [-9.81, z_lim[2]]])
+
+        # Generate the polynomial
+        #
+        print("Generating X")
+        bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=T)
+        print("\nGenerating Y")
+        bz_y = bz.Bezier(waypoints=Ywp, constraints=y_cnstr, degree=ndeg, s=T)
+        print("\nGenerating Z")
+        bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T)
+        print("\nGenerating W")
+        bz_w = bz.Bezier(waypoints=Wwp, degree=7, s=T)
+
+        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
+        print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
+        print("Final Acceleration: [%.3f, %.3f, %.3f]"%(Xwp[2,1], Ywp[2,1], Zwp[2,1]))
+
+        print("Solution Position: [%.3f, %.3f, %.3f]"%(bz_x.eval(T), bz_y.eval(T), bz_z.eval(T)))
+        print("Solution Velocity: [%.3f, %.3f, %.3f]"%
+                (bz_x.eval(T, [1]), bz_y.eval(T, [1]), bz_z.eval(T, [1])))
+        print("Solution Acceleration: [%.3f, %.3f, %.3f]"%(bz_x.eval(T, [2]), bz_y.eval(T, [2]), bz_z.eval(T, [2])))
+
+
+        trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w))
+      
+        # Compute the absolute times for this trajectory
+        t_start = rospy.get_time()
+        t_end = np.array([t_start + T, t_start + T + DT])
+
+        self.current_mission.update(
+                    p = start_pos,
+                    v = start_vel, 
+                    tg_p = tg_pos, 
+                    tg_v = tg_v, 
+                    tg_a = tg_a,
+                    trj_gen = trj_obj,
+                    start_time = t_start,
+                    stop_time = t_end, 
+                    mtype = MissionType.Composite)
+
+        return True
+
+################# END OF GUIDANCE CLASS #################
