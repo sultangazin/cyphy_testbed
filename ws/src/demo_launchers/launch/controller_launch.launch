@@ -35,5 +35,5 @@ Bag recording
 
 - /setpoint: Trajectory setpoint for the crazyflie 
 -->
-<node pkg="rosbag" name="record_ctrl" type="record" args="-O /tmp/$(arg vehicle_frame)_control $(arg vehicle_frame)/control $(arg vehicle_frame)/cmd_vel" />
+<node pkg="rosbag" name="record_ctrl" type="record" args="-O /tmp/$(arg vehicle_frame)_control $(arg vehicle_frame)/control $(arg vehicle_frame)/cmd_vel /cf1/logMotors"/>
 </launch>

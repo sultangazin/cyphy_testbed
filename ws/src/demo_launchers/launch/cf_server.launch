@@ -32,9 +32,9 @@ Start the server process that connects the CF to the ROS system
         <param name="enable_logging_pose" value="True" /> 
         <rosparam>
                 genericLogTopics: ["logEstAttRPY", "logMotors"]
-                genericLogTopicFrequencies: [10, 10]
+                genericLogTopicFrequencies: [100, 10]
                 genericLogTopic_logEstAttRPY_Variables: ["stateEstimate.roll", "stateEstimate.pitch", "stateEstimate.yaw"]
-                genericLogTopic_logMotors: ["motors.m1", "motors.m2", "motors.m3", "motors.m4"]
+                genericLogTopic_logMotors_Variables: ["motor.m1", "motor.m2", "motor.m3", "motor.m4"]
         </rosparam>
 </node>
 
@@ -90,6 +90,6 @@ Bag recording
 - /ghost_trajectory: This is the requested trajectory pose (simulated)
 -->
 
-<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/cf1_est /cf1/pose /cf1/logEstAttRPY /cf1/logMotors"/>
+<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/cf1_crazyflie /cf1/pose /cf1/logEstAttRPY "/>
 
 </launch>
