@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(controller)
+add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED 
 	COMPONENTS
@@ -31,7 +32,6 @@ add_executable(mellinger_controller_node
 	exec/mellinger_controller_node.cpp 
 	src/mellinger_controller.cpp
 )
-
 add_executable(cmd_vel_converter_node 
 	exec/cmd_vel_converter_node.cpp 
 	src/cmd_vel_converter.cpp
