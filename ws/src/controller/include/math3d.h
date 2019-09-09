@@ -213,7 +213,7 @@ static inline bool vgeq(struct vec a, struct vec b) {
 }
 // test if any element of a vector is NaN.
 static inline bool visnan(struct vec v) {
-	return isnan(v.x) || isnan(v.y) || isnan(v.z);
+	return std::isnan(v.x) || std::isnan(v.y) || std::isnan(v.z);
 }
 
 //
@@ -425,7 +425,7 @@ static inline struct mat33 maddridge(struct mat33 a, float d) {
 static inline bool misnan(struct mat33 m) {
 	for (int i = 0; i < 3; ++i) {
 		for (int j = 0; j < 3; ++j) {
-			if (isnan(m.m[i][j])) {
+			if (std::isnan(m.m[i][j])) {
 				return true;
 			}
 		}
