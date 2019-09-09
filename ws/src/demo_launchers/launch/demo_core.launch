@@ -26,5 +26,5 @@
      setpoint: Demanded setpoin
      pose: Estimated Pose
 -->
-<node pkg="rosbag" name="record_perf" type="record" args="-O /tmp/cf1_perf /vrpn_client_node/cf1/pose /cf1/external_codom /cf1/setpoint /cf1/pose" /> 
+<node pkg="rosbag" name="record_perf" type="record" args="-O /tmp/cf1_perf /vrpn_client_node/cf1/pose /cf1/external_codom /cf1/setpoint /cf1/pose /cf1/logMotors" /> 
 </launch>
