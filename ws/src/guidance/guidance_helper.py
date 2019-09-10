@@ -138,9 +138,7 @@ def Integration(p, v, a, Tf, dt, direction):
 def computeTerminalTrjStart(tg, tg_q, v_norm, a_norm, DT):
 
     # Compute the normal of the target surface
-    tg_Zi = np.array([2.0*tg_q[0]*tg_q[2] + 2.0*tg_q[1]*tg_q[3],
-         2.0*(tg_q[2]*tg_q[3] - tg_q[0]*tg_q[1]),
-         tg_q[0]*tg_q[0] -tg_q[1]*tg_q[1] -tg_q[2]*tg_q[2] + tg_q[3]*tg_q[3]]) 
+    tg_Zi = quat2Z(tg_q)
 
     # Compute the acceleration vector
     a_dem = a_norm * tg_Zi - np.array([0.0, 0.0, 9.81])
