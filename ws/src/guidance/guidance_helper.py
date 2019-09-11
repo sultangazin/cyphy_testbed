@@ -90,6 +90,7 @@ def AddConstraint(A, constr):
         A = np.hstack((A, col_constr))
     return A
 
+
 # Integration Step 
 def integrationStep(X, u, dt, direction):
     # x(k+1) = A(dt) x(k)  + B(dt) u(k)
@@ -98,16 +99,28 @@ def integrationStep(X, u, dt, direction):
     A[1][4] = dt
     A[2][5] = dt
 
-    B1 = np.eye((3), dtype=float) * (dt**2)/2.0
+    u = np.reshape(u, (3, 1))
+    B1 = np.eye((3), dtype=float) * (dt*dt)/2.0
     B2 = np.eye((3), dtype=float) * dt
-    B = np.vstack((B1, B2))
+    B = np.vstack((B1, B2)) 
+   
+    # print("A = \n", A)
+    # print("B = \n", B)
     
     if (direction == -1):
         # x(k) = A_(dt) x(k+1) + B_(dt) u(k)
         A = np.linalg.inv(A)
+        # print("Back A = \n", A)
         B = -1.0 * np.matmul(A, B)
+        # print("Back B = \n", B)
   
-    X = np.matmul(A, X) + np.matmul(B, u)
+    Xx = np.matmul(A, X)
+    Xu = np.matmul(B, u)
+
+    # print("Ax = \n", Xx)
+    # print("Bu = \n", Xu)
+    X =  Xx + Xu
+
     return X
 
 
@@ -147,12 +160,24 @@ def computeTerminalTrjStart(tg, tg_q, v_norm, a_norm, DT):
 
     # Compute the waypoints near the target
     # I am considering moving with a constant acceleration (negative), while going towards the target
-    xv_pre = Integration(tg, v_dem, a_dem, DT, 0.001, -1) 
-    p_pre = np.reshape(xv_pre[0:3], (3,))
-    v_pre = np.reshape(xv_pre[3:6], (3,))
+    if (DT < 0.001):
+        p_pre = np.reshape(tg, (3,))
+        v_pre = np.reshape(v_dem, (3,))
+    else:
+        xv_pre = Integration(tg, v_dem, a_dem, DT, 0.001, -1) 
+        p_pre = np.reshape(xv_pre[0:3], (3,))
+        v_pre = np.reshape(xv_pre[3:6], (3,))
     
-    return (p_pre, v_pre, a_dem)
+    print("Acc on TG = \n", a_dem)
+    print("Vel on TG = \n", v_dem)
+    print("Pos on TG = \n", tg)
 
+
+    print("Acc pre = \n", a_dem)
+    print("Vel pre = \n", v_pre)
+    print("Pos pre = \n", p_pre)
+
+    return (p_pre, v_pre, a_dem)
 
 # Generate the matrices for the interpolation problem
 def genInterpolProblem(tg, vtg, atg, yaw, t_impact):
@@ -216,25 +241,21 @@ def genInterpolationMatrices(start_vel, tg_prel, tg_v, tg_a):
         [ 0.0,          tg_prel[0]],
         [ start_vel[0], tg_v[0]],
         [ 0.0,          tg_a[0]],
-        [ 0.0,          0.0],
         ])
 
     Y = np.array([
         [ 0.0,          tg_prel[1]],
         [ start_vel[1], tg_v[1]],
         [ 0.0,          tg_a[1]],
-        [ 0.0,          0.0],
         ])
     
     Z = np.array([
         [ 0.0,          tg_prel[2]],
         [ start_vel[2], tg_v[2]],
         [ 0.0,          tg_a[2]],
-        [ 0.0,          0.0],
         ])
 
     W = np.array([
-        [ 0.0,    0.0],
         [ 0.0,    0.0],
         [ 0.0,    0.0],
         [ 0.0,    0.0],
