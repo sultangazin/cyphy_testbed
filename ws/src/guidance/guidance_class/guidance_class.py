@@ -2,11 +2,10 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../trjgen')))
-
 import numpy as np
-import enum
 
 import rospy
+
 from tf.transformations import euler_from_matrix
 
 from testbed_msgs.msg import CustOdometryStamped
@@ -25,163 +24,8 @@ import trjgen.class_bz as bz
 import trjgen.class_bztraj as bz_t
 
 from guidance_helper import *
-
-class TrajectoryType(enum.Enum):
-    FullTrj = 0
-    AttTrj = 1
-
-class MissionType(enum.Enum):
-    Simple = 0
-    Composite = 1
-
-################ MISSION CLASS ##################
-# This class contains the information about the 
-# current mission.
-class Mission:
-    def __init__(self):
-        self.start_pos = np.zeros(3, dtype=float)        
-        self.start_vel = np.zeros(3, dtype=float) 
-        self.start_acc = np.zeros(3, dtype=float)
-        
-        self.end_pos = np.zeros(3, dtype=float)        
-        self.end_vel = np.zeros(3, dtype=float) 
-        self.end_acc = np.zeros(3, dtype=float)
-
-        self.t_start = 0.0
-        self.t_stop = np.array([0.0]) 
-
-        # Variables for storing the current control ref
-        self.X = np.zeros(3, dtype=float)
-        self.Y = np.zeros(3, dtype=float)
-        self.Z = np.zeros(3, dtype=float)
-        self.W = np.zeros(3, dtype=float)
-        self.R = np.eye(3)
-        self.Omega = np.zeros(3, dtype=float)
-
-        self.isActive = False 
-        self.TrjType = TrajectoryType.FullTrj 
-        self.MissType = MissionType.Simple
- 
-    def update(self, p, tg_p, trj_gen, start_time, stop_time,
-            v = None, a = None, tg_v = None, tg_a = None, mtype = MissionType.Simple):
-        # Update the starting point
-        self.start_pos = p
-        if (v is not None):
-            self.start_vel = v
-        else:
-            self.start_vel = np.zeros(3, dtype=float)
-        if (a is not None):
-            self.start_acc = a
-        else:
-            self.start_acc = np.zeros(3, dtype=float)
-
-         # Update the target point
-        self.end_pos = tg_p
-        if (tg_v is not None):
-            self.end_vel = tg_v
-        else:
-            self.end_vel = np.zero(3, dtype=float)
-        if (tg_a is not None):
-            self.end_acc = tg_a
-        else:
-            self.end_acc = np.zero(3, dtype=float)
-    
-        self.trj_gen = trj_gen
-         
-        self.t_start = start_time
-        self.t_stop = stop_time
-
-        self.NumberOfPieces = stop_time.size
-
-        self.TrjType = TrajectoryType.FullTrj
-        self.MissType = mtype
-        self.isActive = True
-    
-    def getRef(self, t):
-        rel_t = t - self.t_start
-
-        # Check whether we are over the first piece
-        if (self.MissType == MissionType.Composite):
-            if (t > self.t_stop[0]):
-                self.TrjType = TrajectoryType.AttTrj
-
-        (X, Y, Z, W, R, Omega) = self.trj_gen.eval(rel_t)
-        X[0] = X[0] + self.start_pos[0]
-        Y[0] = Y[0] + self.start_pos[1]
-        Z[0] = Z[0] + self.start_pos[2]
-
-        return (X, Y, Z, W, R, Omega)
-        
-
-    def queryStatus(self, t):
-        """
-        Return the status of the Mission
-        looking at the time of the planned
-        trajectory.
-        """
-        if (t > np.max(self.t_stop)):
-            self.isActive = False
-            return self.isActive
-        else:
-            self.isActive = True 
-            return self.isActive
-        
-    def queryMissionType(self):
-        """
-        Return the type of mission: Composite or Simple
-        """
-        return self.MissType
-
-    def queryTrjType(self):
-        """
-        Return the type of trajectory to track: Full or Att
-        """
-        return self.TrjType
-
-    def getStartTime(self):
-        return self.t_start
-
-    def getStopTime(self):
-        return self.t_stop
-    
-    def getStart(self):
-        return self.start_pos
-
-    def getEnd(self):
-        return (self.end_pos, self.end_vel, self.end_acc)
-
- 
-    
-################# TRAJECTORY GENERATOR ###############
-# This class incapsulates the polynomial trajectory
-# generators.
-class TrajectoryGenerator:
-    
-    def __init__(self, trj_obj):
-        # Set the trajectory object
-        self.trj_obj = trj_obj
-        # Set the duration of the current trajectory
-        self.t_stop = trj_obj.duration
-
-    def eval(self, t): 
-        """
-        Eval the trajectory object at time 't'
-        """
-        X = np.zeros(3, dtype=float)
-        Y = np.zeros(3, dtype=float)
-        Z = np.zeros(3, dtype=float)
-        W = np.zeros(3, dtype=float)
-        R = np.eye(3)
-        Omega = np.zeros(3, dtype=float)
-   
-        if (t <= self.t_stop):
-            # Update the current reference
-            (X, Y, Z, W, R, Omega) = self.trj_obj.eval(t, [0, 1, 2, 3])
-        else:
-            (X, Y, Z, W, R, Omega) = self.trj_obj.eval(self.t_stop, [0, 1, 2, 3])
-
-        return (X, Y, Z, W, R, Omega)
-
+from guidance_helper_classes.mission_class import Mission, MissionType, TrajectoryType
+from guidance_helper_classes.trajectorygenerator_class import TrajectoryGenerator
 
 ################# GUIDANCE CLASS #####################
 class GuidanceClass:
@@ -399,7 +243,7 @@ class GuidanceClass:
         Generate a impact trajectory just specifying the modulus of the 
         acceleration, speed and the time to go.
         """
-        ndeg = 15
+        ndeg = 13
         a_norm = req.a_norm
         v_norm = req.v_norm
 
@@ -426,12 +270,16 @@ class GuidanceClass:
         rospy.loginfo("Vehicle = [" + str(start_pos[0]) + " " +
                 str(start_pos[1]) + " " + str(start_pos[2]) + "]")
 
-        # =================================================================
-        # Time to go
         T = req.t2go
-        DT = 0.01 
+        DT = 0.5 
         (tg_pre, tg_v, tg_a) = computeTerminalTrjStart(tg_pos, tg_q, v_norm, a_norm, DT) 
      
+        rospy.loginfo("Target Vel= [" + str(tg_v[0]) + " " +
+                str(tg_v[1]) + " " + str(tg_v[2]) + "]")
+
+        rospy.loginfo("Target Acc= [" + str(tg_a[0]) + " " +
+                str(tg_a[1]) + " " + str(tg_a[2]) + "]")
+
         # Generate the interpolation matrices to reach the pre-impact point
         (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(start_vel, tg_pos - start_pos, tg_v, tg_a)
 
@@ -439,11 +287,11 @@ class GuidanceClass:
         x_lim = [3.0, 5.5, 11.0]
 
         y_lim = [3.0, 5.5, 11.0]
-        z_lim = [1.8, 2.5, 4.0]
+        z_lim = [2.4, 2.5, 14.0]
 
         x_cnstr = np.array([[-x_lim[0], x_lim[0]], [-x_lim[1], x_lim[1]], [-x_lim[2], x_lim[2]]])
         y_cnstr = np.array([[-y_lim[0], y_lim[0]], [-y_lim[1], y_lim[1]], [-y_lim[2], y_lim[2]]])
-        z_cnstr = np.array([[-0.9, z_lim[0]], [-z_lim[1], z_lim[1]], [-9.81, z_lim[2]]])
+        z_cnstr = np.array([[-start_pos[2], z_lim[0]], [-z_lim[1], z_lim[1]], [-9.81, z_lim[2]]])
 
         # Generate the polynomial
         #
