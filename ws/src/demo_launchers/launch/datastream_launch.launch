@@ -56,6 +56,16 @@ sensors and provides an estimator of the drone state.
 
 <!--
 ============================================================================
+RArena node
+-->
+<node pkg="rarena" name="rarena" type="rarena_node.py" 
+        output="screen"> 
+</node>
+
+
+
+<!--
+============================================================================
 Visualization with RVIZ 
 -->
 <node pkg="tf" type="static_transform_publisher" name="baselink_broadcaster" args="0 0 0 0 0 0 1 $(arg vehicle_frame) /world 100" />
