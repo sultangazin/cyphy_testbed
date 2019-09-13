@@ -128,6 +128,20 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
     np.param<std::string>("topics/in_vrpn_topic", vrpn_topic_, 
             "/vrpn_client_node/cf1/pose");
 
+    std::string key;
+    if (np.searchParam("AxisUp", key)) {
+        ROS_INFO("Found parameter %s!", key.c_str());
+        n.getParam(key, axis_up_);
+        ROS_INFO("Setting parameter %s = %s", 
+                "AxisUp", axis_up_);
+    } else {
+        AxisUp = "Z";
+        ROS_INFO("No param 'AxisUp' found!");
+        ROS_INFO("Setting default parameter %s = %s", 
+                "AxisUp", AxisUp);
+    }
+
+
     // External position (just position)
     np.param<std::string>("topics/out_ext_position_topic", ext_position_topic_, 
             "external_position");
@@ -223,15 +237,38 @@ void StateAggregator::onNewPose(
     ros::Time current_time = ros::Time::now();
 
     // Fetch the ROS message
-    p_(0) = msg->pose.position.x;	
-    p_(1) = msg->pose.position.y;	
-    p_(2) = msg->pose.position.z;	
+    
+    if (axis_up_ == "Z") {
+        p_(0) = msg->pose.position.x;	
+        p_(1) = msg->pose.position.y;	
+        p_(2) = msg->pose.position.z;	
 
-    q_.x() = msg->pose.orientation.x;
-    q_.y() = msg->pose.orientation.y;
-    q_.z() = msg->pose.orientation.z;
-    q_.w() = msg->pose.orientation.w;
+        q_.x() = msg->pose.orientation.x;
+        q_.y() = msg->pose.orientation.y;
+        q_.z() = msg->pose.orientation.z;
+        q_.w() = msg->pose.orientation.w;
+    } else if (axis_up == "Y") {
+        p_(0) = msg->pose.position.x;	
+        // Switch the axes to be compatible 
+        // with the Aframe/Motive frames
+        //  afr --> ros 
+        //  R^(ros)_(afr) = Roll(-pi/2) = 
+        //  [1   0   0
+        //   0   0   1
+        //   0  -1   0]
+        // Xw = Xb
+        // Yw = Zb
+        // Zw = -Yb
+        p_(1) = -msg->pose.position.z;	
+        p_(2) = msg->pose.position.y;	
 
+        q_.x() = msg->pose.orientation.x;
+        q_.y() = msg->pose.orientation.z;
+        q_.z() = -msg->pose.orientation.y;
+        q_.w() = msg->pose.orientation.w;
+    } else {
+       ROS_ERROR("Error selecting the source reference frame"); 
+    }
     // Read the timestamp of the message
     t.tv_sec = msg->header.stamp.sec;
     t.tv_nsec = msg->header.stamp.nsec;

@@ -40,6 +40,7 @@ sensors and provides an estimator of the drone state.
         output="screen"> 
         <!-- Topic parameters -->
         <param name="topics/in_vrpn_topic" value="/vrpn_client_node/cf1/pose" />
+        <param name="AxisUp" value="Y" />
         <param name="topics/out_ext_position_topic" value="external_position" />
         <param name="topics/out_ext_pose_topic" value="external_pose" />
         <param name="topics/out_ext_pose_rpy_topic" value="external_pose_rpy" />
@@ -58,11 +59,13 @@ sensors and provides an estimator of the drone state.
 ============================================================================
 RArena node
 -->
-<node pkg="rarena" name="rarena" type="rarena_node.py" 
+<node pkg="rarena" name="rarena2" type="rarena_node2.py" 
         output="screen"> 
 </node>
 
-
+<node pkg="rarena" name="rarena" type="rarena_node.py" 
+        output="screen"> 
+</node>
 
 <!--
 ============================================================================
