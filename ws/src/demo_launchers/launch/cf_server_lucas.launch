@@ -33,7 +33,7 @@ Start the server process that connects the CF to the ROS system
         <rosparam>
                 genericLogTopics: ["logDD", "logDDctrl", "logEstAttRPY", "logMotor"]
                 genericLogTopicFrequencies: [10, 10, 10, 10]
-                genericLogTopic_logDD_Variables: ["estimator_dd.est_x", "estimator_dd.est_xd", "estimator_dd.est_xdd", "estimator_dd.est_alpha", "estimator_dd.sens_dt_ms"]
+                genericLogTopic_logDD_Variables: ["estimator_dd.est_x", "estimator_dd.est_xd", "estimator_dd.est_xdd", "estimator_dd.est_alpha", "estimator_dd.est_beta", "estimator_dd.sens_dt_ms"]
                 genericLogTopic_logDDctrl_Variables: ["stabilizer.thrust", "stabilizer.curr_thrust", "stabilizer.dd_thrust", "stabilizer.pid_thrust"]
                 genericLogTopic_logEstAttRPY_Variables: ["stateEstimate.roll", "stateEstimate.pitch", "stateEstimate.yaw"]
                 genericLogTopic_logMotor_Variables: ["motor.m1", "motor.m2", "motor.m3", "motor.m4"]
