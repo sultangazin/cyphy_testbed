@@ -58,11 +58,11 @@ sensors and provides an estimator of the drone state.
 <!--
 ============================================================================
 RArena node
--->
 <node pkg="rarena" name="rarena2" type="rarena_node2.py" 
         output="screen"> 
 </node>
 
+-->
 <node pkg="rarena" name="rarena" type="rarena_node.py" 
         output="screen"> 
 </node>

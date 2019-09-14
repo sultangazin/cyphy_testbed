@@ -133,12 +133,12 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
         ROS_INFO("Found parameter %s!", key.c_str());
         n.getParam(key, axis_up_);
         ROS_INFO("Setting parameter %s = %s", 
-                "AxisUp", axis_up_);
+                "AxisUp", axis_up_.c_str());
     } else {
-        AxisUp = "Z";
+        axis_up_ = "Z";
         ROS_INFO("No param 'AxisUp' found!");
         ROS_INFO("Setting default parameter %s = %s", 
-                "AxisUp", AxisUp);
+                "AxisUp", axis_up_.c_str());
     }
 
 
@@ -160,7 +160,6 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 
     //    ROS_INFO("Namespace = %s", );
     // Params
-    std::string key;
     if (np.searchParam("valpha", key)) {
         ROS_INFO("Found parameter %s!", key.c_str());
         n.getParam(key, v_alpha_);
@@ -247,7 +246,7 @@ void StateAggregator::onNewPose(
         q_.y() = msg->pose.orientation.y;
         q_.z() = msg->pose.orientation.z;
         q_.w() = msg->pose.orientation.w;
-    } else if (axis_up == "Y") {
+    } else if (axis_up_ == "Y") {
         p_(0) = msg->pose.position.x;	
         // Switch the axes to be compatible 
         // with the Aframe/Motive frames

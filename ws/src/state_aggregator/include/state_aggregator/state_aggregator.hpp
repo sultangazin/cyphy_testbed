@@ -70,6 +70,8 @@ class StateAggregator {
                 bool initialized_;
                 std::string name_;
 
+                std::string axis_up_;
+
                 // DATA ------------------------------------------------------------
                 // Pubblication variables 
                 geometry_msgs::PoseStamped ext_pose_msg_;

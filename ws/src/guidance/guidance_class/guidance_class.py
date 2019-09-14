@@ -204,7 +204,7 @@ class GuidanceClass:
         else:
             rospy.loginfo("Error passing reference to guidance")
                  
-        rospy.loginfo("Target = [%.3f, %.3f, %.3f]" % (tg_prel[0], tg_prel[1], tg_prel[2]))
+        rospy.loginfo("Target Relative = [%.3f, %.3f, %.3f]" % (tg_prel[0], tg_prel[1], tg_prel[2]))
 
         (X, Y, Z, W) = genInterpolationMatrices(start_vel, tg_prel, tg_v, tg_a)
         
