@@ -66,9 +66,9 @@ class GuidanceClass:
 
         # Load the name of the Input Topics
         self.dr_odom_topic_ = rospy.get_param('topics/in_vehicle_odom_topic', 'external_codom')    
-        self.tg_pose_topic_ = rospy.get_param('topics/in_tg_pose_topic', "/vrpn_client_node/target/pose")
+        target_name = rospy.get_param('topics/in_tg_pose_topic', "target")
+        self.tg_pose_topic_ = '/' + target_name + '/external_pose'
 
- 
     def registerCallbacks(self):
         # Subscribe to vehicle state update
         rospy.Subscriber(self.dr_odom_topic_, CustOdometryStamped, self.odom_callback)
@@ -119,9 +119,11 @@ class GuidanceClass:
             output_msg.p.x = X[0]
             output_msg.p.y = Y[0]
             output_msg.p.z = Z[0]
+
             output_msg.v.x = X[1] 
             output_msg.v.y = Y[1]
             output_msg.v.z = Z[1]
+
             output_msg.a.x = X[2]
             output_msg.a.y = Y[2]
             output_msg.a.z = Z[2]

@@ -124,9 +124,14 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 
     ros::NodeHandle np("~");
 
+
     // VRPN topic (Set as global)
+    np.param<std::string>("topics/in_vrpn_topic", object_name_, "cf1");
+    vrpn_topic_ = "/vrpn_client_node/" + object_name_ + "/pose"; 
+    /*
     np.param<std::string>("topics/in_vrpn_topic", vrpn_topic_, 
             "/vrpn_client_node/cf1/pose");
+    */
 
     std::string key;
     if (np.searchParam("AxisUp", key)) {
@@ -140,7 +145,6 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
         ROS_INFO("Setting default parameter %s = %s", 
                 "AxisUp", axis_up_.c_str());
     }
-
 
     // External position (just position)
     np.param<std::string>("topics/out_ext_position_topic", ext_position_topic_, 
@@ -247,23 +251,21 @@ void StateAggregator::onNewPose(
         q_.z() = msg->pose.orientation.z;
         q_.w() = msg->pose.orientation.w;
     } else if (axis_up_ == "Y") {
-        p_(0) = msg->pose.position.x;	
         // Switch the axes to be compatible 
         // with the Aframe/Motive frames
         //  afr --> ros 
-        //  R^(ros)_(afr) = Roll(-pi/2) = 
+        //  R^(ros)_(afr) = Roll(pi/2) = 
         //  [1   0   0
-        //   0   0   1
-        //   0  -1   0]
-        // Xw = Xb
-        // Yw = Zb
-        // Zw = -Yb
+        //   0   0   -1
+        //   0  1   0]
+        //
+        p_(0) = msg->pose.position.x;	
         p_(1) = -msg->pose.position.z;	
         p_(2) = msg->pose.position.y;	
 
         q_.x() = msg->pose.orientation.x;
-        q_.y() = msg->pose.orientation.z;
-        q_.z() = -msg->pose.orientation.y;
+        q_.y() = -msg->pose.orientation.z;
+        q_.z() = msg->pose.orientation.y;
         q_.w() = msg->pose.orientation.w;
     } else {
        ROS_ERROR("Error selecting the source reference frame"); 

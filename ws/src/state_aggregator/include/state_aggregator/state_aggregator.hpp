@@ -57,6 +57,7 @@ class StateAggregator {
 
                 ros::Subscriber inchannel1_; 
 
+                std::string object_name_;
                 // Topics names
                 std::string vrpn_topic_;
                 std::string ext_position_topic_;
