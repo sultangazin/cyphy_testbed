@@ -164,7 +164,7 @@ def computeTerminalTrjStart(tg, tg_q, v_norm, a_norm, DT):
         p_pre = np.reshape(tg, (3,))
         v_pre = np.reshape(v_dem, (3,))
     else:
-        xv_pre = Integration(tg, v_dem, a_dem, DT, 0.001, -1) 
+        xv_pre = Integration(tg, v_dem, a_dem, DT, 0.0001, -1) 
         p_pre = np.reshape(xv_pre[0:3], (3,))
         v_pre = np.reshape(xv_pre[3:6], (3,))
     
