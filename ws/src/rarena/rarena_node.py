@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+#
+# Temporary implementation of the interface with Arena.
 
 # Guidance Node
 import rospy
@@ -8,19 +10,56 @@ import time
 
 from commander_interface.srv import GoTo 
 
-from rarena import RArenaClass
+from rarena import DroneArenaClass, TargetArenaClass 
 
 scene = "/topic/luigi/"
 
 # Services callbacks
 goTo = rospy.ServiceProxy('/cf1/Commander_Node/goTo_srv', GoTo)
 
+activeDrone = None
+
+## Callbacks for click events
+
+# Click on drone
+def toggle_active(name):
+    global activeDrone
+    if (activeDrone == name):
+        activeDrone = None
+    else:
+        activeDrone = name
+
+# Click on target
+def issue_command(tg_p):
+    if (activeDrone == None):
+        print("No drone selected!")
+    else:
+        try:
+            resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 4.0)
+        except rospy.ServiceException as exc:
+            print("Service did not process request: " + str(exc))
+
+def land_command(tg_p):
+    if (activeDrone == None):
+        print("No drone selected!")
+    else:
+        try:
+            resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 4.0)
+            time.sleep(4.0)
+            resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2]], 4.0)
+
+        except rospy.ServiceException as exc:
+            print("Service did not process request: " + str(exc))
+
+def intercept_command(p):
+    print("Intercept")
 
 # Signal handler for destroying object in Arena
 def signal_handler(sig, frame):
         mqtt_client.publish(scene + "TargetGoto", "", retain=True)  
-        mqtt_client.publish(scene + "target", "", retain=True)  
-        mqtt_client.publish(scene + "drone", "", retain=True)  
+        mqtt_client.publish(scene + "floor", "", retain=True)  
+        mqtt_client.publish(scene + "pad", "", retain=True)  
+        mqtt_client.publish(scene + "cf1", "", retain=True)  
 
 
         time.sleep(1)
@@ -43,13 +82,21 @@ if __name__ == '__main__':
     print("Connecting to broker ", mqtt_broker)
     mqtt_client.connect(mqtt_broker)
 
-
-    c1 = RArenaClass(mqtt_client, scene, 'target', 'target', 
-            scale=[3.0, 0.001, 3.0])
+    d1 = DroneArenaClass(toggle_active, mqtt_client, scene, 'cf1')
  
-    c2 = RArenaClass(mqtt_client, scene, "drone", "drone",
-            scale=[0.5, 0.1, 0.3])
-   
+    floor = TargetArenaClass(issue_command, mqtt_client, scene, 'floor',
+            s =[3.0,0.005,3.0])
+    
+    land_pad = TargetArenaClass(land_command, mqtt_client, 
+            scene, 'pad', c = "#AA00AA", 
+            p = [1.0, 0.001, 1.0], s =[0.4,0.1,0.4])
+
+    target_pad = TargetArenaClass(intercept_command, mqtt_client, 
+            scene, 'target', c = "#3300AA", s = [0.4,0.1,0.4], isMovable=True)
+
+    drones = dict()
+    drones['cf1'] = d1
+
     mqtt_client.loop_start() #start loop to process received mqtt messages
 
     rospy.spin()

@@ -14,8 +14,6 @@ from geometry_msgs.msg import PoseStamped
 import numpy as np
 
 
-activeDrone = None
-
 ###### HELPERS #####
 def posFromPoseMsg(pose_msg):
     pos = np.array([pose_msg.pose.position.x, 
@@ -31,51 +29,32 @@ def quatFromPoseMsg(pose_msg):
     return quat 
 
 
-def toggle_active(name):
-    if (activeDrone == name):
-        activeDrone = None
-    else:
-        activeDrone = name
-
-
-def issue_command(tg_p):
-    if (activeDrone == None):
-        print("No drone selected!")
-    else:
-        try:
-            resp1 = drones[active].goTo([tg_p[0], tg_p[1], tg_p[0]], 2.0)
-        except rospy.ServiceException as exc:
-            print("Service did not process request: " + str(exc))
-
-
 
 ################# ROS ARENA CLASS #####################
-class RArenaClass:
+class RArenaClass(object):
     """
     Bridge class between Ros and Arena.
     """
-    def __init__(self, mqtt_client, scene, obj_name, obj_type, position=[0,0,0], scale=[1,1,1]):
+    def __init__(self, mqtt_client, scene, obj_name, color, position=[0,0,0], scale=[1,1,1]):
 
         self.client = mqtt_client
 
-        self.initData(scene, obj_name, obj_type, position, scale)
-
+        self.initData(scene, obj_name, position, scale, color)
         self.initArenaObject()
-
         rospy.loginfo("\n [%s] RArena Object Initialized!"%rospy.get_name()) 
 
     def __del__(self):
         self.client.publish(self.scene + self.object_name, "", retain=True)  
 
-    def initData(self, scene, obj_name, obj_type, pos, scale):
+    def initData(self, scene, obj_name, pos, scale, color):
         self.scale = np.array([scale[0], scale[1], scale[2]])
 
-        self.counter = 0
+        self.time_old = 0
         self.scene_path = scene
+        self.object_name = obj_name  
+        self.color = color 
 
-        self.object_name = obj_name
-        self.object_type = obj_type 
-        
+        #                 x  y  z  qx qy qz qw sx sy sz col
         self.base_str = ",{},{},{},{},{},{},{},{},{},{},{},on"
 
         self.obj_str = self.object_name + self.base_str 
@@ -83,38 +62,38 @@ class RArenaClass:
         self.q = np.zeros(4)
         self.q[0] = 1.0
 
-        self.has_datasource = False
- 
-        
 
-    def initArenaObject(self):
-        
+    def initArenaObject(self):        
         ############
-        # Setup box
         # Delete the object from the scene to get a fresh start with a null message
         self.client.publish(self.scene_path + self.object_name, "")  
         
         # Publish a cube with x,y,z and color parameters
         # retain=True makes it persistent
-        self.client.publish(self.scene_path + self.object_name, 
-            self.obj_str.format(str(self.p[0]), str(self.p[1]), str(self.p[2]),
+        mqtt_string = self.obj_str.format(
+                str(self.p[0]), str(self.p[1]), str(self.p[2]),
                 str(0.0), str(0.0), str(0.0), str(0.0),
                 self.scale[0], self.scale[1], self.scale[2], 
-                self.color), 
-            retain=True)
+                self.color)
+
+        self.client.publish(self.scene_path + self.object_name, mqtt_string, retain=True)
+        print("Creating: ", self.scene_path + self.object_name)
+        print("Mqtt Command: ", mqtt_string)
 
         # Enable click listener for object (allows it to be clickable)
-        self.client.publish(self.scene_path + self.object_name + "/click-listener", "enable", retain=True)
+        self.client.publish(self.scene_path + self.object_name + "/click-listener", 
+                "enable", retain=True)
 
         #self.client.subscribe(self.scene_path + self.object_name + "/mouseup")
         self.client.subscribe(self.scene_path + self.object_name + "/mousedown")
 
         #self.client.message_callback_add(self.scene_path + self.object_name + "/mouseup", self.on_click_input)
-        self.client.message_callback_add(self.scene_path + self.object_name + "/mousedown", self.on_click_input)
+        self.client.message_callback_add(self.scene_path + self.object_name + "/mousedown", 
+                self.on_click_input)
 
 
-               
-    def plot_arenaObj(pos, quaternion):
+ 
+    def plot_arenaObj(self, pos, quaternion, scale = None, color = None):
         """
         Update the coordinates of an object in arena and
         plot it in the synthetic environment
@@ -124,19 +103,28 @@ class RArenaClass:
         self.p[1] = float(pos[1])
         self.p[2] = float(pos[2])
 
+        if (scale is not None):
+            sc = scale
+        else:
+            sc = self.scale
+
+        if (color is not None):
+            cl = color
+        else:
+            cl = self.color
+
         tg_scene_string = self.scene_path + self.object_name
         cmd_string = self.obj_str.format(
                     str(pos[0]), 
                     str(pos[2]), 
                     str(-pos[1]), 
-                    str(quaterion[1]), str(-quaternion[3]), str(quaternion[2]), str(quaternion[0]), 
-                    self.scale[0], self.scale[1], self.scale[2],
-                    str(self.color))
+                    str(quaternion[1]), str(quaternion[3]), str(-quaternion[2]), str(quaternion[0]), 
+                    str(sc[0]), str(sc[1]), str(sc[2]), cl)
 
-
-        self.counter = self.counter + 1
-        if (self.counter == 10):
-            self.counter = 0
+        time_now = time.time()
+        diff = time_now - self.time_old
+        if (diff) > 0.3:
+            self.time_old = time_now 
             self.client.publish(tg_scene_string, 
                     cmd_string, 
                     retain=True)
@@ -144,28 +132,38 @@ class RArenaClass:
         return
 
     def on_click_input(self, client, userdata, msg):
-
         print("Got click: %s \"%s\"" % (msg.topic, msg.payload))
         click_x, click_y, click_z, user = msg.payload.split(',')
         print("Clicked by: " + user)    
 
-        
+    def set_color(self, new_color):
+        self.color = new_color
+       
+
+
 
 ###### DRONE AREAN CLASS ########
-def DroneArenaClass(RArenaClass):
-    def __init__(self, mqtt_client, scene, obj_name):
+class DroneArenaClass(RArenaClass):
+    # Constructor
+    def __init__(self, on_click_clb, mqtt_clt, scene_path, name, isMovable = True):
         print("Creating Arena Drone Object")
 
         self.name = name
         self.isActive = False
+        
+        self.on_click = on_click_clb
  
         # Name of the topic containing the pose of the object       
         self.obj_pose_topic_ =  "/" + name + "/external_pose"
 
-        super().__init__(self, mqtt_client, scene, obj_name = self.name, obj_type = "drone", position=[0,0,0], scale=[1,1,1]):  
-        super().color = "#0000FF"
+        self.position = [0,0.01,0]
+        self.quaternion = [0,0,0,1]
 
-        self.registerCallbacks()
+        super(DroneArenaClass, self).__init__(mqtt_clt, scene_path, obj_name = self.name, 
+               color="#0000FF", position=self.position, scale=[0.3,0.1,0.2])
+
+        if (isMovable):
+            self.registerCallbacks()
 
         self.registerServices()
 
@@ -178,11 +176,11 @@ def DroneArenaClass(RArenaClass):
        
 
     def pose_callback(self, pose_msg):
-        position = posFromPoseMsg(pose_msg)
-        quaternion = quatFromPoseMsg(pose_msg)
+        self.position = posFromPoseMsg(pose_msg)
+        self.quaternion = quatFromPoseMsg(pose_msg)
         
-        # Plot the object in Arena
-        super().plot_arenaObj(position, quaternion)
+        # plot the object in arena
+        super(DroneArenaClass, self).plot_arenaObj(self.position, self.quaternion, color=self.color)
 
         
     def registerServices(self):
@@ -196,29 +194,35 @@ def DroneArenaClass(RArenaClass):
     
         if (self.isActive):
             self.isActive = False
-            super().color("#000022")
+            super(DroneArenaClass, self).set_color('#000022')
+            self.color = "#000022"
             print("Drone {} Deselected\n".format(self.name))
+            super(DroneArenaClass, self).plot_arenaObj(self.position, self.quaternion)
         else:
             self.isActive = True
-            super().color("#0000FF")
+            super(DroneArenaClass, self).set_color('#00FF00')
             print("Drone {} Selected\n".format(self.name))
+            super(DroneArenaClass, self).plot_arenaObj(self.position, self.quaternion)
 
-        toggle_active(self.name) 
+        self.on_click(self.name) 
  
 
             
 ###### TARGET ARENA CLASS #######
-def TargetArenaClass(RArenaClass):
-    def __init__(self, name):
-        super().color = "#FFFFFF"
+class TargetArenaClass(RArenaClass):
+    def __init__(self, on_click_clb, mqtt_client, scene, name, c = "#FFFFFF",
+            p = [0,0,0], s = [0.5, 0.5, 0.5], isMovable=False):
+
         print("Creating Arena Target Object")
+        self.on_click = on_click_clb
+        super(TargetArenaClass, self).__init__(mqtt_client, scene, obj_name = name, 
+                color = c, position = p, scale=s)
 
-        self.name = name
-
-        super().__init__(self, mqtt_client, scene, obj_name = self.name, obj_type = "target", position=[0,0,0], scale=[1,1,1]):  
-        super().color = "#0000FF"
-
-
+        if (isMovable):
+            self.obj_pose_topic_ =  "/" + name + "/external_pose"
+            self.registerCallbacks()
+            
+            
     def on_click_input(self, client, userdata, msg):
         click_x, click_y, click_z, user = msg.payload.split(',')
 
@@ -228,12 +232,23 @@ def TargetArenaClass(RArenaClass):
             print( "Target Position: " + str(click_x) + "," + str(click_y) + "," + str(click_z) )
             
             tg_string = "TargetGoto" + self.base_str;
-            super().client.publish(self.scene_path + "TargetGoto", tg_string.format(click_x, click_y, click_z), 0.0, 0.0, 0.0, 0.0,
-                0.1, 0.1, 0.1, "#FF0000"), retain=True) 
+            client.publish(self.scene_path + "TargetGoto", 
+                    tg_string.format(click_x, click_y, click_z, 0.0, 0.0, 0.0, 0.0, 
+                    0.1, 0.1, 0.1, "#FF0000"), retain=True) 
 
             tg_p = np.array([float(click_x), -float(click_z), float(click_y)])
-            issue_command(tg_p)
+            self.on_click(tg_p)
                         
+    def registerCallbacks(self):
+        # Subscribe to vehicle state update
+        print("Subscribing to ", self.obj_pose_topic_)
+        rospy.Subscriber(self.obj_pose_topic_, 
+                PoseStamped, self.pose_callback)
 
+    def pose_callback(self, pose_msg):
+        self.position = posFromPoseMsg(pose_msg)
+        self.quaternion = quatFromPoseMsg(pose_msg)
+      
+        # plot the object in arena
+        super(TargetArenaClass, self).plot_arenaObj(self.position, self.quaternion, color=self.color)
 
-drones = dict('cf1', DroneArenaClass(mqtt_client, "topic/luigi", "cf1"))
