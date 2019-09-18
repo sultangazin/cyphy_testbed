@@ -74,6 +74,10 @@ class Mission:
         self.isActive = True
     
     def getRef(self, t):
+        """ 
+        This will return the trajectory reference, updating the 
+        trajectory type giving the relative time from the start.
+        """
         rel_t = t - self.t_start
 
         # Check whether we are over the first piece
