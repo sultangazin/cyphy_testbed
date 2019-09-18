@@ -34,7 +34,6 @@ Start the server process that connects the CF to the ROS system
                 genericLogTopics: ["logStabilizer", "logEstAttRPY"]
                 genericLogTopicFrequencies: [10, 10]
                 genericLogTopic_logStabilizer: ["stabilizer.dd_thrust"]
-                genericLogTopic_logEstAttRPY_Variables: ["stateEstimate.roll", "stateEstimate.pitch", "stateEstimate.yaw"]
                 <!--  genericLogTopic_logMotors: ["motors.m1", "motors.m2", "motors.m3", "motors.m4"] -->
         </rosparam>
 </node>
@@ -78,7 +77,7 @@ Publish the Estimated odometry
 Monitoring
 <node pkg="rqt_plot"
     type="rqt_plot" 
-    name="RealTime_Monitor" args="/cf1/logMotors"/>
+    name="RealTime_Monitor" args="/$(arg frame)/logMotors"/>
 
 -->
 
@@ -86,12 +85,12 @@ Monitoring
 ============================================================================
 Bag recording 
 
-- /cf1/pose: This is x,y,z,quat from the internal estimator 
-- /cf1/logAttRPY: This is the human readable attitude information
-- /vrpn_client_node/cf1/pose: This is the ground truth
+- /$(arg frame)/pose: This is x,y,z,quat from the internal estimator 
+- /$(arg frame)/logAttRPY: This is the human readable attitude information
+- /vrpn_client_node/$(arg frame)/pose: This is the ground truth
 - /ghost_trajectory: This is the requested trajectory pose (simulated)
 -->
 
-<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/cf1_est /cf1/pose /cf1/logEstAttRPY /cf1/logMotors /cf1/logStabilizer"/>
+<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/$(arg frame)_est /$(arg frame)/pose /$(arg frame)/logEstAttRPY /$(arg frame)/logMotors /$(arg frame)/logStabilizer"/>
 
 </launch>

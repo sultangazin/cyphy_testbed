@@ -76,7 +76,7 @@ Publish the Estimated odometry
 Monitoring
 <node pkg="rqt_plot"
     type="rqt_plot" 
-    name="RealTime_Monitor" args="/cf1/logMotors"/>
+    name="RealTime_Monitor" args="/$(arg vehicle_frame)/logMotors"/>
 
 -->
 
@@ -84,12 +84,12 @@ Monitoring
 ============================================================================
 Bag recording 
 
-- /cf1/pose: This is x,y,z,quat from the internal estimator 
-- /cf1/logAttRPY: This is the human readable attitude information
-- /vrpn_client_node/cf1/pose: This is the ground truth
+- /$(arg vehicle_frame)/pose: This is x,y,z,quat from the internal estimator 
+- /$(arg vehicle_frame)/logAttRPY: This is the human readable attitude information
+- /vrpn_client_node/$(arg vehicle_frame)/pose: This is the ground truth
 - /ghost_trajectory: This is the requested trajectory pose (simulated)
 -->
 
-<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/cf1_crazyflie /cf1/pose /cf1/logEstAttRPY "/>
+<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/$(arg frame)_crazyflie /$(arg frame)/pose /$(arg frame)/logEstAttRPY "/>
 
 </launch>

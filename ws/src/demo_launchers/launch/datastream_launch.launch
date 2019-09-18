@@ -38,7 +38,7 @@ sensors and provides an estimator of the drone state.
 <node pkg="state_aggregator" name="aggregator" type="state_aggregator" 
         output="screen"> 
         <!-- Topic parameters -->
-        <param name="topics/in_vrpn_topic" value="cf1" />
+        <param name="topics/in_vrpn_topic" value="$(arg vehicle_frame)" />
         <param name="AxisUp" value="Y" />
         <param name="topics/out_ext_position_topic" value="external_position" />
         <param name="topics/out_ext_pose_topic" value="external_pose" />
@@ -103,10 +103,10 @@ Visualization with RVIZ
 <!--
 ============================================================================
 Bag recording 
-- /vrpn_client_node/cf1/pose: This is the raw ground truth
+- /vrpn_client_node/$(arg vehicle_frame)/pose: This is the raw ground truth
 - /ghost_trajectory: This is the requested trajectory pose (simulated)
-- /cf1/external_odom: External Odometry from the state aggregator
-- /cf1/external_pose_rpy: External RPY angles from the state aggregator
+- /$(arg vehicle_frame)/external_odom: External Odometry from the state aggregator
+- /$(arg vehicle_frame)/external_pose_rpy: External RPY angles from the state aggregator
 -->
-<node pkg="rosbag" name="record_ext" type="record" args="-O /tmp/cf1_ext /vrpn_client_node/cf1/pose /cf1/external_codom /cf1/external_pose /cf1/external_pose_rpy"/>
+<node pkg="rosbag" name="record_ext" type="record" args="-O /tmp/$(arg vehicle_frame)_ext /vrpn_client_node/$(arg vehicle_frame)/pose /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/external_pose /$(arg vehicle_frame)/external_pose_rpy"/>
 </launch>
