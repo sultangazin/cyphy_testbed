@@ -43,12 +43,13 @@ if __name__ == "__main__":
     msg_vehicle = CustOdometryStamped()
     msg_vehicle.p.x = 0.0
     msg_vehicle.p.y = 0.0
-    msg_vehicle.p.z = 0.1
+    msg_vehicle.p.z = 0.01
     msg_vehicle.q.w = 1.0 
 
-    tg_pos = np.array([1.0, 1.0, 0.8])
-    angle = -(math.pi/2)
-    tg_q = np.array([math.cos(angle/2), 0.0, math.sin(angle/2), 0.0])
+    # Y up
+    tg_pos = np.array([1.0, 0.3, 0.8])
+    angle = (math.pi/4)
+    tg_q = np.array([math.cos(angle/2), 0.0, 0.0, math.sin(angle/2)])
      
     msg_target = genTRGmsg(tg_pos, tg_q)
 
