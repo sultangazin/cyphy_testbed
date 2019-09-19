@@ -53,7 +53,7 @@ class GuidanceClass:
         # the current status of the plan.
         self.current_mission = Mission()
         
-        self.StopUpdating = False 
+        self.StopUpdating = True 
 
 
     def loadParameters(self):
@@ -83,6 +83,9 @@ class GuidanceClass:
         self.service_imp_auto = rospy.Service('gen_ImpTrajectoryAuto', 
             GenImpTrajectoryAuto, self.handle_genImpTrjAuto)
 
+        self.service_imp_vel = rospy.Service('gen_ImpTrajectoryVel',
+                GenImpTrajectoryAuto, self.handle_genImpVel_bz)
+
 
     def advertiseTopics(self):
         # Setpoint Publisher
@@ -108,6 +111,9 @@ class GuidanceClass:
 
         if (isActive): # I still have to finish tracking the trajectory
             self.StopUpdating = False  
+            # Evaluate the current ref point
+            # Inside the call, the mission object checks whether, it's time to
+            # switch to 'Attitude Tracking'.
             (X, Y, Z, W, R, Omega) = self.current_mission.getRef(t)
 
             if (self.current_mission.queryTrjType() == TrajectoryType.FullTrj):
@@ -128,14 +134,6 @@ class GuidanceClass:
             output_msg.a.y = Y[2]
             output_msg.a.z = Z[2]
 
-            # Evaluate the thrust margin of the trjectory at the current time
-            mass = 0.032;
-            thr_lim = 9.81 * mass * 1.5
-            (ffthrust, available_thrust) = trjh.getlimits(X, Y, Z, mass, thr_lim)
-            if (available_thrust < 0):
-                rospy.loginfo("Exceding thrust limits!!")
-                rospy.loginfo("\t" + str(available_thrust))
-
             # Conver the Rotation matrix to euler angles
             (roll, pitch, yaw) = euler_from_matrix(R)
             output_msg.rpy.x = roll
@@ -146,11 +144,13 @@ class GuidanceClass:
             output_msg.brates.z = Omega[2]
 
         else: # The trajectory is over... 
+            # Send a recovery point considering the last point and the
+            # final speed of the trajectory.
             self.StopUpdating = True
-            (keep_pos, _, _) = self.current_mission.getEnd() 
-            output_msg.p.x = keep_pos[0]
-            output_msg.p.y = keep_pos[1]
-            output_msg.p.z = keep_pos[2]
+            (keep_pos, end_speed, _) = self.current_mission.getEnd() 
+            output_msg.p.x = keep_pos[0] + end_speed[0] * 0.2
+            output_msg.p.y = keep_pos[1] + end_speed[1] * 0.2
+            output_msg.p.z = keep_pos[2] + end_speed[2] * 0.2
             
             output_msg.v.x = 0.0 
             output_msg.v.y = 0.0
@@ -186,7 +186,6 @@ class GuidanceClass:
         
         tg_v = req.target_v
         tg_a = req.target_a
-
 
         # A little logic considering what could have been requested
         if (req.ref == "Absolute"):
@@ -240,12 +239,212 @@ class GuidanceClass:
 
         return True 
 
+    def handle_genImpAttitude(self, req):
+        """
+        Generate a tracking trajectory to reach an absolute waypoint 
+        with a given velocity
+        """
+        v_norm = req.v_norm
+        DT = req.t2go
+       
+        # Take the starting and end points, just for filling the mission 
+        # data structure.
+        start_pos = posFromOdomMsg(self.current_odometry)
+        start_vel = velFromOdomMsg(self.current_odometry)
+        tg_p = posFromPoseMsg(self.current_target)
+
+        # Take the current target pose
+        tg_q = quatFromPoseMsg(self.current_target) 
+        tg_z = quat2Z(tg_q) 
+
+        t_start = rospy.get_time()
+        t_end = t_start + DT 
+
+        self.current_mission.update(
+                    p = start_pos,
+                    v = start_vel, 
+                    tg_p = tg_p, 
+                    tg_v = start_vel, 
+                    tg_a = np.zeros(3),
+                    trj_gen = trj_obj,
+                    start_time = t_start,
+                    stop_time = t_end, 
+                    mtype = MissionType.Simple)
+
+        return True
+
+
+    def handle_genImpVel_bz(self, req):
+        """
+        Generate a tracking trajectory to reach an absolute waypoint 
+        with a given velocity
+        """
+        v_norm = req.v_norm
+
+        start_pos = posFromOdomMsg(self.current_odometry)
+        start_vel = velFromOdomMsg(self.current_odometry)
+        
+        t_end = req.t2go
+        
+        # Compute the relative position
+        tg_p = posFromPoseMsg(self.current_target)
+        tg_prel = tg_p - start_pos
+
+        # Take the current target pose
+        tg_q = quatFromPoseMsg(self.current_target) 
+        tg_z = quat2Z(tg_q) 
+        tg_v = -v_norm * tg_z
+
+        # No acceleration
+        tg_a = np.zeros((3))
+
+        ndeg = 12
+        rospy.loginfo("Target Relative = [%.3f, %.3f, %.3f]" % (tg_prel[0], tg_prel[1], tg_prel[2]))
+
+        # Integrate backwards from the target impact point
+        # The acceleration has been set to zero, thus we are approaching the target with constant
+        # velocity.
+        DT = 0.0001 
+        (tg_pf, tg_vf, tg_af) = computeTerminalTrj_abs(tg_p, tg_v, tg_a, DT) 
+     
+        rospy.loginfo("Target Vel= [" + str(tg_vf[0]) + " " +
+                str(tg_vf[1]) + " " + str(tg_vf[2]) + "]")
+
+        rospy.loginfo("Target Acc= [" + str(tg_af[0]) + " " +
+                str(tg_af[1]) + " " + str(tg_af[2]) + "]")
+    
+        (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(start_vel, tg_prel, tg_vf, tg_af)
+        
+        # Generation of the trajectory with Bezier curves
+        x_lim = [3.0, 6.5, 9.0]
+
+        y_lim = [3.0, 6.5, 9.0]
+        z_lim = [2.4, 5.5, 5.0]
+
+        x_cnstr = np.array([[-x_lim[0], x_lim[0]], 
+            [-x_lim[1], x_lim[1]], 
+            [-x_lim[2], x_lim[2]]])
+        y_cnstr = np.array([[-y_lim[0], y_lim[0]],
+            [-y_lim[1], y_lim[1]],
+            [-y_lim[2], y_lim[2]]])
+        z_cnstr = np.array([[-start_pos[2], z_lim[0]],
+            [-z_lim[1], z_lim[1]],
+            [-9.90, z_lim[2]]])
+
+        # Generate the polynomial
+        #
+        print("Generating X")
+        bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=t_end)
+        print("\nGenerating Y")
+        bz_y = bz.Bezier(waypoints=Ywp, constraints=y_cnstr, degree=ndeg, s=t_end)
+        print("\nGenerating Z")
+        bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=t_end)
+        print("\nGenerating W")
+        bz_w = bz.Bezier(waypoints=Wwp, degree=7, s=t_end)
+
+        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
+        print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
+        print("Final Acceleration: [%.3f, %.3f, %.3f]"%(Xwp[2,1], Ywp[2,1], Zwp[2,1]))
+
+        print("Solution Position: [%.3f, %.3f, %.3f]"%(bz_x.eval(t_end), bz_y.eval(t_end), bz_z.eval(t_end)))
+        print("Solution Velocity: [%.3f, %.3f, %.3f]"%
+                (bz_x.eval(t_end, [1]), bz_y.eval(t_end, [1]), bz_z.eval(t_end, [1])))
+        print("Solution Acceleration: [%.3f, %.3f, %.3f]"%(bz_x.eval(t_end, [2]), bz_y.eval(t_end, [2]), bz_z.eval(t_end, [2])))
+
+
+        trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w))
+      
+        # Compute the absolute times for this trajectory
+        t_start = rospy.get_time()
+        t_end = np.array([t_start + t_end, t_start + t_end + DT])
+
+        self.current_mission.update(
+                    p = start_pos,
+                    v = start_vel, 
+                    tg_p = tg_p, 
+                    tg_v = tg_v, 
+                    tg_a = tg_a,
+                    trj_gen = trj_obj,
+                    start_time = t_start,
+                    stop_time = t_end, 
+                    mtype = MissionType.Composite)
+
+        return True
+
+    def handle_genImpVel(self, req):
+        """
+        Generate a tracking trajectory to reach an absolute waypoint 
+        with a given velocity
+        """
+        start_pos = posFromOdomMsg(self.current_odometry)
+        start_vel = velFromOdomMsg(self.current_odometry)
+        
+        t_end = req.tg_time
+        
+        tg_p = np.array(req.target_p)
+        tg_v = np.array(req.target_v)
+        tg_a = np.zeros((3))
+        
+        # Compute the relative position
+        tg_prel = tg_p - start_pos
+ 
+        rospy.loginfo("Target Relative = [%.3f, %.3f, %.3f]" % (tg_prel[0], tg_prel[1], tg_prel[2]))
+
+        # Integrate backwards from the target impact point
+        # The acceleration has been set to zero, thus we are approaching the target with constant
+        # velocity.
+        DT = 0.5 
+        (tg_pf, tg_vf, tg_af) = computeTerminalTrj_abs(tg_p, tg_v, tg_a, DT) 
+     
+        rospy.loginfo("Target Vel= [" + str(tg_vf[0]) + " " +
+                str(tg_vf[1]) + " " + str(tg_vf[2]) + "]")
+
+        rospy.loginfo("Target Acc= [" + str(tg_af[0]) + " " +
+                str(tg_af[1]) + " " + str(tg_af[2]) + "]")
+
+
+        (X, Y, Z, W) = genInterpolationMatrices(start_vel, tg_prel, tg_vf, tg_af)
+        
+        # Times (Absolute and intervals)
+        knots = np.array([0, t_end]) # One second each piece
+
+        # Polynomial characteristic:  order
+        ndeg = 7
+
+        ppx = pw.PwPoly(X, knots, ndeg)
+        ppy = pw.PwPoly(Y, knots, ndeg)
+        ppz = pw.PwPoly(Z, knots, ndeg)
+        ppw = pw.PwPoly(W, knots, ndeg) 
+        traj_obj = trj.Trajectory(ppx, ppy, ppz, ppw)
+
+        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(X[0,1], Y[0,1], Z[0,1]))
+        print("Solution: [%.3f, %.3f, %.3f]"%(ppx.eval(t_end, 0), ppy.eval(t_end, 0), ppz.eval(t_end, 0)))
+
+        # Update the mission object
+        t_start = rospy.get_time()
+        t_end0 = t_start + t_end
+        t_end1 = t_end0 + DT
+        self.current_mission.update(
+                p = start_pos,
+                v = start_vel, 
+                tg_p = tg_p, 
+                tg_v = tg_v, 
+                tg_a = tg_a,
+                trj_gen = traj_obj,
+                start_time = t_start,
+                stop_time = np.array([t_end0, t_end1]),
+                mtype = MissionType.Composite
+                )
+
+        return True
+
+
     def handle_genImpTrjAuto(self, req):
         """
         Generate a impact trajectory just specifying the modulus of the 
         acceleration, speed and the time to go.
         """
-        ndeg = 13
+        ndeg = 12
         a_norm = req.a_norm
         v_norm = req.v_norm
 
@@ -273,7 +472,7 @@ class GuidanceClass:
                 str(start_pos[1]) + " " + str(start_pos[2]) + "]")
 
         T = req.t2go
-        DT = 0.5 
+        DT = 0.0001
         (tg_pre, tg_v, tg_a) = computeTerminalTrjStart(tg_pos, tg_q, v_norm, a_norm, DT) 
      
         rospy.loginfo("Target Vel= [" + str(tg_v[0]) + " " +
@@ -286,14 +485,14 @@ class GuidanceClass:
         (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(start_vel, tg_pos - start_pos, tg_v, tg_a)
 
         # Generation of the trajectory with Bezier curves
-        x_lim = [3.0, 5.5, 11.0]
+        x_lim = [3.0, 6.5, 12.0]
 
-        y_lim = [3.0, 5.5, 11.0]
-        z_lim = [2.4, 2.5, 14.0]
+        y_lim = [3.0, 6.5, 12.0]
+        z_lim = [2.4, 2.5, 5.0]
 
         x_cnstr = np.array([[-x_lim[0], x_lim[0]], [-x_lim[1], x_lim[1]], [-x_lim[2], x_lim[2]]])
         y_cnstr = np.array([[-y_lim[0], y_lim[0]], [-y_lim[1], y_lim[1]], [-y_lim[2], y_lim[2]]])
-        z_cnstr = np.array([[-start_pos[2], z_lim[0]], [-z_lim[1], z_lim[1]], [-9.81, z_lim[2]]])
+        z_cnstr = np.array([[-start_pos[2], z_lim[0]], [-z_lim[1], z_lim[1]], [-9.90, z_lim[2]]])
 
         # Generate the polynomial
         #

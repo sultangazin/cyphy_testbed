@@ -147,14 +147,41 @@ def Integration(p, v, a, Tf, dt, direction):
     return out_state
 
 
+# Generate the Terminal Flight with a free acc/speed
+def computeTerminalTrj_abs(tg, v_dem, a_dem, DT):
+
+    # Compute the waypoints near the target
+    # I am considering moving with a constant acceleration (negative), while going towards the target
+    if (DT < 0.001):
+        p_pre = np.reshape(tg, (3,))
+        v_pre = np.reshape(v_dem, (3,))
+    else:
+        xv_pre = Integration(tg, v_dem, a_dem, DT, 0.0001, -1) 
+        p_pre = np.reshape(xv_pre[0:3], (3,))
+        v_pre = np.reshape(xv_pre[3:6], (3,))
+    
+    print("Acc on TG = \n", a_dem)
+    print("Vel on TG = \n", v_dem)
+    print("Pos on TG = \n", tg)
+
+
+    print("Acc pre = \n", a_dem)
+    print("Vel pre = \n", v_pre)
+    print("Pos pre = \n", p_pre)
+
+    return (p_pre, v_pre, a_dem)
+
+
+
 # Generate the Terminal Flight
 def computeTerminalTrjStart(tg, tg_q, v_norm, a_norm, DT):
 
     # Compute the normal of the target surface
     tg_Zi = quat2Z(tg_q)
 
+    g = -np.array([0.0, 0.0, 9.81])
     # Compute the acceleration vector
-    a_dem = a_norm * tg_Zi - np.array([0.0, 0.0, 9.81])
+    a_dem = a_norm * tg_Zi# + g
     # Compute the velocity vector on the target
     v_dem = -v_norm * tg_Zi
 
