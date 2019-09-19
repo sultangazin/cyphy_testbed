@@ -8,6 +8,7 @@ import time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), './')))
 
 from commander_interface.srv import GoTo 
+from guidance.srv import GenImpTrajectoryAuto
 
 from geometry_msgs.msg import PoseStamped
 
@@ -123,7 +124,7 @@ class RArenaClass(object):
 
         time_now = time.time()
         diff = time_now - self.time_old
-        if (diff) > 0.3:
+        if (diff) > 0.03:
             self.time_old = time_now 
             self.client.publish(tg_scene_string, 
                     cmd_string, 
@@ -184,8 +185,9 @@ class DroneArenaClass(RArenaClass):
 
         
     def registerServices(self):
-        rospy.wait_for_service("/" + self.name + "/Commander_Node/goTo_srv")
+        #rospy.wait_for_service("/" + self.name + "/Commander_Node/goTo_srv")
         self.goTo = rospy.ServiceProxy("/" + self.name + "/Commander_Node/goTo_srv", GoTo)
+        self.inTer = rospy.ServiceProxy("/" + self.name + "/gen_ImpTrajectoryAuto", GenImpTrajectoryAuto)
         pass
 
 

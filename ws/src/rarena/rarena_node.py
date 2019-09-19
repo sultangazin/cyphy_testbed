@@ -15,51 +15,65 @@ from rarena import DroneArenaClass, TargetArenaClass
 scene = "/topic/luigi/"
 
 # Services callbacks
-goTo = rospy.ServiceProxy('/cf1/Commander_Node/goTo_srv', GoTo)
+goTo = rospy.ServiceProxy('/cf2/Commander_Node/goTo_srv', GoTo)
 
-activeDrone = None
+activeDrone = {'cf1': None, 'cf2': None}
 
 ## Callbacks for click events
 
 # Click on drone
 def toggle_active(name):
     global activeDrone
-    if (activeDrone == name):
-        activeDrone = None
+    if (activeDrone[name]):
+        activeDrone[name] = None
     else:
-        activeDrone = name
+        activeDrone[name] = name
 
 # Click on target
 def issue_command(tg_p):
-    if (activeDrone == None):
+    if (activeDrone['cf1'] == None and activeDrone['cf2'] == None):
         print("No drone selected!")
     else:
-        try:
-            resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 4.0)
-        except rospy.ServiceException as exc:
-            print("Service did not process request: " + str(exc))
+        for (k, v) in iter(activeDrone):
+            if (v is not None):
+                try:
+                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 3.0)
+                except rospy.ServiceException as exc:
+                    print("Service did not process request: " + str(exc))
 
 def land_command(tg_p):
-    if (activeDrone == None):
+    if (activeDrone['cf1'] == None and activeDrone['cf2'] == None):
         print("No drone selected!")
     else:
-        try:
-            resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 4.0)
-            time.sleep(4.0)
-            resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2]], 4.0)
+        for (k, v) in iter(activeDrone):
+            if (v is not None):
+                try:
+                    resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 3.0)
+                    time.sleep(4.0)
+                    resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2]], 3.0)
 
-        except rospy.ServiceException as exc:
-            print("Service did not process request: " + str(exc))
+                except rospy.ServiceException as exc:
+                    print("Service did not process request: " + str(exc))
 
 def intercept_command(p):
-    print("Intercept")
+    print("Intercept requested")
+    if (activeDrone['cf1'] == None and activeDrone['cf2'] == None):
+        print("No drone selected!")
+    else:
+        for (k, v) in iter(activeDrone):
+            if (v is not None):
+                try:
+                    resp1 = drones[activeDrone].inTer(0.8, 7.0, 3.1)
+                except rospy.ServiceException as exc:
+                    print("Service did not process request: " + str(exc))
+
 
 # Signal handler for destroying object in Arena
 def signal_handler(sig, frame):
         mqtt_client.publish(scene + "TargetGoto", "", retain=True)  
         mqtt_client.publish(scene + "floor", "", retain=True)  
         mqtt_client.publish(scene + "pad", "", retain=True)  
-        mqtt_client.publish(scene + "cf1", "", retain=True)  
+        mqtt_client.publish(scene + "cf2", "", retain=True)  
 
 
         time.sleep(1)
@@ -83,6 +97,7 @@ if __name__ == '__main__':
     mqtt_client.connect(mqtt_broker)
 
     d1 = DroneArenaClass(toggle_active, mqtt_client, scene, 'cf1')
+    d2 = DroneArenaClass(toggle_active, mqtt_client, scene, 'cf2')
  
     floor = TargetArenaClass(issue_command, mqtt_client, scene, 'floor',
             s =[3.0,0.005,3.0])
@@ -96,6 +111,7 @@ if __name__ == '__main__':
 
     drones = dict()
     drones['cf1'] = d1
+    drones['cf2'] = d2
 
     mqtt_client.loop_start() #start loop to process received mqtt messages
 
