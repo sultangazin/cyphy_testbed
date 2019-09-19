@@ -1,7 +1,11 @@
 <?xml version="1.0"?>
 <launch>
-        <arg name="vehicle_frame" default="cf2" /> <!-- Identify the frame to be controlled (Currently not used)--> 
-        <arg name="commander_id" default="cm1" />  <!-- Useful to identify the source of the commands (Currently not used) -->
+    <!-- Identify the frame to be controlled (Currently not used)--> 
+    <arg name="vehicle_frame" default="cf2" />
+    <arg name="vehicle_frame2" default="cf1" />
+    <!-- Useful to identify the source of the commands (Currently not used) -->
+    <arg name="commander_id" default="cm1" />  
+
 <!-- 
     This launcher sets up the nodes to send commands to the vehicle.
 -->
@@ -25,32 +29,8 @@
     <node name="Commander_Node" pkg="commander_interface" type="commander" output="screen">
     </node>
 
-
-    <!--
-    ============================================================================
-    Contoller Node
-		<include file="$(find demo_launchers)/launch/ext_control.launch">
-			<arg name="topics/setpoint_topic" value="/$(arg vehicle_frame)/setpoint" />
-			<arg name="topics/control_topic" value="/$(arg vehicle_frame)/control" />
-			<arg name="topics/state_topic" value="/$(arg vehicle_frame)/external_codom" />
-		</include>
-
-    -->
-		<!--
-		============================================================================
-		Command Converter
-		<node name="cmd_vel_converter"
-        pkg="controller"
-        type="cmd_vel_converter_node"
-        output="screen">
-
-    <param name="topics/control" value="/$(arg vehicle_frame)/control" />
-    <param name="topics/cmd_vel" value="/$(arg vehicle_frame)/cmd_vel" />
-		</node>
-
-		-->
-
-        <!-- 
+ 
+    <!-- 
     ===========================================================================
     Run the node publishing the setpoint value as odometry message which can be visualized in
     rviz
@@ -62,6 +42,42 @@
     </node>	
 
 </group>
+
+<group ns="$(arg vehicle_frame2)"> 
+        <!--
+    ============================================================================
+    Trajectory Generation Service
+    -->
+    <node name="Guidance_Node" pkg="guidance" type="guidance_node.py" output="screen"> 
+            <param name="target_frame" value="$(arg vehicle_frame2)" type='str' />
+            <param name="topics/in_tg_pose_topic" value="target" type="str" />
+            <param name="topics/in_vehicle_odom_topic" value="external_codom" type='str' />
+            <param name="topics/out_ctrl_setpoint" value="setpoint" type="str" />
+    </node>
+
+    <!--
+    ===========================================================================
+    Commander Node
+    -->
+    <node name="Commander_Node" pkg="commander_interface" type="commander" output="screen">
+    </node>
+
+ 
+    <!-- 
+    ===========================================================================
+    Run the node publishing the setpoint value as odometry message which can be visualized in
+    rviz
+    -->
+    <node name="ctrlsetpoint_odometry_pub" pkg='monitors' type="ctrl_setpoint_odometry_publisher" output="screen">
+            <param name="tg_frame_id" value="$(arg vehicle_frame2)" type='str' />
+            <param name="topics/out_ghost_topic" value="ghost_odom" type="str" />
+            <param name="topics/in_ctrlsetpoint_topic" value="setpoint" type="str" />
+    </node>	
+
+</group>
+
+
+
 <!--
 ============================================================================
 Bag recording 

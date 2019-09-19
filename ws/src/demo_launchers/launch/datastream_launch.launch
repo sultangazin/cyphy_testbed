@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>
         <arg name="vehicle_frame" default="cf2" />
+        <arg name="vehicle_frame2" default="cf1" />
         <arg name="ip" default="192.168.1.198" />
         <arg name="port" default="3883" />
 <!--
@@ -52,6 +53,32 @@ sensors and provides an estimator of the drone state.
     	<param name="time_delay" value="0.0" type='double' />
 </node>
 </group>
+
+<!-- VEHICLE 2 -->
+<group ns="$(arg vehicle_frame2)">
+<!--
+===========================================================================
+Run the data aggregator node, which takes the information from external 
+sensors and provides an estimator of the drone state.
+-->
+<node pkg="state_aggregator" name="aggregator_d2" type="state_aggregator" 
+        output="screen"> 
+        <!-- Topic parameters -->
+        <param name="topics/in_vrpn_topic" value="$(arg vehicle_frame2)" />
+        <param name="AxisUp" value="Y" />
+        <param name="topics/out_ext_position_topic" value="external_position" />
+        <param name="topics/out_ext_pose_topic" value="external_pose" />
+        <param name="topics/out_ext_pose_rpy_topic" value="external_pose_rpy" />
+        <param name="topics/out_ext_odom_topic" value="external_odom" />
+	    <param name="topics/out_ext_codom_topic" value="external_codom" />
+
+        <param name="valpha" value="0.6" type='double' />
+        <param name="filt_order" value="2" type="int" />
+        <param name="qdalpha" value="0.9" type='double' />
+    	<param name="time_delay" value="0.0" type='double' />
+</node>
+</group>
+
 
 
 <!-- TARGET -->
