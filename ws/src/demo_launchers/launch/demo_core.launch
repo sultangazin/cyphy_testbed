@@ -3,7 +3,6 @@
     <arg name="vehicle_frame" default="cf2" />
     <arg name="ip" default="192.168.1.198" />
     <arg name="port" default="3883" />
-    <arg name="uri" default="radio://0/100/2M/E7E7E7E7E7" />
 
 <!-- ===================================== -->
 <!-- Launch the data aquisition components -->
@@ -12,6 +11,7 @@
     <arg name="ip" value="$(arg ip)" />
     <arg name="port" value="$(arg port)" />
 </include>
+
 
 <!-- ======================================== -->
 <!-- Launch the controller/guidance componets -->
