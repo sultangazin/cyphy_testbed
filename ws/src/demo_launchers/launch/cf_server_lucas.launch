@@ -31,11 +31,11 @@ Start the server process that connects the CF to the ROS system
         <param name="enable_logging_packets" value="False" />
         <param name="enable_logging_pose" value="True" /> 
         <rosparam>
-                genericLogTopics: ["logDD", "logDDctrl", "logEstAttRPY", "logMotor"]
+                genericLogTopics: ["logDD", "logDDctrl", "logDDctrl2", "logMotor"]
                 genericLogTopicFrequencies: [10, 10, 10, 10]
-                genericLogTopic_logDD_Variables: ["estimator_dd.est_x", "estimator_dd.est_xd", "estimator_dd.est_xdd", "estimator_dd.est_alpha", "estimator_dd.est_beta", "estimator_dd.sens_dt_ms"]
+                genericLogTopic_logDD_Variables: [ "estimator_dd.est_x", "estimator_dd.est_xd", "estimator_dd.est_xdd", "estimator_dd.est_alpha", "estimator_dd.est_beta", "estimator_dd.sens_dt_ms"]
                 genericLogTopic_logDDctrl_Variables: ["stabilizer.thrust", "stabilizer.curr_thrust", "stabilizer.dd_thrust", "stabilizer.pid_thrust"]
-                genericLogTopic_logEstAttRPY_Variables: ["stateEstimate.roll", "stateEstimate.pitch", "stateEstimate.yaw"]
+                genericLogTopic_logDDctrl2_Variables: ["controller_dd.up", "controller_dd.ud","estimator_dd.est_dt_s"]
                 genericLogTopic_logMotor_Variables: ["motor.m1", "motor.m2", "motor.m3", "motor.m4"]
         </rosparam>
 </node>
@@ -91,6 +91,6 @@ Bag recording
 - /vrpn_client_node/$(arg frame)/pose: This is the ground truth
 - /ghost_trajectory: This is the requested trajectory pose (simulated)
 -->
-<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/$(arg frame)_drone /$(arg frame)/pose /$(arg frame)/logEstAttRPY /$(arg frame)/logMotors /$(arg frame)/logDD /$(arg frame)/logDDctrl"/>	
+<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/$(arg frame)_drone /$(arg frame)/pose /$(arg frame)/logEstAttRPY /$(arg frame)/logMotors /$(arg frame)/logDD /$(arg frame)/logDDctrl /$(arg frame)/logDDctrl2"/>	
 
 </launch>
