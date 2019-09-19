@@ -4,7 +4,7 @@ import enum
 
 class TrajectoryType(enum.Enum):
     FullTrj = 0
-    AttTrj = 1
+    AttTrj = 2
 
 class MissionType(enum.Enum):
     Simple = 0

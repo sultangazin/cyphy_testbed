@@ -34,25 +34,38 @@ def issue_command(tg_p):
     if (activeDrone == None):
         print("No drone selected!")
     else:
-        try:
-            resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 4.0)
-        except rospy.ServiceException as exc:
-            print("Service did not process request: " + str(exc))
+        for (k, v) in activeDrone.items():
+            if (v is not None):
+                try:
+                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 3.0)
+                except rospy.ServiceException as exc:
+                    print("Service did not process request: " + str(exc))
 
 def land_command(tg_p):
     if (activeDrone == None):
         print("No drone selected!")
     else:
-        try:
-            resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 4.0)
-            time.sleep(4.0)
-            resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2]], 4.0)
+        for (k, v) in activeDrone.items():
+            if (v is not None):
+                try:
+                    resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 3.0)
+                    time.sleep(4.0)
+                    resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2]], 3.0)
 
         except rospy.ServiceException as exc:
             print("Service did not process request: " + str(exc))
 
 def intercept_command(p):
-    print("Intercept")
+    print("Intercept requested")
+    if (activeDrone['cf1'] == None and activeDrone['cf2'] == None):
+        print("No drone selected!")
+    else:
+        for (k, v) in items(activeDrone):
+            if (v is not None):
+                try:
+                    resp1 = drones[activeDrone].inTer(0.8, 7.0, 3.1)
+                except rospy.ServiceException as exc:
+                    print("Service did not process request: " + str(exc))
 
 # Signal handler for destroying object in Arena
 def signal_handler(sig, frame):

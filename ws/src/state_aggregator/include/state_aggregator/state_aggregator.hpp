@@ -73,6 +73,8 @@ class StateAggregator {
 
                 std::string axis_up_;
 
+                timespec time0_;
+
                 // DATA ------------------------------------------------------------
                 // Pubblication variables 
                 geometry_msgs::PoseStamped ext_pose_msg_;
