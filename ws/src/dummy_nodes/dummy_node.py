@@ -34,7 +34,7 @@ if __name__ == "__main__":
     # Rate of the publication
     rate = rospy.Rate(freq) 
    
-    dummy_codom_pub = rospy.Publisher("/cf1/external_codom", 
+    dummy_codom_pub = rospy.Publisher("/cf2/external_codom", 
             CustOdometryStamped, queue_size=10)
 
     dummy_target_pub = rospy.Publisher("/vrpn_client_node/target/pose", 

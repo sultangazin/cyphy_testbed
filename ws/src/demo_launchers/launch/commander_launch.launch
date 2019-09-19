@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-        <arg name="vehicle_frame" default="cf1" /> <!-- Identify the frame to be controlled (Currently not used)--> 
+        <arg name="vehicle_frame" default="cf2" /> <!-- Identify the frame to be controlled (Currently not used)--> 
         <arg name="commander_id" default="cm1" />  <!-- Useful to identify the source of the commands (Currently not used) -->
 <!-- 
     This launcher sets up the nodes to send commands to the vehicle.
@@ -56,7 +56,7 @@
     rviz
     -->
     <node name="ctrlsetpoint_odometry_pub" pkg='monitors' type="ctrl_setpoint_odometry_publisher" output="screen">
-            <param name="vehicle_frame_id" value="$(arg vehicle_frame)" type='str' />
+            <param name="tg_frame_id" value="$(arg vehicle_frame)" type='str' />
             <param name="topics/out_ghost_topic" value="ghost_odom" type="str" />
             <param name="topics/in_ctrlsetpoint_topic" value="setpoint" type="str" />
     </node>	

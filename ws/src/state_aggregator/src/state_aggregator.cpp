@@ -109,11 +109,11 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 
     // Initialize the header refereces of odometry messages
     ext_odom_trans_.header.frame_id = "world";
-    ext_odom_trans_.child_frame_id = "cf1";
+    ext_odom_trans_.child_frame_id = object_name_;
 
     // Initialize the header part of the odometry topic message
     ext_odometry_msg_.header.frame_id = "world";
-    ext_odometry_msg_.child_frame_id = "cf1";
+    ext_odometry_msg_.child_frame_id = object_name_;
 
     initialized_ = true;
 
@@ -128,11 +128,7 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
     // VRPN topic (Set as global)
     np.param<std::string>("topics/in_vrpn_topic", object_name_, "cf1");
     vrpn_topic_ = "/vrpn_client_node/" + object_name_ + "/pose"; 
-    /*
-    np.param<std::string>("topics/in_vrpn_topic", vrpn_topic_, 
-            "/vrpn_client_node/cf1/pose");
-    */
-
+   
     std::string key;
     if (np.searchParam("AxisUp", key)) {
         ROS_INFO("Found parameter %s!", key.c_str());
