@@ -15,7 +15,9 @@ the CF.
     type="vrpn_client_node" 
     name="vrpn_client_node"
     output="screen"
-    required="true">
+    required="true"
+    respawn="true"
+    respawn_delay="3">
         <rosparam subst_value="true">
                 server: $(arg ip)
                 port: $(arg port)
@@ -117,8 +119,7 @@ RArena node
 
 -->
 <node pkg="rarena" name="rarena" type="rarena_node.py" 
-        output="screen"> 
-</node>
+      output="screen" respawn="true" respawn_delay="5"> </node>
 
 <!--
 ============================================================================
