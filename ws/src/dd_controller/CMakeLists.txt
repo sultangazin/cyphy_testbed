@@ -1,0 +1,37 @@
+cmake_minimum_required(VERSION 2.8.3)
+project(dd_controller)
+
+# Find required packages
+find_package(
+	catkin REQUIRED 
+	COMPONENTS 
+	roscpp 
+	std_msgs
+	)
+find_package (Eigen3 REQUIRED NO_MODULE)
+
+catkin_package(
+	INCLUDE_DIRS include/ # The package contains header files
+	CATKIN_DEPENDS roscpp std_msgs
+	)
+
+# Since we use eigen
+include_directories(
+	include/
+	${catkin_INCLUDE_DIRS} # Found in "find_package"
+	)
+
+# Declare the executable to be build and the associated source
+add_executable(dd_controller 
+	exec/dd_controller_node.cpp 
+	src/dd_controller.cpp
+	)
+
+add_dependencies(dd_controller 
+	${catkin_EXPORTED_TARGETS}
+	)
+
+target_link_libraries(dd_controller
+	${catkin_LIBRARIES}
+	Eigen3::Eigen 
+	)
