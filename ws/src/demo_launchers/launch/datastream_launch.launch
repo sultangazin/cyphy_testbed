@@ -15,7 +15,6 @@ the CF.
     type="vrpn_client_node" 
     name="vrpn_client_node"
     output="screen"
-    required="true"
     respawn="true"
     respawn_delay="3">
         <rosparam subst_value="true">
