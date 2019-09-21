@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<launch>
+
+    <!--
+    ======================================================================
+    DD Controller Node
+    -->
+    <node name="DD_Controller_node" pkg="dd_controller" type="dd_controller" output="screen">
+    </node>
+
+
+    <!--
+    ====================================================================
+    Bag recording 
+
+    - /setpoint: Trajectory setpoint for the crazyflie 
+    -->
+    <node pkg="rosbag" name="record_dd_controller" type="record" args="-O /tmp/dd_controller /cf1/dd_estimate /cf1/external_codom" />
+</launch>
