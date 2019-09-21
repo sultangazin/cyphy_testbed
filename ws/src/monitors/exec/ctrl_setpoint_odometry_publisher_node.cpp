@@ -12,9 +12,8 @@
 
 #include <ros/ros.h>
 #include "odometry_publisher/odometry_publisher.hpp"
-#include <testbed_msgs/ControlSetpoint.h>
 
-// MAIN -------------------------------------------------------------------------
+// MAIN ----------------------------------------------
 int main(int argc, char** argv) {
 
 	ROS_INFO("Starting Control Setpoint publisher");
