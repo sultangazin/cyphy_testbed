@@ -195,8 +195,8 @@ void DDController::update_O(
 
     for (i = 0; i < BUFF_SIZE; i++) {
         O(i, 0) = 1.0;
-        O(i, 1) = -(i * t[i]);
-        O(i, 2) = 0.5f * pow(i * t[i], 2);
+        O(i, 1) = -(t[i]);
+        O(i, 2) = 0.5f * pow(t[i], 2);
     }
     return;
 }
@@ -222,6 +222,10 @@ void DDController::finalize_data() {
 	// TODO: Either make everything static with void calls,
 	// 	either pass the values inside all the chain of calls
 	eval_pseudoinv(O_, O_inv_);
+    ROS_INFO("DTbuff %.6f, %.6f, %.6f, %.6f, %.6f \n", DTbuff_[0], DTbuff_[1], DTbuff_[2], DTbuff_[3], DTbuff_[4]);
+    
+    std::cout << "Inv = " << std::endl << O_inv_ << std::endl;
+    std::cout << "y = " << std::endl << Ybuff_ << std::endl; 
 
 }
 
@@ -254,7 +258,7 @@ void DDController::DDEstimator_step_circ(float y, float stamp) {
 		X_msg.vector.x = X_(0);
 		X_msg.vector.y = X_(1);
 		X_msg.vector.z = X_(2);
-        
+        ROS_INFO("Vel %.6f \n", X_(1));
         dd_state_pub_.publish(X_msg);
 	}
 	else{
