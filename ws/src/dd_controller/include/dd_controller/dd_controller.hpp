@@ -9,7 +9,7 @@
 #include "geometry_msgs/PointStamped.h"
 
 #define STATE_SIZE (3)
-#define BUFF_SIZE (20)
+#define BUFF_SIZE (5)
 #define TS (0.004f)
 #define TS2 ((TS) * (TS))
 
