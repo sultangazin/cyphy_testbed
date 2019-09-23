@@ -124,7 +124,7 @@ class RArenaClass(object):
 
         time_now = time.time()
         diff = time_now - self.time_old
-        if (diff) > 0.03:
+        if (diff) > 0.1:
             self.time_old = time_now 
             self.client.publish(tg_scene_string, 
                     cmd_string, 
