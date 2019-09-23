@@ -49,6 +49,28 @@ def quat2Z(q):
          1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2])]) 
     return Z
 
+
+# Convert from quaternion to euler angles
+def ToEulerAngles(q):
+    # roll (x-axis rotation)
+    sinr_cosp = 2.0 * (q[0] * q[1] + q[2] * q[3]);
+    cosr_cosp = 1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]);
+    roll = math.atan2(sinr_cosp, cosr_cosp);
+
+    # pitch (y-axis rotation)
+    sinp = 2.0 * (q[0] * q[2] - q[3] * q[1]);
+
+    pitch = math.asin(sinp);
+
+    # yaw (z-axis rotation)
+    siny_cosp = 2.0 * (q[0] * q[3] + q[1] * q[2]);
+    cosy_cosp = 1.0 - 2.0 * (q[2] * q[2] + q[3] * q[3]);
+
+    yaw = math.atan2(siny_cosp, cosy_cosp);
+
+    return np.array([roll, pitch, yaw])
+
+
 def Mq(p):
     M = np.array([
         [p[0], -p[1], -p[2], -p[3]], 

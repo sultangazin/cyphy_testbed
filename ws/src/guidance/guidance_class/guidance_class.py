@@ -24,7 +24,7 @@ import trjgen.class_bz as bz
 import trjgen.class_bztraj as bz_t
 
 from guidance_helper import *
-from guidance_helper_classes.mission_class import Mission, MissionType, TrajectoryType
+from guidance_helper_classes.mission_class import Mission, MissionType, TrajectoryType, ConstAttitudeTrj
 from guidance_helper_classes.trajectorygenerator_class import TrajectoryGenerator
 
 
@@ -35,27 +35,35 @@ class MissionQueue:
         self.numItems = 0
 
     def insertItem(self, MissionItem):
+        print("Insert item")
         self.missionList.append(MissionItem)
-        self.numItems = self.numItems + 1
+        self.numItems = len(self.missionList)
+        print("{} items in the list".format(self.numItems))
 
     def reset(self):
+        print("Resetting missions queue")
         self.missionList = []
         self.numItems = 0
 
     def update(self, MissionItem):
+        print("Update MissionQueue with a new mission")
         self.reset()
         self.insertItem(MissionItem)
+    
+    def getNumItems(self):
+        print("Number of items = {}".format(self.numItems))
+        return self.numItems
 
     def getItemAtTime(self, t):
-        if (self.numItems == 0):
-            print("Mission queue is empty")
+        if (len(self.missionList) == 0):
             return None
 
-        for i in range(self.numItems):
-            if self.missionList[i].t_stop < t:
+        for i in range(self.numItems): 
+            if t < self.missionList[i].t_stop:
+                print("t = {} | t_stop = {}".format(t, self.missionList[i].t_stop))
+                print("Mission {} active".format(i))
                 return self.missionList[i]
 
-        print("All the mission item are obsolete")
         return None
 
 
@@ -87,9 +95,9 @@ class GuidanceClass:
         # the current status of the plan.
         self.current_mission = Mission()
 
-        self.MissionList = []
+        self.mission_queue = MissionQueue()
         
-        self.StopUpdating = False 
+        self.StopUpdating = True 
 
 
     def loadParameters(self):
@@ -135,16 +143,16 @@ class GuidanceClass:
        
         # Evaluate where I am in the trajectory, using time information.
         t = rospy.get_time()
-
-        current_mission = self.MissionQueue.getItemAtTime(t)
-
-
+       
+        current = self.mission_queue.getItemAtTime(t)
+ 
         output_msg = ControlSetpoint()
-        output_msg.header.stamp = t
+        output_msg.header.stamp = rospy.Time.now()
 
         # Fill the output message for the controller differently depending on 
         # the type of mission that is going to be requested:
-        if current_mission == None:
+        if current == None:
+            print("Stopping in {}, {}, {}".format(keep_pos[0], keep_pos[1], keep_pos[2]))
             self.StopUpdating = True
             (keep_pos, _, _) = self.current_mission.getEnd() 
             output_msg.p.x = keep_pos[0]
@@ -159,22 +167,25 @@ class GuidanceClass:
             output_msg.a.z = 0.0
         else:
             self.StopUpdating = False   
-            miss_type = current_mission.getType()
+            self.current_mission = current
+            trj_type = self.current_mission.getTrjType()
 
-            if miss_type != TrajectoryType.AttTrj:
-                (X, Y, Z, W, R, Omega) = current_mission.getRef(t)
+            # Evaluate the current setpoint
+            if trj_type != TrajectoryType.AttTrj:
+                (X, Y, Z, W, R, Omega) = self.current_mission.getRef(t) 
+                output_msg.setpoint_type = "AttTrj"
             else:
-                (roll, pitch, yaw) = current_mission.getRef(t)
+                (roll, pitch, yaw) = self.current_mission.getRef(t)
+                output_msg.setpoint_type = "FullTrj" 
 
-            output_msg.setpoint_type = miss_type 
              
             # Fill  the trajectory object
-            if (miss_type != TrajectoryType.AttTrj):
+            if (trj_type != TrajectoryType.AttTrj):
                 output_msg.p.x = X[0]
                 output_msg.p.y = Y[0]
                 output_msg.p.z = Z[0]
 
-            if (miss_type == TrajectoryType.FullTrj):
+            if (trj_type == TrajectoryType.FullTrj):
                 output_msg.v.x = X[1] 
                 output_msg.v.y = Y[1]
                 output_msg.v.z = Z[1]
@@ -182,7 +193,7 @@ class GuidanceClass:
                 output_msg.a.y = Y[2]
                 output_msg.a.z = Z[2]
 
-            if (miss_type == TrajectoryType.FullTrj):
+            if (trj_type == TrajectoryType.FullTrj):
                 # Conver the Rotation matrix to euler angles
                 (roll, pitch, yaw) = euler_from_matrix(R)
             
@@ -193,7 +204,7 @@ class GuidanceClass:
                 output_msg.brates.y = Omega[1]
                 output_msg.brates.z = Omega[2]
 
-            if (miss_type == TrajectoryType.AttTrj):
+            if (trj_type == TrajectoryType.AttTrj):
                 output_msg.rpy.x = roll
                 output_msg.rpy.y = pitch
                 output_msg.rpy.z = yaw            
@@ -201,6 +212,8 @@ class GuidanceClass:
         # Pubblish the evaluated trajectory
         if (not self.StopUpdating):
             self.ctrl_setpoint_pub.publish(output_msg)
+            print(output_msg.p.x)
+
         return
 
 
@@ -264,9 +277,8 @@ class GuidanceClass:
 
         # Update the mission object
         t_start = rospy.get_time()
-        current_mission = Mission()
-
-        current_mission.update(
+        miss = Mission()
+        miss.update(
                 p = start_pos,
                 v = start_vel, 
                 tg_p = tg_prel, 
@@ -274,10 +286,9 @@ class GuidanceClass:
                 tg_a = tg_a,
                 trj_gen = traj_obj,
                 start_time = t_start,
-                stop_time = np.array([t_end + t_start])
+                stop_time = t_end + t_start
                 )
-
-        self.MissionList.update(current_mission)
+        self.mission_queue.update(miss)
 
         return True 
 
@@ -293,18 +304,15 @@ class GuidanceClass:
         # Take the current pose of the vehicle
         start_pos = posFromOdomMsg(self.current_odometry)
         start_vel = velFromOdomMsg(self.current_odometry)
-
         start_orientation = quatFromOdomMsg(self.current_odometry)
         start_yaw = quat2yaw(start_orientation)
 
         # Take the current target pose
         tg_pos = posFromPoseMsg(self.current_target)
-
         tg_q = quatFromPoseMsg(self.current_target) 
-
         tg_yaw = quat2yaw(tg_q)
-
         tg_z = quat2Z(tg_q)
+
         rospy.loginfo("\nOn Target in " + str(req.t2go) + " sec!")
         rospy.loginfo("Target = [" + str(tg_pos[0]) + " " +
                 str(tg_pos[1]) + " " + str(tg_pos[2]) + "]")
@@ -328,13 +336,12 @@ class GuidanceClass:
 
         # Generation of the trajectory with Bezier curves
         x_lim = [3.0, 5.5, 11.0]
-
         y_lim = [3.0, 5.5, 11.0]
-        z_lim = [2.4, 2.5, 14.0]
+        z_lim = [2.4, 2.5, 5.0]
 
         x_cnstr = np.array([[-x_lim[0], x_lim[0]], [-x_lim[1], x_lim[1]], [-x_lim[2], x_lim[2]]])
         y_cnstr = np.array([[-y_lim[0], y_lim[0]], [-y_lim[1], y_lim[1]], [-y_lim[2], y_lim[2]]])
-        z_cnstr = np.array([[-start_pos[2], z_lim[0]], [-z_lim[1], z_lim[1]], [-9.81, z_lim[2]]])
+        z_cnstr = np.array([[-start_pos[2], z_lim[0]], [-z_lim[1], z_lim[1]], [-9.90, z_lim[2]]])
 
         # Generate the polynomial
         #
@@ -367,29 +374,33 @@ class GuidanceClass:
         mission.update(
                     p = start_pos,
                     v = start_vel, 
-                    tg_p = tg_pos, 
+                    tg_p = tg_pre, 
                     tg_v = tg_v, 
                     tg_a = tg_a,
                     trj_gen = trj_obj,
                     start_time = t_start,
                     stop_time = t_end, 
-                    mtype = MissionType.Composite)
+                    ttype = TrajectoryType.FullTrj)
 
-        self.MissionList.update(mission)
+        # Reset
+        self.mission_queue.update(mission)
 
         endTrj = ConstAttitudeTrj()
-        endTrj.set()
+        eul_angles = ToEulerAngles(tg_q)
+        endTrj.set(eul_angles[0], eul_angles[1], eul_angles[2])
 
+        t_start = t_end
+        t_end = t_start + DT
         mission.update(
                     p = start_pos,
                     v = start_vel, 
                     tg_p = tg_pos, 
-                    tg_v = tg_v, 
-                    tg_a = tg_a,
-                    trj_gen = trj_obj,
+                    trj_gen = endTrj,
                     start_time = t_start,
                     stop_time = t_end, 
-                    mtype = MissionType.Composite)
+                    ttype = TrajectoryType.AttTrj)
+
+        self.mission_queue.insertItem(mission)
 
         return True
 
