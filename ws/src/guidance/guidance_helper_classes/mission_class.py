@@ -5,10 +5,28 @@ import enum
 class TrajectoryType(enum.Enum):
     FullTrj = 0
     AttTrj = 1
+    Landing = 2
+    Takeoff = 4
 
 class MissionType(enum.Enum):
     Simple = 0
     Composite = 1
+
+
+class ConstAttitudeTrj:
+    def __init__(self):
+        self.r = 0
+        self.p = 0
+        self.y = 0
+        
+    def set(r, p, y):
+        self.r = r
+        self.p = p
+        self.y = y
+
+    def eval(self, t):
+        return (self.r, self.p, self.y)
+
 
 ################ MISSION CLASS ##################
 # This class contains the information about the 
@@ -24,7 +42,7 @@ class Mission:
         self.end_acc = np.zeros(3, dtype=float)
 
         self.t_start = 0.0
-        self.t_stop = np.array([0.0]) 
+        self.t_stop = 0.0
 
         # Variables for storing the current control ref
         self.X = np.zeros(3, dtype=float)
@@ -39,7 +57,7 @@ class Mission:
         self.MissType = MissionType.Simple
  
     def update(self, p, tg_p, trj_gen, start_time, stop_time,
-            v = None, a = None, tg_v = None, tg_a = None, mtype = MissionType.Simple):
+            v = None, a = None, tg_v = None, tg_a = None, ttype = TrajectoryType.FullTrj):
         # Update the starting point
         self.start_pos = p
         if (v is not None):
@@ -67,11 +85,7 @@ class Mission:
         self.t_start = start_time
         self.t_stop = stop_time
 
-        self.NumberOfPieces = stop_time.size
-
-        self.TrjType = TrajectoryType.FullTrj
-        self.MissType = mtype
-        self.isActive = True
+        self.TrjType = ttype 
     
     def getRef(self, t):
         """ 
@@ -80,15 +94,14 @@ class Mission:
         """
         rel_t = t - self.t_start
 
-        # Check whether we are over the first piece
-        if (self.MissType == MissionType.Composite):
-            if (t > self.t_stop[0]):
-                self.TrjType = TrajectoryType.AttTrj
-
-        (X, Y, Z, W, R, Omega) = self.trj_gen.eval(rel_t)
-        X[0] = X[0] + self.start_pos[0]
-        Y[0] = Y[0] + self.start_pos[1]
-        Z[0] = Z[0] + self.start_pos[2]
+        # If the mission request just the control of the attitude...
+        if (self.MissType == TrajectoryType.AttTrj):
+            R = self.trj_gen.eval(rel_t)
+        else:
+            (X, Y, Z, W, R, Omega) = self.trj_gen.eval(rel_t)
+            X[0] = X[0] + self.start_pos[0]
+            Y[0] = Y[0] + self.start_pos[1]
+            Z[0] = Z[0] + self.start_pos[2]
 
         return (X, Y, Z, W, R, Omega)
         

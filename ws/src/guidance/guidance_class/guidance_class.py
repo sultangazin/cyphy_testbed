@@ -27,6 +27,40 @@ from guidance_helper import *
 from guidance_helper_classes.mission_class import Mission, MissionType, TrajectoryType
 from guidance_helper_classes.trajectorygenerator_class import TrajectoryGenerator
 
+
+
+class MissionQueue:
+    def __init__(self):
+        self.missionList = []
+        self.numItems = 0
+
+    def insertItem(self, MissionItem):
+        self.missionList.append(MissionItem)
+        self.numItems = self.numItems + 1
+
+    def reset(self):
+        self.missionList = []
+        self.numItems = 0
+
+    def update(self, MissionItem):
+        self.reset()
+        self.insertItem(MissionItem)
+
+    def getItemAtTime(self, t):
+        if (self.numItems == 0):
+            print("Mission queue is empty")
+            return None
+
+        for i in range(self.numItems):
+            if self.missionList[i].t_stop < t:
+                return self.missionList[i]
+
+        print("All the mission item are obsolete")
+        return None
+
+
+
+
 ################# GUIDANCE CLASS #####################
 class GuidanceClass:
 
@@ -52,6 +86,8 @@ class GuidanceClass:
         # Mission object to store information about
         # the current status of the plan.
         self.current_mission = Mission()
+
+        self.MissionList = []
         
         self.StopUpdating = False 
 
@@ -99,53 +135,16 @@ class GuidanceClass:
        
         # Evaluate where I am in the trajectory, using time information.
         t = rospy.get_time()
-        isActive = self.current_mission.queryStatus(t)
-        
-        # Prepare the current setpoint message
-        rtime = rospy.get_rostime()
+
+        current_mission = self.MissionQueue.getItemAtTime(t)
+
+
         output_msg = ControlSetpoint()
-        output_msg.header.stamp = rtime
+        output_msg.header.stamp = t
 
-        if (isActive): # I still have to finish tracking the trajectory
-            self.StopUpdating = False  
-            (X, Y, Z, W, R, Omega) = self.current_mission.getRef(t)
-
-            if (self.current_mission.queryTrjType() == TrajectoryType.FullTrj):
-                output_msg.setpoint_type = "FullTracking"
-            else:
-                output_msg.setpoint_type = "AttitudeTracking"
-             
-            # Fill  the trajectory object
-            output_msg.p.x = X[0]
-            output_msg.p.y = Y[0]
-            output_msg.p.z = Z[0]
-
-            output_msg.v.x = X[1] 
-            output_msg.v.y = Y[1]
-            output_msg.v.z = Z[1]
-
-            output_msg.a.x = X[2]
-            output_msg.a.y = Y[2]
-            output_msg.a.z = Z[2]
-
-            # Evaluate the thrust margin of the trjectory at the current time
-            mass = 0.032;
-            thr_lim = 9.81 * mass * 1.5
-            (ffthrust, available_thrust) = trjh.getlimits(X, Y, Z, mass, thr_lim)
-            if (available_thrust < 0):
-                rospy.loginfo("Exceding thrust limits!!")
-                rospy.loginfo("\t" + str(available_thrust))
-
-            # Conver the Rotation matrix to euler angles
-            (roll, pitch, yaw) = euler_from_matrix(R)
-            output_msg.rpy.x = roll
-            output_msg.rpy.y = pitch
-            output_msg.rpy.z = yaw
-            output_msg.brates.x = Omega[0]
-            output_msg.brates.y = Omega[1]
-            output_msg.brates.z = Omega[2]
-
-        else: # The trajectory is over... 
+        # Fill the output message for the controller differently depending on 
+        # the type of mission that is going to be requested:
+        if current_mission == None:
             self.StopUpdating = True
             (keep_pos, _, _) = self.current_mission.getEnd() 
             output_msg.p.x = keep_pos[0]
@@ -158,11 +157,50 @@ class GuidanceClass:
             output_msg.a.x = 0.0
             output_msg.a.y = 0.0
             output_msg.a.z = 0.0
- 
+        else:
+            self.StopUpdating = False   
+            miss_type = current_mission.getType()
+
+            if miss_type != TrajectoryType.AttTrj:
+                (X, Y, Z, W, R, Omega) = current_mission.getRef(t)
+            else:
+                (roll, pitch, yaw) = current_mission.getRef(t)
+
+            output_msg.setpoint_type = miss_type 
+             
+            # Fill  the trajectory object
+            if (miss_type != TrajectoryType.AttTrj):
+                output_msg.p.x = X[0]
+                output_msg.p.y = Y[0]
+                output_msg.p.z = Z[0]
+
+            if (miss_type == TrajectoryType.FullTrj):
+                output_msg.v.x = X[1] 
+                output_msg.v.y = Y[1]
+                output_msg.v.z = Z[1]
+                output_msg.a.x = X[2]
+                output_msg.a.y = Y[2]
+                output_msg.a.z = Z[2]
+
+            if (miss_type == TrajectoryType.FullTrj):
+                # Conver the Rotation matrix to euler angles
+                (roll, pitch, yaw) = euler_from_matrix(R)
+            
+                output_msg.rpy.x = roll
+                output_msg.rpy.y = pitch
+                output_msg.rpy.z = yaw
+                output_msg.brates.x = Omega[0]
+                output_msg.brates.y = Omega[1]
+                output_msg.brates.z = Omega[2]
+
+            if (miss_type == TrajectoryType.AttTrj):
+                output_msg.rpy.x = roll
+                output_msg.rpy.y = pitch
+                output_msg.rpy.z = yaw            
+
         # Pubblish the evaluated trajectory
         if (not self.StopUpdating):
             self.ctrl_setpoint_pub.publish(output_msg)
-
         return
 
 
@@ -186,7 +224,6 @@ class GuidanceClass:
         
         tg_v = req.target_v
         tg_a = req.target_a
-
 
         # A little logic considering what could have been requested
         if (req.ref == "Absolute"):
@@ -227,7 +264,9 @@ class GuidanceClass:
 
         # Update the mission object
         t_start = rospy.get_time()
-        self.current_mission.update(
+        current_mission = Mission()
+
+        current_mission.update(
                 p = start_pos,
                 v = start_vel, 
                 tg_p = tg_prel, 
@@ -237,6 +276,8 @@ class GuidanceClass:
                 start_time = t_start,
                 stop_time = np.array([t_end + t_start])
                 )
+
+        self.MissionList.update(current_mission)
 
         return True 
 
@@ -320,9 +361,26 @@ class GuidanceClass:
       
         # Compute the absolute times for this trajectory
         t_start = rospy.get_time()
-        t_end = np.array([t_start + T, t_start + T + DT])
+        t_end = t_start + T
 
-        self.current_mission.update(
+        mission = Mission()
+        mission.update(
+                    p = start_pos,
+                    v = start_vel, 
+                    tg_p = tg_pos, 
+                    tg_v = tg_v, 
+                    tg_a = tg_a,
+                    trj_gen = trj_obj,
+                    start_time = t_start,
+                    stop_time = t_end, 
+                    mtype = MissionType.Composite)
+
+        self.MissionList.update(mission)
+
+        endTrj = ConstAttitudeTrj()
+        endTrj.set()
+
+        mission.update(
                     p = start_pos,
                     v = start_vel, 
                     tg_p = tg_pos, 
