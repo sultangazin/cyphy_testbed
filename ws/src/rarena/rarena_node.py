@@ -23,18 +23,21 @@ activeDrone = {'cf1': None, 'cf2': None}
 
 # Click on drone
 def toggle_active(name):
-    global activeDrone
-    if (activeDrone[name]):
-        activeDrone[name] = None
-    else:
-        activeDrone[name] = name
+    for (k, v) in activeDrone.items():
+        if (k != name):
+            activeDrone[k] = None
+        else:
+            if (activeDrone[name]):
+                activeDrone[name] = None
+            else:
+                activeDrone[name] = name
 
 # Click on target
 def issue_command(tg_p):
     if (activeDrone['cf1'] == None and activeDrone['cf2'] == None):
         print("No drone selected!")
     else:
-        for (k, v) in iter(activeDrone):
+        for (k, v) in activeDrone.items():
             if (v is not None):
                 try:
                     resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 3.0)
@@ -45,7 +48,7 @@ def land_command(tg_p):
     if (activeDrone['cf1'] == None and activeDrone['cf2'] == None):
         print("No drone selected!")
     else:
-        for (k, v) in iter(activeDrone):
+        for (k, v) in activeDrone.items():
             if (v is not None):
                 try:
                     resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 3.0)
@@ -60,7 +63,7 @@ def intercept_command(p):
     if (activeDrone['cf1'] == None and activeDrone['cf2'] == None):
         print("No drone selected!")
     else:
-        for (k, v) in iter(activeDrone):
+        for (k, v) in items(activeDrone):
             if (v is not None):
                 try:
                     resp1 = drones[activeDrone].inTer(0.8, 7.0, 3.1)
