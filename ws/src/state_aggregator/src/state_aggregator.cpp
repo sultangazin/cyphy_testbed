@@ -71,7 +71,8 @@ StateAggregator::StateAggregator():
     received_reference_(false),
     last_state_time_(-1.0),
     initialized_(false),
-    filter_order_(1) {};
+    filter_order_(1) {
+    };
 
 StateAggregator::~StateAggregator() {};
 
@@ -235,8 +236,6 @@ void StateAggregator::onNewPose(
     // Take the time
     ros::Time current_time = ros::Time::now();
 
-    // Fetch the ROS message
-    
     if (axis_up_ == "Z") {
         p_(0) = msg->pose.position.x;	
         p_(1) = msg->pose.position.y;	
@@ -366,8 +365,8 @@ void StateAggregator::onNewPose(
             1.0 - 2.0 * (q_pf_.y() * q_pf_.y() + q_pf_.z() * q_pf_.z()));
 
     // Pose: Position + Orientation
-    //ext_pose_msg_.header.stamp = msg->header.stamp;
-    ext_pose_msg_.header.stamp = current_time;
+    ext_pose_msg_.header.stamp = msg->header.stamp;
+    //ext_pose_msg_.header.stamp = current_time;
     ext_pose_msg_.pose.position.x = p_pf_(0);
     ext_pose_msg_.pose.position.y = p_pf_(1);
     ext_pose_msg_.pose.position.z = p_pf_(2);
@@ -377,21 +376,21 @@ void StateAggregator::onNewPose(
     ext_pose_msg_.pose.orientation.z = q_pf_.z();
     ext_pose_msg_.pose.orientation.w = q_pf_.w();
 
-    // Position
-    //ext_position_msg_.header.stamp = msg->header.stamp;
-    ext_position_msg_.header.stamp = current_time;
+    // Position (directly from the camera)
+    ext_position_msg_.header.stamp = msg->header.stamp;
+    //ext_position_msg_.header.stamp = current_time;
     ext_position_msg_.point = ext_pose_msg_.pose.position;
 
     // Orientation RPY
-    //ext_pose_rpy_msg_.header.stamp = msg->header.stamp;
-    ext_pose_rpy_msg_.header.stamp = current_time;
+    ext_pose_rpy_msg_.header.stamp = msg->header.stamp;
+    //ext_pose_rpy_msg_.header.stamp = current_time;
     ext_pose_rpy_msg_.vector.x = euler_(0) * 180.0 / M_PI;
     ext_pose_rpy_msg_.vector.y = euler_(1) * 180.0 / M_PI;
     ext_pose_rpy_msg_.vector.z = euler_(2) * 180.0 / M_PI;
 
     // Odometry Topic
-    //ext_odometry_msg_.header.stamp = msg->header.stamp;
-    ext_odometry_msg_.header.stamp = current_time;
+    ext_odometry_msg_.header.stamp = msg->header.stamp;
+    //ext_odometry_msg_.header.stamp = current_time;
     ext_odometry_msg_.pose.pose.position = ext_pose_msg_.pose.position;
     ext_odometry_msg_.pose.pose.orientation = ext_pose_msg_.pose.orientation;
     ext_odometry_msg_.twist.twist.linear.x = vel_(0);
@@ -402,8 +401,8 @@ void StateAggregator::onNewPose(
     ext_odometry_msg_.twist.twist.angular.z = w_(2);
 
 	// Custom Odometry Topic
-    //ext_codometry_msg_.header.stamp = msg->header.stamp;
-    ext_codometry_msg_.header.stamp = current_time;
+    ext_codometry_msg_.header.stamp = msg->header.stamp;
+    //ext_codometry_msg_.header.stamp = current_time;
     ext_codometry_msg_.p = ext_pose_msg_.pose.position;
     ext_codometry_msg_.q = ext_pose_msg_.pose.orientation;
     ext_codometry_msg_.v.x = vel_(0);
@@ -416,8 +415,8 @@ void StateAggregator::onNewPose(
 
 
     // Update Tranformation Message	
-    //ext_odom_trans_.header.stamp = msg->header.stamp;
-    ext_odom_trans_.header.stamp = current_time;
+    ext_odom_trans_.header.stamp = msg->header.stamp;
+    //ext_odom_trans_.header.stamp = current_time;
     // Position
     ext_odom_trans_.transform.translation.x = p_pf_(0);
     ext_odom_trans_.transform.translation.y = p_pf_(1);
