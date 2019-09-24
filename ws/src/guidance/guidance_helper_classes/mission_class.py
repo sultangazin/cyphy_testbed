@@ -13,20 +13,6 @@ class MissionType(enum.Enum):
     Composite = 1
 
 
-class ConstAttitudeTrj:
-    def __init__(self):
-        self.r = 0
-        self.p = 0
-        self.y = 0
-        
-    def set(self, r, p, y):
-        self.r = r
-        self.p = p
-        self.y = y
-
-    def eval(self, t):
-        return (self.r, self.p, self.y)
-
 
 ################ MISSION CLASS ##################
 # This class contains the information about the 
@@ -97,8 +83,8 @@ class Mission:
 
         # If the mission request just the control of the attitude...
         if (self.TrjType == TrajectoryType.AttTrj):
-            (self.Euler[0], self.Euler[1], self.Euler[2]) = self.trj_gen.eval(rel_t)
-            return (self.Euler[0], self.Euler[1], self.Euler[2])
+            (self.X, self.Y, self.Z, self.Euler[0], self.Euler[1], self.Euler[2]) = self.trj_gen.eval(rel_t)
+            return (self.X, self.Y, self.Z, self.Euler[0], self.Euler[1], self.Euler[2])
         else:
             (self.X, self.Y, self.Z, self.W, self.R, self.Omega) = self.trj_gen.eval(rel_t)
             self.X[0] = self.X[0] + self.start_pos[0]

@@ -24,8 +24,52 @@ import trjgen.class_bz as bz
 import trjgen.class_bztraj as bz_t
 
 from guidance_helper import *
-from guidance_helper_classes.mission_class import Mission, MissionType, TrajectoryType, ConstAttitudeTrj
+from guidance_helper_classes.mission_class import Mission, MissionType, TrajectoryType
 from guidance_helper_classes.trajectorygenerator_class import TrajectoryGenerator
+
+
+class ConstAttitudeTrj:
+    def __init__(self, p0, v0, a, r, p, y):
+        self.r = 0
+        self.p = 0
+        self.y = 0
+
+        self.p_0 = p0
+        self.v_0 = v0
+        self.a_0 = a 
+
+        self.dt = 0.001
+        
+        self.pos = np.zeros(3)
+        self.vel = np.zeros(3)
+
+        self.r = r
+        self.p = p
+        self.y = y
+
+    def eval(self, t):
+        x = Integration(self.p_0, self.v_0, self.a_0, t, self.dt, 1)
+        
+        self.pos = x[0:3]
+        self.vel = x[3:6]
+        
+        X = np.zeros(3, dtype=float)
+        Y = np.zeros(3, dtype=float)
+        Z = np.zeros(3, dtype=float)
+
+        X[0] = self.pos[0]
+        Y[0] = self.pos[1]
+        Z[0] = self.pos[2]
+
+        X[1] = self.vel[0]
+        Y[1] = self.vel[1]
+        Z[1] = self.vel[2]
+
+        X[2] = self.a_0[0]
+        Y[2] = self.a_0[1]
+        Z[2] = self.a_0[2]
+
+        return (X, Y, Z, self.r, self.p, self.y)
 
 
 
@@ -181,23 +225,21 @@ class GuidanceClass:
                 (X, Y, Z, W, R, Omega) = self.current_mission.getRef(t) 
                 output_msg.setpoint_type = "FullTrj"
             else:
-                (roll, pitch, yaw) = self.current_mission.getRef(t)
+                (X, Y, Z, roll, pitch, yaw) = self.current_mission.getRef(t)
                 output_msg.setpoint_type = "AttTrj" 
 
              
             # Fill  the trajectory object
-            if (trj_type != TrajectoryType.AttTrj):
-                output_msg.p.x = X[0]
-                output_msg.p.y = Y[0]
-                output_msg.p.z = Z[0]
+            output_msg.p.x = X[0]
+            output_msg.p.y = Y[0]
+            output_msg.p.z = Z[0]
 
-            if (trj_type == TrajectoryType.FullTrj):
-                output_msg.v.x = X[1] 
-                output_msg.v.y = Y[1]
-                output_msg.v.z = Z[1]
-                output_msg.a.x = X[2]
-                output_msg.a.y = Y[2]
-                output_msg.a.z = Z[2]
+            output_msg.v.x = X[1] 
+            output_msg.v.y = Y[1]
+            output_msg.v.z = Z[1]
+            output_msg.a.x = X[2]
+            output_msg.a.y = Y[2]
+            output_msg.a.z = Z[2]
 
             if (trj_type == TrajectoryType.FullTrj):
                 # Conver the Rotation matrix to euler angles
@@ -327,7 +369,7 @@ class GuidanceClass:
                 str(start_pos[1]) + " " + str(start_pos[2]) + "]")
 
         T = req.t2go
-        DT = 0.5
+        DT = 0.1
         (tg_pre, tg_v, tg_a) = computeTerminalTrjStart(tg_pos, tg_q, v_norm, a_norm, DT) 
      
         rospy.loginfo("Target Vel= [" + str(tg_v[0]) + " " +
@@ -390,9 +432,8 @@ class GuidanceClass:
         # Reset
         self.mission_queue.update(mission)
 
-        endTrj = ConstAttitudeTrj()
         eul_angles = ToEulerAngles(tg_q)
-        endTrj.set(eul_angles[0], eul_angles[1], eul_angles[2])
+        endTrj = ConstAttitudeTrj(tg_pre, tg_v, tg_a, eul_angles[0], eul_angles[1], eul_angles[2])
  
         mission = Mission()
         t_start = t_end
