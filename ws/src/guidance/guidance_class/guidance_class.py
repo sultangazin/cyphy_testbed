@@ -152,7 +152,6 @@ class GuidanceClass:
         # Fill the output message for the controller differently depending on 
         # the type of mission that is going to be requested:
         if current == None:
-            print("Stopping in {}, {}, {}".format(keep_pos[0], keep_pos[1], keep_pos[2]))
             self.StopUpdating = True
             (keep_pos, _, _) = self.current_mission.getEnd() 
             output_msg.p.x = keep_pos[0]
@@ -165,6 +164,7 @@ class GuidanceClass:
             output_msg.a.x = 0.0
             output_msg.a.y = 0.0
             output_msg.a.z = 0.0
+            print("Stopping in {}, {}, {}".format(keep_pos[0], keep_pos[1], keep_pos[2]))
         else:
             self.StopUpdating = False   
             self.current_mission = current
