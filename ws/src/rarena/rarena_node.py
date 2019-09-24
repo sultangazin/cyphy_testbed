@@ -51,9 +51,9 @@ def land_command(tg_p):
         for (k, v) in activeDrone.items():
             if (v is not None):
                 try:
-                    resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 3.0)
+                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 3.0)
                     time.sleep(4.0)
-                    resp1 = drones[activeDrone].goTo([tg_p[0], tg_p[1], tg_p[2]], 3.0)
+                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2]], 3.0)
 
                 except rospy.ServiceException as exc:
                     print("Service did not process request: " + str(exc))
