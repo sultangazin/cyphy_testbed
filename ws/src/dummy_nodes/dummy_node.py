@@ -57,5 +57,5 @@ if __name__ == "__main__":
     while (not rospy.is_shutdown()):
         pass
         dummy_codom_pub.publish(msg_vehicle)    
-        dummy_target_pub.publish(msg_target)
+        #dummy_target_pub.publish(msg_target)
         rate.sleep()
