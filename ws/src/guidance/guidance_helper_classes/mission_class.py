@@ -100,10 +100,11 @@ class Mission:
             (self.Euler[0], self.Euler[1], self.Euler[2]) = self.trj_gen.eval(rel_t)
             return (self.Euler[0], self.Euler[1], self.Euler[2])
         else:
-            (X, Y, Z, self.W, self.R, self.Omega) = self.trj_gen.eval(rel_t)
+            (self.X, self.Y, self.Z, self.W, self.R, self.Omega) = self.trj_gen.eval(rel_t)
             self.X[0] = self.X[0] + self.start_pos[0]
             self.Y[0] = self.Y[0] + self.start_pos[1]
             self.Z[0] = self.Z[0] + self.start_pos[2]
+
             return (self.X, self.Y, self.Z, self.W, self.R, self.Omega)
         
 
