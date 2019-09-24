@@ -31,18 +31,19 @@ from guidance_helper_classes.trajectorygenerator_class import TrajectoryGenerato
 
 class MissionQueue:
     def __init__(self):
-        self.missionList = []
+        self.missList = []
         self.numItems = 0
+        self.currItem = 0
 
     def insertItem(self, MissionItem):
         print("Insert item")
-        self.missionList.append(MissionItem)
-        self.numItems = len(self.missionList)
+        self.missList.append(MissionItem)
+        self.numItems = len(self.missList)
         print("{} items in the list".format(self.numItems))
 
     def reset(self):
         print("Resetting missions queue")
-        self.missionList = []
+        self.missList = []
         self.numItems = 0
 
     def update(self, MissionItem):
@@ -55,14 +56,20 @@ class MissionQueue:
         return self.numItems
 
     def getItemAtTime(self, t):
-        if (len(self.missionList) == 0):
+        if (len(self.missList) == 0):
             return None
 
         for i in range(self.numItems): 
-            if t < self.missionList[i].t_stop:
-                print("t = {} | t_stop = {}".format(t, self.missionList[i].t_stop))
-                print("Mission {} active".format(i))
-                return self.missionList[i]
+         #   print(i)
+         #   print(t)
+         #   print(self.missList[i].t_stop)
+         #   print(self.missList[i].t_start)
+         #   print("\n")
+            if (t < self.missList[i].t_stop and t > self.missList[i].t_start):
+                if (self.currItem != i):
+                    self.currItem = i
+                    print("Mission {} active".format(i))
+                return self.missList[i]
 
         return None
 
@@ -164,7 +171,6 @@ class GuidanceClass:
             output_msg.a.x = 0.0
             output_msg.a.y = 0.0
             output_msg.a.z = 0.0
-            print("Stopping in {}, {}, {}".format(keep_pos[0], keep_pos[1], keep_pos[2]))
         else:
             self.StopUpdating = False   
             self.current_mission = current
@@ -173,10 +179,10 @@ class GuidanceClass:
             # Evaluate the current setpoint
             if trj_type != TrajectoryType.AttTrj:
                 (X, Y, Z, W, R, Omega) = self.current_mission.getRef(t) 
-                output_msg.setpoint_type = "AttTrj"
+                output_msg.setpoint_type = "FullTrj"
             else:
                 (roll, pitch, yaw) = self.current_mission.getRef(t)
-                output_msg.setpoint_type = "FullTrj" 
+                output_msg.setpoint_type = "AttTrj" 
 
              
             # Fill  the trajectory object
@@ -212,7 +218,6 @@ class GuidanceClass:
         # Pubblish the evaluated trajectory
         if (not self.StopUpdating):
             self.ctrl_setpoint_pub.publish(output_msg)
-            print(output_msg.p.x)
 
         return
 
@@ -322,7 +327,7 @@ class GuidanceClass:
                 str(start_pos[1]) + " " + str(start_pos[2]) + "]")
 
         T = req.t2go
-        DT = 0.5 
+        DT = 0.5
         (tg_pre, tg_v, tg_a) = computeTerminalTrjStart(tg_pos, tg_q, v_norm, a_norm, DT) 
      
         rospy.loginfo("Target Vel= [" + str(tg_v[0]) + " " +
@@ -388,9 +393,11 @@ class GuidanceClass:
         endTrj = ConstAttitudeTrj()
         eul_angles = ToEulerAngles(tg_q)
         endTrj.set(eul_angles[0], eul_angles[1], eul_angles[2])
-
+ 
+        mission = Mission()
         t_start = t_end
         t_end = t_start + DT
+
         mission.update(
                     p = start_pos,
                     v = start_vel, 
