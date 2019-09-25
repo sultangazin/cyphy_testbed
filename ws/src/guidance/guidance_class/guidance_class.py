@@ -178,6 +178,9 @@ class GuidanceClass:
         self.service_imp_auto = rospy.Service('gen_ImpTrajectoryAuto', 
             GenImpTrajectoryAuto, self.handle_genImpTrjAuto)
 
+        self.service_vel_auto = rospy.Service('gen_TrajectoryAuto',
+                GenImpTrajectoryAuto, self.handle_genTrjAuto)
+
 
     def advertiseTopics(self):
         # Setpoint Publisher
@@ -339,13 +342,12 @@ class GuidanceClass:
 
         return True 
 
-    def handle_genImpTrjAuto(self, req):
+    def handle_genTrjAuto(self, req):
         """
         Generate a impact trajectory just specifying the modulus of the 
-        acceleration, speed and the time to go.
+        speed and the time-to-go to reach the target.
         """
-        ndeg = 13
-        a_norm = req.a_norm
+        ndeg = 10
         v_norm = req.v_norm
 
         # Take the current pose of the vehicle
@@ -358,20 +360,142 @@ class GuidanceClass:
         tg_pos = posFromPoseMsg(self.current_target)
         tg_q = quatFromPoseMsg(self.current_target) 
         tg_yaw = quat2yaw(tg_q)
-        tg_z = quat2Z(tg_q)
 
         rospy.loginfo("\nOn Target in " + str(req.t2go) + " sec!")
         rospy.loginfo("Target = [" + str(tg_pos[0]) + " " +
                 str(tg_pos[1]) + " " + str(tg_pos[2]) + "]")
-        rospy.loginfo("Target Z = [" + str(tg_z[0]) + " " +
-                str(tg_z[1]) + " " + str(tg_z[2]) + "]")
         rospy.loginfo("Vehicle = [" + str(start_pos[0]) + " " +
                 str(start_pos[1]) + " " + str(start_pos[2]) + "]")
 
         T = req.t2go
-        DT = 0.1
-        (tg_pre, tg_v, tg_a) = computeTerminalTrjStart(tg_pos, tg_q, v_norm, a_norm, DT) 
+        DT = 0.5
+
+        # Compute the velocity and acceleration on the target
+        # (Want to get there with 0 acceleration)
+        (tg_v, tg_a) = computeTerminalNormalVel(tg_q, v_norm)
+
+        # Generate the entry poin to the final part of the trajectory 
+        (tg_pre, tg_vpre, tg_apre) = computeTerminalTrj(tg_pos, tg_v, tg_a, DT) 
      
+        rospy.loginfo("Target Vel= [" + str(tg_v[0]) + " " +
+                str(tg_v[1]) + " " + str(tg_v[2]) + "]")
+        rospy.loginfo("Target Acc= [" + str(tg_a[0]) + " " +
+                str(tg_a[1]) + " " + str(tg_a[2]) + "]")
+
+        # Generate the interpolation matrices to reach the pre-impact point
+        (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(start_vel, tg_pre - start_pos, tg_vpre, tg_apre)
+
+        # Generation of the trajectory with Bezier curves
+        x_lim = [3.0, 5.5, 11.0]
+        y_lim = [3.0, 5.5, 11.0]
+        z_lim = [2.4, 2.5, 5.0]
+
+        x_cnstr = np.array([[-x_lim[0], x_lim[0]], 
+            [-x_lim[1], x_lim[1]], 
+            [-x_lim[2], x_lim[2]]])
+        y_cnstr = np.array([[-y_lim[0], y_lim[0]], 
+            [-y_lim[1], y_lim[1]], 
+            [-y_lim[2], y_lim[2]]])
+        z_cnstr = np.array([[-start_pos[2], z_lim[0]], 
+            [-z_lim[1], z_lim[1]], 
+            [-9.90, z_lim[2]]])
+
+        # Generate the polynomial
+        #
+        print("Generating X")
+        bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=T)
+        print("\nGenerating Y")
+        bz_y = bz.Bezier(waypoints=Ywp, constraints=y_cnstr, degree=ndeg, s=T)
+        print("\nGenerating Z")
+        bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T)
+        print("\nGenerating W")
+        bz_w = bz.Bezier(waypoints=Wwp, degree=7, s=T)
+
+        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
+        print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
+        print("Final Acceleration: [%.3f, %.3f, %.3f]"%(Xwp[2,1], Ywp[2,1], Zwp[2,1]))
+
+        print("Solution Position: [%.3f, %.3f, %.3f]"%(bz_x.eval(T), bz_y.eval(T), bz_z.eval(T)))
+        print("Solution Velocity: [%.3f, %.3f, %.3f]"%
+                (bz_x.eval(T, [1]), bz_y.eval(T, [1]), bz_z.eval(T, [1])))
+        print("Solution Acceleration: [%.3f, %.3f, %.3f]"%(bz_x.eval(T, [2]), bz_y.eval(T, [2]), bz_z.eval(T, [2])))
+
+
+        trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w))
+      
+        # Compute the absolute times for this trajectory
+        t_start = rospy.get_time()
+        t_end = t_start + T
+
+        mission = Mission()
+        mission.update(
+                    p = start_pos,
+                    v = start_vel, 
+                    tg_p = tg_pre, 
+                    tg_v = tg_vpre, 
+                    tg_a = tg_apre,
+                    trj_gen = trj_obj,
+                    start_time = t_start,
+                    stop_time = t_end, 
+                    ttype = TrajectoryType.FullTrj)
+
+        # Reset
+        self.mission_queue.update(mission)
+
+        eul_angles = ToEulerAngles(tg_q)
+        endTrj = ConstAttitudeTrj(tg_pre, tg_v, tg_a, eul_angles[0], eul_angles[1], eul_angles[2])
+ 
+        mission = Mission()
+        t_start = t_end
+        t_end = t_start + DT
+
+        mission.update(
+                    p = tg_pre,
+                    v = tg_vpre, 
+                    tg_p = tg_pos, 
+                    tg_v = tg_v,
+                    tg_a = tg_a,
+                    trj_gen = endTrj,
+                    start_time = t_start,
+                    stop_time = t_end, 
+                    ttype = TrajectoryType.AttTrj)
+
+        self.mission_queue.insertItem(mission)
+
+        return True
+
+    def handle_genImpTrjAuto(self, req):
+        """
+        Generate a impact trajectory just specifying the modulus of the 
+        acceleration, speed and the time to go.
+        """
+        ndeg = 13
+        Tz_norm = req.a_norm
+        v_norm = req.v_norm
+
+        # Take the current pose of the vehicle
+        start_pos = posFromOdomMsg(self.current_odometry)
+        start_vel = velFromOdomMsg(self.current_odometry)
+        start_orientation = quatFromOdomMsg(self.current_odometry)
+        start_yaw = quat2yaw(start_orientation)
+
+        # Take the current target pose
+        tg_pos = posFromPoseMsg(self.current_target)
+        tg_q = quatFromPoseMsg(self.current_target) 
+        tg_yaw = quat2yaw(tg_q)
+
+        rospy.loginfo("\nOn Target in " + str(req.t2go) + " sec!")
+        rospy.loginfo("Target = [" + str(tg_pos[0]) + " " +
+                str(tg_pos[1]) + " " + str(tg_pos[2]) + "]")
+        rospy.loginfo("Vehicle = [" + str(start_pos[0]) + " " +
+                str(start_pos[1]) + " " + str(start_pos[2]) + "]")
+
+        T = req.t2go
+        DT = 0.5
+
+        (tg_v, tg_a) = computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm)
+        (tg_pre, tg_vpre, tg_apre) = computeTerminalTrj(tg_pos, tg_v, tg_a, DT)
+
         rospy.loginfo("Target Vel= [" + str(tg_v[0]) + " " +
                 str(tg_v[1]) + " " + str(tg_v[2]) + "]")
 
@@ -379,7 +503,7 @@ class GuidanceClass:
                 str(tg_a[1]) + " " + str(tg_a[2]) + "]")
 
         # Generate the interpolation matrices to reach the pre-impact point
-        (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(start_vel, tg_pos - start_pos, tg_v, tg_a)
+        (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(start_vel, tg_pre - start_pos, tg_vpre, tg_apre)
 
         # Generation of the trajectory with Bezier curves
         x_lim = [3.0, 5.5, 11.0]
@@ -422,8 +546,8 @@ class GuidanceClass:
                     p = start_pos,
                     v = start_vel, 
                     tg_p = tg_pre, 
-                    tg_v = tg_v, 
-                    tg_a = tg_a,
+                    tg_v = tg_vpre, 
+                    tg_a = tg_apre,
                     trj_gen = trj_obj,
                     start_time = t_start,
                     stop_time = t_end, 
@@ -440,9 +564,11 @@ class GuidanceClass:
         t_end = t_start + DT
 
         mission.update(
-                    p = start_pos,
-                    v = start_vel, 
+                    p = tg_pre,
+                    v = tg_vpre, 
                     tg_p = tg_pos, 
+                    tg_v = tg_v,
+                    tg_a = tg_a,
                     trj_gen = endTrj,
                     start_time = t_start,
                     stop_time = t_end, 

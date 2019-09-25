@@ -169,37 +169,67 @@ def Integration(p, v, a, Tf, dt, direction):
     return out_state
 
 
-# Generate the Terminal Flight
-def computeTerminalTrjStart(tg, tg_q, v_norm, a_norm, DT):
-
+def computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm):
+    """
+    Given the orientation of a surface and the norm of
+    the velocity and acceleration, returns the vectors
+    of the velocity and accelation perpendicular to the
+    surface.
+    """
     # Compute the normal of the target surface
     tg_Zi = quat2Z(tg_q)
 
     # Compute the acceleration vector
-    a_dem = a_norm * tg_Zi - np.array([0.0, 0.0, 9.81])
+    a_dem = Tz_norm * tg_Zi - np.array([0.0, 0.0, 9.81])
     # Compute the velocity vector on the target
     v_dem = -v_norm * tg_Zi
 
+    return (v_dem, a_dem)
+
+
+def computeTerminalNormalVel(tg_q, v_norm):
+    """
+    Given the orientation of the target and the norm
+    of the velocity at which we want to hit it, returns
+    the velocity vector perpendicular to the surface of
+    the target
+    """
+    # Compute the normal of the target surface
+    tg_Zi = quat2Z(tg_q)
+
+    # Compute the velocity vector on the target
+    v_dem = -v_norm * tg_Zi
+    a_dem = np.zeros(3, dtype=float)
+
+    return (v_dem, a_dem)
+    
+
+# Generate the Terminal Flight
+def computeTerminalTrj(tg, tg_v, tg_a, DT):
+
     # Compute the waypoints near the target
     # I am considering moving with a constant acceleration (negative), while going towards the target
+    a_pre = tg_a
+
     if (DT < 0.001):
         p_pre = np.reshape(tg, (3,))
-        v_pre = np.reshape(v_dem, (3,))
+        v_pre = np.reshape(tg_v, (3,))
     else:
-        xv_pre = Integration(tg, v_dem, a_dem, DT, 0.0001, -1) 
+        xv_pre = Integration(tg, tg_v, tg_a, DT, 0.0001, -1) 
         p_pre = np.reshape(xv_pre[0:3], (3,))
         v_pre = np.reshape(xv_pre[3:6], (3,))
     
-    print("Acc on TG = \n", a_dem)
-    print("Vel on TG = \n", v_dem)
+    print("Acc on TG = \n", tg_a)
+    print("Vel on TG = \n", tg_v)
     print("Pos on TG = \n", tg)
 
 
-    print("Acc pre = \n", a_dem)
+    print("Acc pre = \n", tg_a)
     print("Vel pre = \n", v_pre)
     print("Pos pre = \n", p_pre)
 
-    return (p_pre, v_pre, a_dem)
+    return (p_pre, v_pre, a_pre)
+
 
 # Generate the matrices for the interpolation problem
 def genInterpolProblem(tg, vtg, atg, yaw, t_impact):
