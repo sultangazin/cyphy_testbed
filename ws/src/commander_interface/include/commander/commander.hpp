@@ -7,6 +7,7 @@
 #include "commander_interface/Land.h"
 #include "commander_interface/Track.h"
 #include "commander_interface/GoTo.h"
+#include "commander_interface/Impact.h"
 
 // =================================================================
 // CLASS
@@ -34,6 +35,10 @@ class CommanderInterface {
                                 commander_interface::Track::Request  &req,
                                 commander_interface::Track::Response &res);
 
+                bool impact_callback(
+                                commander_interface::Impact::Request  &req,
+                                commander_interface::Impact::Response &res);
+
         private:
 
                 // Load Parameters
@@ -48,6 +53,7 @@ class CommanderInterface {
                 ros::ServiceServer land_srv_;
                 ros::ServiceServer goTo_srv_;
                 ros::ServiceServer track_srv_;
+                ros::ServiceServer impact_srv_;
                 // Service Client
                 ros::ServiceClient guidance_clnt_;
 

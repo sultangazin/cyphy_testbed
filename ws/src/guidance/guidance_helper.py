@@ -181,6 +181,7 @@ def computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm):
 
     # Compute the acceleration vector
     a_dem = Tz_norm * tg_Zi - np.array([0.0, 0.0, 9.81])
+
     # Compute the velocity vector on the target
     v_dem = -v_norm * tg_Zi
 
@@ -222,11 +223,6 @@ def computeTerminalTrj(tg, tg_v, tg_a, DT):
     print("Acc on TG = \n", tg_a)
     print("Vel on TG = \n", tg_v)
     print("Pos on TG = \n", tg)
-
-
-    print("Acc pre = \n", tg_a)
-    print("Vel pre = \n", v_pre)
-    print("Pos pre = \n", p_pre)
 
     return (p_pre, v_pre, a_pre)
 

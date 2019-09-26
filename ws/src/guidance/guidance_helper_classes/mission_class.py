@@ -5,7 +5,7 @@ import enum
 class TrajectoryType(enum.Enum):
     FullTrj = 0
     AttTrj = 1
-    Landing = 2
+    LandTrj = 2
     Takeoff = 4
 
 class MissionType(enum.Enum):

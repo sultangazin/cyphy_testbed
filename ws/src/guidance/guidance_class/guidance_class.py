@@ -14,6 +14,7 @@ from geometry_msgs.msg import PoseStamped
 
 from guidance.srv import GenImpTrajectoryAuto
 from guidance.srv import GenTrackTrajectory
+from guidance.srv import ExeMission
 
 import trjgen.class_pwpoly as pw
 import trjgen.class_trajectory as trj
@@ -72,7 +73,6 @@ class ConstAttitudeTrj:
         return (X, Y, Z, self.r, self.p, self.y)
 
 
-
 class MissionQueue:
     def __init__(self):
         self.missList = []
@@ -103,12 +103,7 @@ class MissionQueue:
         if (len(self.missList) == 0):
             return None
 
-        for i in range(self.numItems): 
-         #   print(i)
-         #   print(t)
-         #   print(self.missList[i].t_stop)
-         #   print(self.missList[i].t_start)
-         #   print("\n")
+        for i in range(self.numItems):
             if (t < self.missList[i].t_stop and t > self.missList[i].t_start):
                 if (self.currItem != i):
                     self.currItem = i
@@ -180,6 +175,9 @@ class GuidanceClass:
 
         self.service_vel_auto = rospy.Service('gen_TrajectoryAuto',
                 GenImpTrajectoryAuto, self.handle_genTrjAuto)
+
+        self.service_exe_mission = rospy.Service('exe_Mission',
+                ExeMission, self.handle_exeMission)
 
 
     def advertiseTopics(self):
@@ -272,6 +270,178 @@ class GuidanceClass:
         self.current_target = pose_msg
         return
 
+
+
+    ##### Guidance Methods
+    def gen_goTo(self, p, t2go = 0.0):
+        """
+        Generate a tracking trajectory to reach an absolute waypoint 
+        with a given velocity and acceleration.
+        """
+        start_pos = posFromOdomMsg(self.current_odometry)
+        start_vel = velFromOdomMsg(self.current_odometry)
+
+        tg_p = p 
+        tg_prel = tg_p - start_pos
+        tg_v = np.zeros((3))
+        tg_a = np.zeros((3))
+                 
+        goto_vel = 0.5 
+
+        rospy.loginfo("Target Relative = [%.3f, %.3f, %.3f]" % (tg_prel[0], tg_prel[1], tg_prel[2]))
+
+        (X, Y, Z, W) = genInterpolationMatrices(start_vel, tg_prel, tg_v, tg_a)
+        
+        if (t2go is not None and t2go != 0.0):
+            t_end = t2go
+        else:
+            t_end = np.linalg.norm(tg_prel) / goto_vel 
+
+        # Times (Absolute and intervals)
+        knots = np.array([0, t_end]) # One second each piece
+
+        # Polynomial characteristic:  order
+        ndeg = 7
+
+        ppx = pw.PwPoly(X, knots, ndeg)
+        ppy = pw.PwPoly(Y, knots, ndeg)
+        ppz = pw.PwPoly(Z, knots, ndeg)
+        ppw = pw.PwPoly(W, knots, ndeg) 
+        traj_obj = trj.Trajectory(ppx, ppy, ppz, ppw)
+
+        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(X[0,1], Y[0,1], Z[0,1]))
+        print("Solution: [%.3f, %.3f, %.3f]"%(ppx.eval(t_end, 0), ppy.eval(t_end, 0), ppz.eval(t_end, 0)))
+
+        # Update the mission object
+        t_start = rospy.get_time()
+        miss = Mission()
+        miss.update(
+                p = start_pos,
+                v = start_vel, 
+                tg_p = tg_prel, 
+                tg_v = tg_v, 
+                tg_a = tg_a,
+                trj_gen = traj_obj,
+                start_time = t_start,
+                stop_time = t_end + t_start,
+                ttype = TrajectoryType.FullTrj
+                )
+        self.mission_queue.update(miss)
+
+        return True 
+
+    def gen_land(self, p = None):
+        """
+        Generate a tracking trajectory to reach an absolute waypoint 
+        with a given velocity and acceleration.
+        """
+        start_pos = posFromOdomMsg(self.current_odometry)
+        start_vel = velFromOdomMsg(self.current_odometry)
+
+        vland = 0.3
+
+        if (p is not None):
+            tg_prel = np.array([p[0] - start_pos[0], p[1] - start_pos[1], -start_pos[2]])
+        else:
+            tg_prel = np.array([0.0, 0.0, -start_pos[2]])
+
+        t_end = (start_pos[2] / vland)
+        tg_v = np.zeros((3))
+        tg_a = np.zeros((3))
+                 
+        print("Landing in [{}, {}]\n".format(tg_prel[0], tg_prel[1]))
+
+        (X, Y, Z, W) = genInterpolationMatrices(
+                start_vel, 
+                tg_prel, 
+                tg_v, 
+                tg_a)
+        
+        # Times (Absolute and intervals)
+        knots = np.array([0, t_end]) # One second each piece
+
+        # Polynomial characteristic:  order
+        ndeg = 7
+
+        ppx = pw.PwPoly(X, knots, ndeg)
+        ppy = pw.PwPoly(Y, knots, ndeg)
+        ppz = pw.PwPoly(Z, knots, ndeg)
+        ppw = pw.PwPoly(W, knots, ndeg) 
+        traj_obj = trj.Trajectory(ppx, ppy, ppz, ppw)
+
+
+        # Update the mission object
+        t_start = rospy.get_time()
+        miss = Mission()
+        miss.update(
+                p = start_pos,
+                v = start_vel, 
+                tg_p = tg_prel, 
+                tg_v = tg_v, 
+                tg_a = tg_a,
+                trj_gen = traj_obj,
+                start_time = t_start,
+                stop_time = t_end + t_start,
+                ttype = TrajectoryType.LandTrj
+                )
+        self.mission_queue.update(miss)
+
+        return True 
+
+    def gen_takeoff(self, h, t2go=None):
+        """
+        Generate a tracking trajectory to reach an absolute waypoint 
+        with a given velocity and acceleration.
+        """
+        start_pos = posFromOdomMsg(self.current_odometry)
+
+        vtakeoff = 0.3
+        t_end = h / vtakeoff
+
+        if (t2go is not None and t2go != 0.0):
+            t_end = t2go
+            vtakeoff = h / t2go
+
+        tg_prel = np.array([0.0, 0.0, start_pos[2] + h])
+        tg_v = np.zeros((3))
+        tg_a = np.zeros((3))
+                 
+        (X, Y, Z, W) = genInterpolationMatrices(
+                np.zeros(3), 
+                tg_prel, 
+                tg_v, 
+                tg_a)
+        
+        # Times (Absolute and intervals)
+        knots = np.array([0, t_end]) # One second each piece
+
+        # Polynomial characteristic:  order
+        ndeg = 7
+
+        ppx = pw.PwPoly(X, knots, ndeg)
+        ppy = pw.PwPoly(Y, knots, ndeg)
+        ppz = pw.PwPoly(Z, knots, ndeg)
+        ppw = pw.PwPoly(W, knots, ndeg) 
+        traj_obj = trj.Trajectory(ppx, ppy, ppz, ppw)
+
+
+        # Update the mission object
+        t_start = rospy.get_time()
+        miss = Mission()
+        miss.update(
+                p = start_pos,
+                v = np.zeros(3), 
+                tg_p = tg_prel, 
+                tg_v = tg_v, 
+                tg_a = tg_a,
+                trj_gen = traj_obj,
+                start_time = t_start,
+                stop_time = t_end + t_start,
+                ttype = TrajectoryType.Takeoff
+                )
+        self.mission_queue.update(miss)
+
+        return True
 
     ###### SERVICES
     # Service handler: Generation of generic trajectory piece
@@ -368,22 +538,42 @@ class GuidanceClass:
                 str(start_pos[1]) + " " + str(start_pos[2]) + "]")
 
         T = req.t2go
-        DT = 0.5
-
+        DT = req.tbal
+        
         # Compute the velocity and acceleration on the target
         # (Want to get there with 0 acceleration)
         (tg_v, tg_a) = computeTerminalNormalVel(tg_q, v_norm)
+        #tg_v[2] = np.minimum(tg_v[2], -0.5)
+        tg_v[2] = -0.5
+        
+        # Time to be on a symmetric parabola
+       # DT = (np.absolute(tg_v[2]) / 9.81) * 2.0
 
         # Generate the entry poin to the final part of the trajectory 
-        (tg_pre, tg_vpre, tg_apre) = computeTerminalTrj(tg_pos, tg_v, tg_a, DT) 
-     
+        # This part is balistic because we are supposed to control just
+        # in attitude.
+        (tg_pre, tg_vpre, tg_apre) = computeTerminalTrj(
+                tg_pos, 
+                tg_v, 
+                np.array([0,0,-9.81]), 
+                DT) 
+        print("Acc pre = \n", tg_apre)
+        print("Vel pre = \n", tg_vpre)
+        print("Pos pre = \n", tg_pre)
+
         rospy.loginfo("Target Vel= [" + str(tg_v[0]) + " " +
                 str(tg_v[1]) + " " + str(tg_v[2]) + "]")
         rospy.loginfo("Target Acc= [" + str(tg_a[0]) + " " +
                 str(tg_a[1]) + " " + str(tg_a[2]) + "]")
 
         # Generate the interpolation matrices to reach the pre-impact point
-        (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(start_vel, tg_pre - start_pos, tg_vpre, tg_apre)
+        # This service produce a trajectory to reach the point with a
+        # constant speed.
+        (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(
+                start_vel,
+                tg_pre - start_pos,
+                tg_vpre,
+                np.zeros(3, dtype=float))
 
         # Generation of the trajectory with Bezier curves
         x_lim = [3.0, 5.5, 11.0]
@@ -443,7 +633,7 @@ class GuidanceClass:
         self.mission_queue.update(mission)
 
         eul_angles = ToEulerAngles(tg_q)
-        endTrj = ConstAttitudeTrj(tg_pre, tg_v, tg_a, eul_angles[0], eul_angles[1], eul_angles[2])
+        endTrj = ConstAttitudeTrj(tg_pre, tg_vpre, tg_a, eul_angles[0], eul_angles[1], eul_angles[2])
  
         mission = Mission()
         t_start = t_end
@@ -469,7 +659,7 @@ class GuidanceClass:
         Generate a impact trajectory just specifying the modulus of the 
         acceleration, speed and the time to go.
         """
-        ndeg = 13
+        ndeg = 12
         Tz_norm = req.a_norm
         v_norm = req.v_norm
 
@@ -484,17 +674,34 @@ class GuidanceClass:
         tg_q = quatFromPoseMsg(self.current_target) 
         tg_yaw = quat2yaw(tg_q)
 
-        rospy.loginfo("\nOn Target in " + str(req.t2go) + " sec!")
+        rospy.loginfo("\n\n\nOn Target in " + str(req.t2go) + " sec!")
         rospy.loginfo("Target = [" + str(tg_pos[0]) + " " +
                 str(tg_pos[1]) + " " + str(tg_pos[2]) + "]")
         rospy.loginfo("Vehicle = [" + str(start_pos[0]) + " " +
                 str(start_pos[1]) + " " + str(start_pos[2]) + "]")
 
         T = req.t2go
-        DT = 0.5
+        DT = req.tbal
 
+        # Compute the velocity and acceleration on the target considering
+        # a Tz_norm acceleration along the Zb
         (tg_v, tg_a) = computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm)
-        (tg_pre, tg_vpre, tg_apre) = computeTerminalTrj(tg_pos, tg_v, tg_a, DT)
+
+        #tg_v = tg_v + np.array([0.0, 0.0, DT * tg_a[2]])
+
+        # I want the Zb speed to be at least -1.0
+        #tg_v[2] = np.minimum(tg_v[2], -0.5)
+        tg_v[2] = -0.5 
+ 
+        (tg_pre, tg_vpre, tg_apre) = computeTerminalTrj(
+                tg_pos,
+                tg_v,
+                tg_a,
+                DT)
+
+        print("Acc pre = \n", tg_apre)
+        print("Vel pre = \n", tg_vpre)
+        print("Pos pre = \n", tg_pre)
 
         rospy.loginfo("Target Vel= [" + str(tg_v[0]) + " " +
                 str(tg_v[1]) + " " + str(tg_v[2]) + "]")
@@ -502,7 +709,8 @@ class GuidanceClass:
         rospy.loginfo("Target Acc= [" + str(tg_a[0]) + " " +
                 str(tg_a[1]) + " " + str(tg_a[2]) + "]")
 
-        # Generate the interpolation matrices to reach the pre-impact point
+        # Generate the interpolation matrices to reach the pre-impact 
+        # point with a given speed and acceleration.
         (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(start_vel, tg_pre - start_pos, tg_vpre, tg_apre)
 
         # Generation of the trajectory with Bezier curves
@@ -557,7 +765,7 @@ class GuidanceClass:
         self.mission_queue.update(mission)
 
         eul_angles = ToEulerAngles(tg_q)
-        endTrj = ConstAttitudeTrj(tg_pre, tg_v, tg_a, eul_angles[0], eul_angles[1], eul_angles[2])
+        endTrj = ConstAttitudeTrj(tg_pre, tg_vpre, tg_a, eul_angles[0], eul_angles[1], eul_angles[2])
  
         mission = Mission()
         t_start = t_end
@@ -577,5 +785,34 @@ class GuidanceClass:
         self.mission_queue.insertItem(mission)
 
         return True
+
+
+
+    def handle_exeMission(self, req):
+        # Dispach the mission requests
+
+        t2go = req.tg_time   
+        tg_p = req.target_p
+        tg_v = req.target_v
+        tg_a = req.target_a
+
+        if (req.mission_type == "goTo"):
+            self.gen_goTo(tg_p, t2go)        
+ 
+        if (req.mission_type == "land"): 
+            self.gen_land()
+
+        if (req.mission_type == "takeoff"):
+            h = tg_p[2]
+            self.gen_takeoff(h, t2go)
+
+        if (req.mission_type == "impact"):
+            pass
+
+        if (req.mission_type == "impact_acc"):
+            self.gen_impact()
+
+        return True
+
 
 ################# END OF GUIDANCE CLASS #################
