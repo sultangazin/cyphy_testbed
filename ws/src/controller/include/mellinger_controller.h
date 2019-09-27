@@ -149,6 +149,8 @@ class MellingerController {
   Vector3d pos_, vel_, r_pos_, r_vel_;
   Eigen::Quaterniond quat_;
 
+  std::string setpoint_type_;
+
   double sp_roll_,sp_pitch_,sp_yaw_;
 
   // Logging variables
