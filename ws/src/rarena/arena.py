@@ -36,21 +36,25 @@ class RArenaClass(object):
     """
     Bridge class between Ros and Arena.
     """
-    def __init__(self, mqtt_client, scene, name, shape="cube", id=0, 
-        color="#AAAAAA", pos=[0,0,0], quat=[1,0,0,0], scale=[1,1,1]):
+    def __init__(self, client, scene, name, shape="cube", id=0, 
+        color="#AAAAAA", pos=[0,0,0], quat=[1,0,0,0], scale=[1,1,1], pose_source=None):
 
-        self.client = mqtt_client
-        self.scale = np.array([scale[0], scale[1], scale[2]])
-        self.time_old = 0
+        self.client = client
         self.scene = scene
-        self.name = name  
+        self.name = name
         self.color = color 
+        self.shape = shape
+        self.id = id
         self.pos = np.array(pos)
         self.quat = np.array(quat)
+        self.scale = np.array([scale[0], scale[1], scale[2]])
 
-        #                                              x  y  z  qx qy qz qw sx sy sz col
-        self.message = shape + "_{},".format(id) + "{},{},{},{},{},{},{},{},{},{},{},on"
-        # self.obj_str = self.object_name + self.base_str 
+        #                                           x  y  z  qx qy qz qw sx sy sz col
+        self.message = self.shape + "_{},".format(self.id) + "{},{},{},{},{},{},{},{},{},{},{},on"
+
+        if (pose_source):
+            self.pose_topic_ = "/" + pose_source + "/" + self.name + "/pose"
+            self.registerCallbacks()
 
         self.initArenaObject()
         rospy.loginfo("\n [%s] RArena Object Initialized!"%rospy.get_name())
@@ -59,25 +63,31 @@ class RArenaClass(object):
     def initArenaObject(self):
         ############
         # Delete the object from the scene to get a fresh start with a null message
-        self.client.publish(self.scene + self.name, "")  
+        self.client.publish(self.scene + "/"  + self.shape + "_{},".format(self.id), "", retain=True)  
 
         # Draw new object
         self.draw()
 
         # Enable click listener for object (allows it to be clickable)
-        self.client.publish(self.scene + self.name + "/click-listener", 
+        self.client.publish(self.scene + "/"  + self.shape + "_{},".format(self.id) + "/click-listener", 
                 "enable", retain=True)
 
-        #self.client.subscribe(self.scene_path + self.name + "/mouseup")
-        self.client.subscribe(self.scene + self.name + "/mousedown")
+        #self.client.subscribe(self.scene_path + self.shape + "/mouseup")
+        self.client.subscribe(self.scene + "/"  + self.shape + "_{},".format(self.id) + "/mousedown")
 
-        #self.client.message_callback_add(self.scene_path + self.name + "/mouseup", self.on_click_input)
-        self.client.message_callback_add(self.scene + self.name + "/mousedown", 
+        #self.client.message_callback_add(self.scene_path + self.shape + "/mouseup", self.on_click_input)
+        self.client.message_callback_add(self.scene + "/"  + self.shape + "_{},".format(self.id) + "/mousedown", 
                 self.on_click_input)
+
+    
+    def registerCallbacks(self):
+        # Subscribe to vehicle state update
+        print("Subscribing to ", self.pose_topic_)
+        rospy.Subscriber(self.pose_topic_, PoseStamped, self.pose_callback)
 
 
     def __del__(self):
-        self.client.publish(self.scene + self.name, "", retain=True)  
+        self.client.publish(self.scene + "/"  + self.shape + "_{},".format(self.id), "", retain=True)
 
  
     def draw(self):
@@ -89,15 +99,29 @@ class RArenaClass(object):
                 self.color)
 
         # Draw object
-        self.client.publish(self.scene + self.name, mqtt_string, retain=True)
-        print("Updating: ", self.scene + self.name)
-        print("Mqtt Command: ", mqtt_string)
+        self.client.publish(self.scene + "/"  + self.shape + "_{},".format(self.id), mqtt_string, retain=True)
+        # print("Updating: ", self.scene + self.name)
+        # print("Mqtt Command: ", mqtt_string)
+
+    def animate(self):  
+        # Trigger animation from nodeA position to nodeB position
+
+        tg_scene_string = self.scene + "/"  + self.shape + "_{},".format(self.id) + "/animation"
+        cmd_string = "property: color; to: #FF0000; loop:true; duration: 500;"
+        self.client.publish(tg_scene_string, cmd_string, retain=True)
+        return
+        
+
+    def pose_callback(self, pose_msg):
+        self.pos = posFromPoseMsg(pose_msg)
+        self.quat = quatFromPoseMsg(pose_msg)
 
 
     def update_pos(self, pos):
         self.pos[0] = float(pos[0])
         self.pos[1] = float(pos[1])
         self.pos[2] = float(pos[2])
+
 
     def update_quat(self, quat):
         self.quat[0] = float(quat[0])
@@ -129,15 +153,11 @@ class RArenaClass(object):
 
 ###### NODE ARENA CLASS ####### 
 class NodeArenaClass(RArenaClass):
-    def __init__(self, mqtt_client, scene, name, id=0, color = "#AAAAAA",
-            pos = [0,1,0], quat = [0,0,0,0], scale = [0.5, 0.5, 0.5], isMovable=False):
+    def __init__(self, client, scene, name, id=0, color="#AAAAAA",
+            pos=[0,1,0], quat=[0,0,0,0], scale=[0.5, 0.5, 0.5], pose_source=None):
 
-        super(NodeArenaClass, self).__init__(mqtt_client, scene, name=name, shape="cube", 
-            id=id, color=color, pos=pos, quat=quat, scale=scale)
-
-        if (isMovable):
-            self.pose_topic_ =  "/" + self.name + "/external_pose"
-            self.registerCallbacks()
+        super(NodeArenaClass, self).__init__(client, scene, name=name, shape="cube", 
+            id=id, color=color, pos=pos, quat=quat, scale=scale, pose_source=pose_source)
 
         print("Created Arena Node Object")
 
@@ -146,16 +166,89 @@ class NodeArenaClass(RArenaClass):
 
         if str(msg.topic).find("mousedown") != -1:
             pass
-                        
-    def registerCallbacks(self):
-        # Subscribe to vehicle state update
-        print("Subscribing to ", self.pose_topic_)
-        rospy.Subscriber(self.pose_topic_, PoseStamped, self.pose_callback)
-
-    def pose_callback(self, pose_msg):
-        self.pos = posFromPoseMsg(pose_msg)
-        self.quat = quatFromPoseMsg(pose_msg)
        
+
+
+
+###### EDGE ARENA CLASS #######
+class EdgeArenaClass(object):
+    def __init__(self, client, scene, name, id=0, color="#AAAAAA", 
+            start_node=None, end_node=None):
+        
+        self.client = client
+        self.scene = scene
+        self.name = name
+        self.id = id
+        self.color = color
+        self.shape = "line"
+        if start_node and end_node:
+            self.start_node = start_node
+            self.end_node = end_node
+        else:
+            rospy.loginfo("Error: Must supply start and end nodes to edge constructor")
+        # Note: Should probably shut down here.
+
+        #                                           x  y  z  x  y  z          col
+        self.message = "line" + "_{},".format(id) + "{},{},{},{},{},{},0,0,0,0,{},on"
+
+        # Delete the object from the scene to get a fresh start with a null message
+        self.client.publish(self.scene + "/" + self.shape + "_{},".format(self.id), "", retain=True)  
+
+        # Draw new object
+        self.draw()
+        tg_scene_string = self.scene + "/cube" + "_{}".format(self.id)
+        cmd_string = "cube_2,{},{},{},0,0,0,0,0.05,0.05,0.05,#FFFFFF,on".format(
+            self.start_node.pos[0],self.start_node.pos[1],self.start_node.pos[2])
+        self.client.publish(tg_scene_string, cmd_string, retain=True)
+        self.animate()
+
+        print("Created Arena Edge Object")
+
+    def __del__(self):
+        self.client.publish(self.scene + "/"  + self.shape + "_{},".format(self.id), "", retain=True)  
+            
+
+    def animate(self):
+        # Trigger animation from nodeA position to nodeB position
+
+        # tg_scene_string = self.scene + "/"  + self.name + "/animation"
+        # cmd_string = "property: color; to: #FF0000; loop:true; duration: 500;"
+        # self.client.publish(tg_scene_string, cmd_string)
+        # return
+        tg_scene_string = self.scene + "/cube" + "_{}".format(self.id)
+        cmd_string = ""
+        self.client.publish(tg_scene_string, cmd_string, retain=True)
+
+        tg_scene_string = self.scene + "/cube" + "_{}".format(self.id)
+        cmd_string = "property:position; x:{}; y:{}; z:{}".format(
+            self.start_node.pos[0],self.start_node.pos[1],self.start_node.pos[2])
+        self.client.publish(tg_scene_string, cmd_string, retain=True)
+
+        tg_scene_string = self.scene + "/cube" + "_{}".format(self.id) + "/animation"
+        cmd_string = "property: position; to: {} {} {}; dur: 100;".format(
+            self.end_node.pos[0],self.end_node.pos[1],self.end_node.pos[2])
+        self.client.publish(tg_scene_string, cmd_string, retain=True)
+        
+        pass
+        
+        
+    def draw(self):
+        # Fill mqtt message
+        mqtt_string = self.message.format(
+            str(self.start_node.pos[0]), str(self.start_node.pos[1]), str(self.start_node.pos[2]),
+            str(self.end_node.pos[0]), str(self.end_node.pos[1]), str(self.end_node.pos[2]),
+            self.color)
+
+        # Draw object
+        self.client.publish(self.scene + "/"  + self.shape + "_{},".format(self.id), mqtt_string, retain=True)
+        # print("Updating: ", self.scene + self.name)
+        # print("Mqtt Command: ", mqtt_string)
+
+        # tg_scene_string = self.scene + "/cube" + "_{}".format(self.id)
+        # cmd_string = "cube_2,{},{},{},0,0,0,0,0.05,0.05,0.05,#FFFFFF,on".format(
+        #     self.start_node.pos[0],self.start_node.pos[1],self.start_node.pos[2])
+        # self.client.publish(tg_scene_string, cmd_string, retain=True)
+
 
 
 
@@ -171,7 +264,7 @@ class DroneArenaClass(RArenaClass):
         self.on_click = on_click_clb
  
         # Name of the topic containing the pose of the object       
-        self.obj_pose_topic_ =  "/" + name + "/external_pose"
+        self.obj_pose_topic_ =  "/" + self.name + "/external_pose"
 
         self.position = [0,0.01,0]
         self.quaternion = [0,0,0,1]
@@ -223,7 +316,6 @@ class DroneArenaClass(RArenaClass):
             super(DroneArenaClass, self).plot_arenaObj(self.position, self.quaternion)
 
         self.on_click(self.name) 
- 
 
             
 ###### TARGET ARENA CLASS #######
@@ -269,111 +361,3 @@ class TargetArenaClass(RArenaClass):
       
         # plot the object in arena
         super(TargetArenaClass, self).plot_arenaObj(self.position, self.quaternion, color=self.color)
-
-
-
-
-###### EDGE ARENA CLASS #######
-class EdgeArenaClass(RArenaClass):
-    def __init__(self, on_click_clb, mqtt_client, scene, name, c = "#FFFFFF",
-            p = [0,0,0], s = [0.5, 0.5, 0.5], isMovable=False, nodeA = None, nodeB = None):
-
-        print("Creating Arena Edge Object")
-        self.on_click = on_click_clb
-        self.nodeA = nodeA
-        self.nodeB = nodeB
-        self.p = p
-        self.scene = scene
-
-        super(EdgeArenaClass, self).__init__(mqtt_client, scene, obj_name = name, 
-                color = c, position = p, scale=s)
-
-        # if (isMovable):
-        #     self.obj_pose_topic_ =  "/" + name + "/external_pose"
-        #     self.registerCallbacks()
-        # else:
-        #     self.obj_pose_topic = None
-
-        tg_scene_string = self.scene_path + self.object_name + "/position"
-        cmd_string = "x:{}; y:{}; z:{};".format(
-            self.p[0], self.p[1], self.p[2])
-        self.client.publish(tg_scene_string, cmd_string, retain=True)
-        print("update position to: {}".format(cmd_string))
-
-    def __del__(self):
-            self.client.publish(self.scene + "edge", "", retain=True)  
-            
-    def on_click_input(self, client, userdata, msg):
-        click_x, click_y, click_z, user = msg.payload.split(',')
-
-        if str(msg.topic).find("mousedown") != -1:
-            self.on_click(tg_p)
-
-    # def registerCallbacks(self):
-    #     pass
-
-    def animate(self):
-        # Trigger animation from nodeA position to nodeB position
-        sc = self.scale
-        cl = self.color
-
-        tg_scene_string = self.scene_path + self.object_name + "/animation"
-        cmd_string = "property: position; to: {} {} {}; duration: 1000; loop:true;".format(
-            self.nodeB.p[0], self.nodeB.p[1], self.nodeB.p[2])
-        self.client.publish(tg_scene_string, cmd_string)
-        print("trigger animation")
-
-        return
-        
-    def update(self):
-        #tg_scene_string = self.scene_path + self.object_name +
-    
-        self.client.publish(self.scene + "edge", "line_1,{},{},{},{},{},{},0,0,0,0,#CE00FF,on".format( 
-            self.nodeA.p[0],self.nodeA.p[1],self.nodeA.p[2],self.nodeB.p[0],self.nodeB.p[1],self.nodeB.p[2]), 
-            retain=True)
-
-        return
-
-
-
-    # def plot_arenaObj(self, scale = None, color = None):
-    #     """
-    #     Update the coordinates of an object in arena and
-    #     plot it in the synthetic environment
-    #     """
-    #     # Update the pos of the object
-    #     self.p[0] = float(pos[0])
-    #     self.p[1] = float(pos[1])
-    #     self.p[2] = float(pos[2])
-
-    #     if (scale is not None):
-    #         sc = scale
-    #     else:
-    #         sc = self.scale
-
-    #     if (color is not None):
-    #         cl = color
-    #     else:
-    #         cl = self.color
-
-    #     tg_scene_string = self.scene_path + self.object_name
-    #     cmd_string = self.obj_str.format(
-    #                 str(pos[0]), 
-    #                 str(pos[2]), 
-    #                 str(-pos[1]), 
-    #                 str(quaternion[1]), str(quaternion[3]), str(-quaternion[2]), str(quaternion[0]), 
-    #                 str(sc[0]), str(sc[1]), str(sc[2]), cl)
-
-    #     time_now = time.time()
-    #     diff = time_now - self.time_old
-    #     if (diff) > 0.1:
-    #         self.time_old = time_now 
-    #         self.client.publish(tg_scene_string, 
-    #                 cmd_string, 
-    #                 retain=True)
-
-    #     return
-      
-        # plot the object in arena
-        # super(NodeArenaClass, self).plot_arenaObj(self.position, self.quaternion, color=self.color)
-

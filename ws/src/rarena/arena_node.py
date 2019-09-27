@@ -13,7 +13,7 @@ from commander_interface.srv import GoTo
 
 from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaClass, RArenaClass
 
-scene = "/topic/marcus/"
+scene = "/topic/test"
 
 # Services callbacks
 goTo = rospy.ServiceProxy('/cf2/Commander_Node/goTo_srv', GoTo)
@@ -74,22 +74,19 @@ def intercept_command(p):
 
 # Signal handler for destroying object in Arena
 def signal_handler(sig, frame):
-        mqtt_client.publish(scene + "TargetGoto", "", retain=True)  
-        mqtt_client.publish(scene + "floor", "", retain=True)  
-        mqtt_client.publish(scene + "pad", "", retain=True)  
-        mqtt_client.publish(scene + "cf2", "", retain=True)
-        mqtt_client.publish(scene + "nodeA", "", retain=True)  
-        mqtt_client.publish(scene + "nodeB", "", retain=True)  
-        mqtt_client.publish(scene + "edge", "", retain=True)    
-        mqtt_client.publish(scene + "generic", "", retain=True)
+    print("Removing objects before quitting...")
+    mqtt_client.publish(scene + "/" + "cube_0", "", retain=True)  
+    mqtt_client.publish(scene + "/" + "cube_1", "", retain=True) 
+    mqtt_client.publish(scene + "/" + "cube_2", "", retain=True)
+    mqtt_client.publish(scene + "/" + "line_0", "", retain=True)    
+    mqtt_client.publish(scene + "/" + "line_1", "", retain=True)
+    mqtt_client.publish(scene + "/" + "line_2", "", retain=True)
 
-        time.sleep(1)
+    time.sleep(1)
 
-        mqtt_client.disconnect() #disconnect
-        mqtt_client.loop_stop() #stop loop
-
-        print("Removing objects before quiting...")
-        time.sleep(1)	
+    print("Quitting")
+    mqtt_client.disconnect() #disconnect
+    mqtt_client.loop_stop() #stop loop
 
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -116,33 +113,22 @@ if __name__ == '__main__':
     # target_pad = TargetArenaClass(intercept_command, mqtt_client, 
     #         scene, 'target', c = "#3300AA", s = [0.4,0.1,0.4], isMovable=True)
 
-    # nodeA = NodeArenaClass(None, mqtt_client, 
-    #         scene, 'nodeA', c = "#AA00AA", 
-    #         p = [-1.0, 0.5, -1.0], s =[0.1,0.1,0.1], isMovable=True)
-
-    # nodeB = NodeArenaClass(None, mqtt_client, 
-    #         scene, 'nodeB', c = "#AA00AA", 
-    #         p = [1.0, 0.5, 1.0], s =[0.1,0.1,0.1], isMovable=True)
-
-    # edge = EdgeArenaClass(None, mqtt_client, 
-    #         scene, 'edge', c = "#AA00AA", 
-    #         p = [1.0, 0.5, -1.0], s =[0.1,0.1,0.1], 
-    #         isMovable=True, nodeA=nodeA, nodeB=nodeB)   
-
-    # drones = dict()
-    # drones['cf1'] = d1
-    # drones['cf2'] = d2
-
-    nodeA = NodeArenaClass(mqtt_client, scene, 'nodeA', isMovable=False)
+    nodeA = NodeArenaClass(mqtt_client, scene, 'nodeA', id=0, 
+      pos=[1,0.5,1], scale=[.2,.2,.2], pose_source="vrpn_client_node")
+    nodeB = NodeArenaClass(mqtt_client, scene, 'nodeB', id=1, 
+      pos=[-1,0.5,-1], scale=[.2,.2,.2], pose_source="vrpn_client_node")
+    edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=2, 
+      start_node=nodeA, end_node=nodeB)
 
     mqtt_client.loop_start() #start loop to process received mqtt messages
 
     #rospy.spin()
-    rate = rospy.Rate(1)
+    rate = rospy.Rate(0.5)
     while not rospy.is_shutdown():
         nodeA.draw()
-    #     nodeB.update()
-    #     edge.update()
+        nodeB.draw()
+        edge1.draw()
+        edge1.animate()
     #     nodeA.p = np.random.rand(3)
     #     nodeB.p = np.random.rand(3)
         rate.sleep()
