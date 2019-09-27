@@ -17,6 +17,7 @@ scene = "/topic/luigi/"
 # Services callbacks
 goTo = rospy.ServiceProxy('/cf2/Commander_Node/goTo_srv', GoTo)
 
+drones = dict()
 activeDrone = {'cf1': None, 'cf2': None}
 
 ## Callbacks for click events
@@ -63,19 +64,20 @@ def intercept_command(p):
     if (activeDrone['cf1'] == None and activeDrone['cf2'] == None):
         print("No drone selected!")
     else:
-        for (k, v) in items(activeDrone):
+        for (k, v) in activeDrone.items():
             if (v is not None):
                 try:
-                    resp1 = drones[activeDrone].inTer(0.8, 7.0, 3.1)
+                    resp1 = drones[k].inTer(1.0, 1.1, 2.5, 0.1)
                 except rospy.ServiceException as exc:
                     print("Service did not process request: " + str(exc))
 
 
 # Signal handler for destroying object in Arena
 def signal_handler(sig, frame):
-        mqtt_client.publish(scene + "TargetGoto", "", retain=True)  
+        mqtt_client.publish(scene + "target", "", retain=True)  
         mqtt_client.publish(scene + "floor", "", retain=True)  
         mqtt_client.publish(scene + "pad", "", retain=True)  
+        mqtt_client.publish(scene + "cf1", "", retain=True)  
         mqtt_client.publish(scene + "cf2", "", retain=True)  
 
 
@@ -99,7 +101,7 @@ if __name__ == '__main__':
     print("Connecting to broker ", mqtt_broker)
     mqtt_client.connect(mqtt_broker)
 
-    d1 = DroneArenaClass(toggle_active, mqtt_client, scene, 'cf1')
+    #d1 = DroneArenaClass(toggle_active, mqtt_client, scene, 'cf1')
     d2 = DroneArenaClass(toggle_active, mqtt_client, scene, 'cf2')
  
     floor = TargetArenaClass(issue_command, mqtt_client, scene, 'floor',
@@ -112,8 +114,7 @@ if __name__ == '__main__':
     target_pad = TargetArenaClass(intercept_command, mqtt_client, 
             scene, 'target', c = "#3300AA", s = [0.4,0.1,0.4], isMovable=True)
 
-    drones = dict()
-    drones['cf1'] = d1
+    #drones['cf1'] = d1
     drones['cf2'] = d2
 
     mqtt_client.loop_start() #start loop to process received mqtt messages
