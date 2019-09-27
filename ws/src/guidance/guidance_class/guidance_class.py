@@ -271,8 +271,9 @@ class GuidanceClass:
         return
 
 
-
-    ##### Guidance Methods
+    ## ===================================================================
+    #####                     Guidance Methods
+    ## ===================================================================
     def gen_goTo(self, p, t2go = 0.0):
         """
         Generate a tracking trajectory to reach an absolute waypoint 
@@ -442,8 +443,9 @@ class GuidanceClass:
         self.mission_queue.update(miss)
 
         return True
-
+    ## =================================================================
     ###### SERVICES
+    ## =================================================================
     # Service handler: Generation of generic trajectory piece
     def handle_genTrackTrj(self, req):
         """
@@ -517,7 +519,7 @@ class GuidanceClass:
         Generate a impact trajectory just specifying the modulus of the 
         speed and the time-to-go to reach the target.
         """
-        ndeg = 10
+        ndeg = 19
         v_norm = req.v_norm
 
         # Take the current pose of the vehicle
@@ -659,7 +661,7 @@ class GuidanceClass:
         Generate a impact trajectory just specifying the modulus of the 
         acceleration, speed and the time to go.
         """
-        ndeg = 12
+        ndeg = 16
         Tz_norm = req.a_norm
         v_norm = req.v_norm
 
