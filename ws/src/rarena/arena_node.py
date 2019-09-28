@@ -11,9 +11,13 @@ import numpy as np
 
 from commander_interface.srv import GoTo 
 
-from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaClass, RArenaClass
+from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaClass
 
 scene = "/topic/test"
+entities = []
+
+mqtt_client = mqtt.Client("client-ros", clean_session=True, userdata=None ) 
+mqtt_broker = "oz.andrew.cmu.edu"
 
 # Services callbacks
 goTo = rospy.ServiceProxy('/cf2/Commander_Node/goTo_srv', GoTo)
@@ -72,29 +76,57 @@ def intercept_command(p):
                     print("Service did not process request: " + str(exc))
 
 
-# Signal handler for destroying object in Arena
-def signal_handler(sig, frame):
-    print("Removing objects before quitting...")
-    mqtt_client.publish(scene + "/" + "cube_0", "", retain=True)  
-    mqtt_client.publish(scene + "/" + "cube_1", "", retain=True) 
-    mqtt_client.publish(scene + "/" + "cube_2", "", retain=True)
-    mqtt_client.publish(scene + "/" + "line_0", "", retain=True)    
-    mqtt_client.publish(scene + "/" + "line_1", "", retain=True)
-    mqtt_client.publish(scene + "/" + "line_2", "", retain=True)
+# # Signal handler for destroying object in Arena
+# def signal_handler(sig, frame):
+#     # print("Removing objects before quitting...")
+#     # mqtt_client.publish(scene + "/" + "cube_0", "", retain=True)  
+#     # mqtt_client.publish(scene + "/" + "cube_1", "", retain=True) 
+#     # mqtt_client.publish(scene + "/" + "cube_2", "", retain=True)
+#     # mqtt_client.publish(scene + "/" + "line_0", "", retain=True)    
+#     # mqtt_client.publish(scene + "/" + "line_1", "", retain=True)
+#     # mqtt_client.publish(scene + "/" + "line_2", "", retain=True)
 
-    time.sleep(1)
+#     # time.sleep(1)
+
+#     print("Quitting")
+#     mqtt_client.disconnect() #disconnect
+#     mqtt_client.loop_stop() #stop loop
+
+# signal.signal(signal.SIGINT, signal_handler)
+
+def generate_entities():
+    global entities
+
+    nodeA = NodeArenaClass(mqtt_client, scene, 'nodeA', id=0, 
+      pos=[1,0.5,1], scale=[.2,.2,.2], pose_source="vrpn_client_node", color="#AA00AA")
+    nodeB = NodeArenaClass(mqtt_client, scene, 'nodeB', id=1, 
+      pos=[-1,0.5,-1], scale=[.2,.2,.2], pose_source="vrpn_client_node", color="#AA00AA")
+    edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=2, 
+      start_node=nodeA, end_node=nodeB, color="#AA00AA", animate=True)
+    drone = DroneArenaClass(mqtt_client, scene, 'cf2', id=3, 
+      scale=[.2,.1,.2], pose_source="vrpn_client_node", color="#0000AA")
+
+    entities = [nodeA,nodeB,edge1,drone]
+
+def update_entities():
+    global entities
+
+    for entity in entities:
+        entity.update()
+
+def remove_entities():
+    global entities
+    print("Cleaning up all topics.")
+    for entity in entities:
+      print("Removing {}".format(entity))
+      entity.remove()
 
     print("Quitting")
     mqtt_client.disconnect() #disconnect
     mqtt_client.loop_stop() #stop loop
 
-signal.signal(signal.SIGINT, signal_handler)
-
 if __name__ == '__main__':
     rospy.init_node('RArena_node')
-
-    mqtt_client = mqtt.Client("client-ros", clean_session=True, userdata=None ) 
-    mqtt_broker = "oz.andrew.cmu.edu"
 
     # # Instatiate the MQTT client class
     print("Connecting to broker ", mqtt_broker)
@@ -113,22 +145,14 @@ if __name__ == '__main__':
     # target_pad = TargetArenaClass(intercept_command, mqtt_client, 
     #         scene, 'target', c = "#3300AA", s = [0.4,0.1,0.4], isMovable=True)
 
-    nodeA = NodeArenaClass(mqtt_client, scene, 'nodeA', id=0, 
-      pos=[1,0.5,1], scale=[.2,.2,.2], pose_source="vrpn_client_node")
-    nodeB = NodeArenaClass(mqtt_client, scene, 'nodeB', id=1, 
-      pos=[-1,0.5,-1], scale=[.2,.2,.2], pose_source="vrpn_client_node")
-    edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=2, 
-      start_node=nodeA, end_node=nodeB)
+    generate_entities()
 
     mqtt_client.loop_start() #start loop to process received mqtt messages
 
     #rospy.spin()
-    rate = rospy.Rate(0.5)
+    rate = rospy.Rate(.5)
     while not rospy.is_shutdown():
-        nodeA.draw()
-        nodeB.draw()
-        edge1.draw()
-        edge1.animate()
-    #     nodeA.p = np.random.rand(3)
-    #     nodeB.p = np.random.rand(3)
+        update_entities()
         rate.sleep()
+
+    rospy.on_shutdown(remove_entities)
