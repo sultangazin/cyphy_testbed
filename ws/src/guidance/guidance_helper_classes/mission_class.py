@@ -13,7 +13,6 @@ class MissionType(enum.Enum):
     Composite = 1
 
 
-
 ################ MISSION CLASS ##################
 # This class contains the information about the 
 # current mission.
@@ -42,9 +41,14 @@ class Mission:
 
         self.isActive = False 
         self.TrjType = TrajectoryType.FullTrj 
+
+        self.isStop = True
  
     def update(self, p, tg_p, trj_gen, start_time, stop_time,
             v = None, a = None, tg_v = None, tg_a = None, ttype = TrajectoryType.FullTrj):
+
+        self.isStop = False
+
         # Update the starting point
         self.start_pos = p
         if (v is not None):
