@@ -321,6 +321,9 @@ namespace controller {
         }
 
         if (setpoint_type_ == "AttTrj") {
+            // I need to keep the thrust over a limit 
+            // in order to control angles, otherwise
+            // everything will be set to 0.
             control_msg.control.thrust = 0.24;
             control_msg.control.roll = sp_roll_;
             control_msg.control.pitch = sp_pitch_;
