@@ -103,6 +103,24 @@ def updateKnots(t_impact, dt, Trec):
     return knots
 
 
+def vex(v):
+    """
+    Compute the Vex matrix from a 
+    vector
+    """
+    O = np.zeros((3,3), dtype = float)
+
+    O[0, 1] = -v[2]
+    O[0, 2] = v[1]
+    O[1, 0] = v[2]
+    O[1, 2] = -v[0]
+
+    O[2, 0] = v[1]
+    O[2, 1] = v[0]
+
+    return O
+
+
 def AddConstraint(A, constr):
     N = constr.size
     col_constr = constr.reshape(N,1)
