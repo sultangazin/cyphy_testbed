@@ -77,7 +77,7 @@ class MissionQueue:
     def __init__(self):
         self.missList = []
         self.numItems = 0
-        self.currItem = 0
+        self.currItem = None
 
     def insertItem(self, MissionItem):
         print("Insert item")
@@ -104,13 +104,113 @@ class MissionQueue:
             return None
 
         for i in range(self.numItems):
+            if (self.missList[i].isStop):
+                return self.missList[i] 
+
             if (t < self.missList[i].t_stop and t > self.missList[i].t_start):
                 if (self.currItem != i):
                     self.currItem = i
                     print("Mission {} active".format(i))
+                    print("t = {} in [{}, {}] \n".format(t, self.missList[i].t_start, self.missList[i].t_stop))
+
                 return self.missList[i]
 
         return None
+
+
+###### HELPERS ######
+def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, t0, T): 
+    # Generate the interpolation matrices to reach the pre-impact 
+    # point with a given speed and acceleration.
+    (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(v0, xf - x0, vf, 
+            af)
+
+    # Generation of the trajectory with Bezier curves
+    x_lim = [3.0, 5.5, 11.0]
+    y_lim = [3.0, 5.5, 11.0]
+    z_lim = [2.4, 2.5, 4.0]
+
+    x_cnstr = np.array([[-x_lim[0], x_lim[0]], [-x_lim[1], x_lim[1]], [-x_lim[2], x_lim[2]]])
+    y_cnstr = np.array([[-y_lim[0], y_lim[0]], [-y_lim[1], y_lim[1]], [-y_lim[2], y_lim[2]]])
+    z_cnstr = np.array([[-x0[2], z_lim[0]], [-z_lim[1], z_lim[1]], [-9.90, z_lim[2]]])
+
+    # Generate the polynomial
+    #
+    print("Generating X")
+    bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=T)
+    print("\nGenerating Y")
+    bz_y = bz.Bezier(waypoints=Ywp, constraints=y_cnstr, degree=ndeg, s=T)
+    print("\nGenerating Z")
+    bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T)
+    print("\nGenerating W")
+    bz_w = bz.Bezier(waypoints=Wwp, degree=7, s=T)
+
+    print(" ================================================== \n")
+    print("Summary ")
+    print("Pos pre = \n", xf)
+    print("Vel pre = \n", vf)
+    print("Acc pre = \n", af)
+
+    print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
+    print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
+    print("Final Acceleration: [%.3f, %.3f, %.3f]"%(Xwp[2,1], Ywp[2,1], Zwp[2,1]))
+
+    print("Solution Position: [%.3f, %.3f, %.3f]"%(bz_x.eval(T), bz_y.eval(T), bz_z.eval(T)))
+    print("Solution Velocity: [%.3f, %.3f, %.3f]"%
+            (bz_x.eval(T, [1]), bz_y.eval(T, [1]), bz_z.eval(T, [1])))
+    print("Solution Acceleration: [%.3f, %.3f, %.3f]"%(bz_x.eval(T, [2]), bz_y.eval(T, [2]), bz_z.eval(T, [2])))
+
+
+    trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w))
+  
+    # Compute the absolute times for this trajectory
+    t_start = t0
+    t_end = t_start + T
+
+    mission = Mission()
+    mission.update(
+                p = x0,
+                v = v0, 
+                tg_p = xf, 
+                tg_v = vf, 
+                tg_a = af,
+                trj_gen = trj_obj,
+                start_time = t_start,
+                stop_time = t_end, 
+                ttype = TrajectoryType.FullTrj)
+
+    return mission
+
+def gen_MissionAtt(qf, x0, v0, xf, vf, af, t_s, DT):
+    # Extract the Z axis from the target quaternion
+    tg_Z = quat2Z(qf)
+
+    n = np.array([-tg_Z[1], tg_Z[0], 0.0]) 
+    theta = math.asin(np.linalg.norm(n))
+    
+    temp_q = np.concatenate(([math.cos(theta/2.0)], n * math.sin(theta/2.0)))
+    eul_angles = ToEulerAngles(temp_q)
+
+    endTrj = ConstAttitudeTrj(x0, v0, np.array([0, 0, -9.81]), eul_angles[0], eul_angles[1], eul_angles[2])
+
+    mission = Mission()
+    t_start = t_s 
+    t_end = t_start + DT
+
+    mission.update(
+                p = x0,
+                v = v0, 
+                tg_p = xf, 
+                tg_v = vf,
+                tg_a = af,
+                trj_gen = endTrj,
+                start_time = t_start,
+                stop_time = t_end, 
+                ttype = TrajectoryType.AttTrj)
+
+    return mission
+
+
 
 
 
@@ -144,6 +244,10 @@ class GuidanceClass:
         self.mission_queue = MissionQueue()
         
         self.StopUpdating = True 
+
+        self.Active = False
+
+        self.Stopped =  True
 
 
     def loadParameters(self):
@@ -198,27 +302,61 @@ class GuidanceClass:
        
         current = self.mission_queue.getItemAtTime(t)
  
-        output_msg = ControlSetpoint()
-        output_msg.header.stamp = rospy.Time.now()
-
-        # Fill the output message for the controller differently depending on 
-        # the type of mission that is going to be requested:
+        
+        # In case there are not other mission element to process...
         if current == None:
-            self.StopUpdating = True
-            (keep_pos, _, _) = self.current_mission.getEnd() 
-            output_msg.p.x = keep_pos[0]
-            output_msg.p.y = keep_pos[1]
-            output_msg.p.z = keep_pos[2]
-            
-            output_msg.v.x = 0.0 
-            output_msg.v.y = 0.0
-            output_msg.v.z = 0.0
-            output_msg.a.x = 0.0
-            output_msg.a.y = 0.0
-            output_msg.a.z = 0.0
+            # If is not the time to stop, ask for the last point of the 
+            # last mission element.
+            if not self.Stopped:
+                output_msg = ControlSetpoint()
+                output_msg.header.stamp = rospy.Time.now()
+
+                (keep_pos, v, _) = self.current_mission.getEnd() 
+                # Send the message once and then set the flag to stop
+                # updating.
+                if self.Active:
+                    output_msg.p.x = keep_pos[0]
+                    output_msg.p.y = keep_pos[1]
+                    output_msg.p.z = keep_pos[2]
+                    
+                    output_msg.v.x = 0.0 
+                    output_msg.v.y = 0.0
+                    output_msg.v.z = 0.0
+                    output_msg.a.x = 0.0
+                    output_msg.a.y = 0.0
+                    output_msg.a.z = 0.0
+                    output_msg.setpoint_type  = "FullTrj"
+
+                    print("End of Trajectory")
+                    print("Stopping at \n", keep_pos)
+                    self.ctrl_setpoint_pub.publish(output_msg)
+                    self.Active = False
+            # If a stop has been requested, send a stop 
+            # command to the controller.
+            else: 
+                output_msg = ControlSetpoint()
+                output_msg.header.stamp = rospy.Time.now()
+                
+                output_msg.setpoint_type = "StopCmd"
+                self.ctrl_setpoint_pub.publish(output_msg)
+                self.Active = False
+
         else:
-            self.StopUpdating = False   
+            output_msg = ControlSetpoint()
+            output_msg.header.stamp = rospy.Time.now()
+
             self.current_mission = current
+
+            # If the current mission element is an empty mission,
+            # reset the mission queue and set the flag to indicate
+            # that a stop has been requested.
+            if (self.current_mission.isStop == True):
+                self.mission_queue.reset()
+                self.Stopped = True
+                return
+
+            self.Stopped = False
+
             trj_type = self.current_mission.getTrjType()
 
             # Evaluate the current setpoint
@@ -258,9 +396,9 @@ class GuidanceClass:
                 output_msg.rpy.y = pitch
                 output_msg.rpy.z = yaw            
 
-        # Pubblish the evaluated trajectory
-        if (not self.StopUpdating):
-            self.ctrl_setpoint_pub.publish(output_msg)
+            # Pubblish the evaluated trajectory
+            if self.Active:
+                self.ctrl_setpoint_pub.publish(output_msg)
 
         return
 
@@ -319,7 +457,7 @@ class GuidanceClass:
         miss.update(
                 p = start_pos,
                 v = start_vel, 
-                tg_p = tg_prel, 
+                tg_p = tg_p, 
                 tg_v = tg_v, 
                 tg_a = tg_a,
                 trj_gen = traj_obj,
@@ -343,8 +481,12 @@ class GuidanceClass:
 
         if (p is not None):
             tg_prel = np.array([p[0] - start_pos[0], p[1] - start_pos[1], -start_pos[2]])
+            tg_p = np.copy(p)
+            tg_p[2] = 0.0
         else:
             tg_prel = np.array([0.0, 0.0, -start_pos[2]])
+            tg_p = np.copy(start_pos)
+            tg_p[2] = 0.0
 
         t_end = (start_pos[2] / vland)
         tg_v = np.zeros((3))
@@ -373,11 +515,11 @@ class GuidanceClass:
 
         # Update the mission object
         t_start = rospy.get_time()
-        miss = Mission()
-        miss.update(
+        miss_element = Mission()
+        miss_element.update(
                 p = start_pos,
                 v = start_vel, 
-                tg_p = tg_prel, 
+                tg_p = tg_p, 
                 tg_v = tg_v, 
                 tg_a = tg_a,
                 trj_gen = traj_obj,
@@ -385,7 +527,10 @@ class GuidanceClass:
                 stop_time = t_end + t_start,
                 ttype = TrajectoryType.LandTrj
                 )
-        self.mission_queue.update(miss)
+        self.mission_queue.update(miss_element)
+        self.mission_queue.insertItem(Mission())
+
+        
 
         return True 
 
@@ -403,7 +548,8 @@ class GuidanceClass:
             t_end = t2go
             vtakeoff = h / t2go
 
-        tg_prel = np.array([0.0, 0.0, start_pos[2] + h])
+        tg_p = start_pos + np.array([0, 0, h])
+        tg_prel = np.array([0.0, 0.0, h])
         tg_v = np.zeros((3))
         tg_a = np.zeros((3))
                  
@@ -432,7 +578,7 @@ class GuidanceClass:
         miss.update(
                 p = start_pos,
                 v = np.zeros(3), 
-                tg_p = tg_prel, 
+                tg_p = tg_p, 
                 tg_v = tg_v, 
                 tg_a = tg_a,
                 trj_gen = traj_obj,
@@ -443,6 +589,8 @@ class GuidanceClass:
         self.mission_queue.update(miss)
 
         return True
+
+
     ## =================================================================
     ###### SERVICES
     ## =================================================================
@@ -513,13 +661,15 @@ class GuidanceClass:
         self.mission_queue.update(miss)
 
         return True 
+ 
 
     def handle_genTrjAuto(self, req):
         """
         Generate a impact trajectory just specifying the modulus of the 
         speed and the time-to-go to reach the target.
         """
-        ndeg = 19
+        ndeg = 12
+        a_norm = req.a_norm
         v_norm = req.v_norm
 
         # Take the current pose of the vehicle
@@ -533,7 +683,7 @@ class GuidanceClass:
         tg_q = quatFromPoseMsg(self.current_target) 
         tg_yaw = quat2yaw(tg_q)
 
-        rospy.loginfo("\nOn Target in " + str(req.t2go) + " sec!")
+        rospy.loginfo("\n\n\nOn Target in " + str(req.t2go) + " sec!")
         rospy.loginfo("Target = [" + str(tg_pos[0]) + " " +
                 str(tg_pos[1]) + " " + str(tg_pos[2]) + "]")
         rospy.loginfo("Vehicle = [" + str(start_pos[0]) + " " +
@@ -545,116 +695,39 @@ class GuidanceClass:
         # Compute the velocity and acceleration on the target
         # (Want to get there with 0 acceleration)
         (tg_v, tg_a) = computeTerminalNormalVel(tg_q, v_norm)
-        #tg_v[2] = np.minimum(tg_v[2], -0.5)
-        tg_v[2] = -0.5
-        
-        # Time to be on a symmetric parabola
-       # DT = (np.absolute(tg_v[2]) / 9.81) * 2.0
 
+        tg_v[2] = -2.0
+        
         # Generate the entry poin to the final part of the trajectory 
         # This part is balistic because we are supposed to control just
         # in attitude.
         (tg_pre, tg_vpre, tg_apre) = computeTerminalTrj(
                 tg_pos, 
                 tg_v, 
-                np.array([0,0,-9.81]), 
+                np.array([0, 0, -9.81]), 
                 DT) 
-        print("Acc pre = \n", tg_apre)
-        print("Vel pre = \n", tg_vpre)
-        print("Pos pre = \n", tg_pre)
-
-        rospy.loginfo("Target Vel= [" + str(tg_v[0]) + " " +
-                str(tg_v[1]) + " " + str(tg_v[2]) + "]")
-        rospy.loginfo("Target Acc= [" + str(tg_a[0]) + " " +
-                str(tg_a[1]) + " " + str(tg_a[2]) + "]")
-
+        
         # Generate the interpolation matrices to reach the pre-impact point
         # This service produce a trajectory to reach the point with a
         # constant speed.
-        (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(
-                start_vel,
-                tg_pre - start_pos,
-                tg_vpre,
-                np.zeros(3, dtype=float))
-
-        # Generation of the trajectory with Bezier curves
-        x_lim = [3.0, 5.5, 11.0]
-        y_lim = [3.0, 5.5, 11.0]
-        z_lim = [2.4, 2.5, 5.0]
-
-        x_cnstr = np.array([[-x_lim[0], x_lim[0]], 
-            [-x_lim[1], x_lim[1]], 
-            [-x_lim[2], x_lim[2]]])
-        y_cnstr = np.array([[-y_lim[0], y_lim[0]], 
-            [-y_lim[1], y_lim[1]], 
-            [-y_lim[2], y_lim[2]]])
-        z_cnstr = np.array([[-start_pos[2], z_lim[0]], 
-            [-z_lim[1], z_lim[1]], 
-            [-9.90, z_lim[2]]])
-
-        # Generate the polynomial
-        #
-        print("Generating X")
-        bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=T)
-        print("\nGenerating Y")
-        bz_y = bz.Bezier(waypoints=Ywp, constraints=y_cnstr, degree=ndeg, s=T)
-        print("\nGenerating Z")
-        bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T)
-        print("\nGenerating W")
-        bz_w = bz.Bezier(waypoints=Wwp, degree=7, s=T)
-
-        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
-        print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
-        print("Final Acceleration: [%.3f, %.3f, %.3f]"%(Xwp[2,1], Ywp[2,1], Zwp[2,1]))
-
-        print("Solution Position: [%.3f, %.3f, %.3f]"%(bz_x.eval(T), bz_y.eval(T), bz_z.eval(T)))
-        print("Solution Velocity: [%.3f, %.3f, %.3f]"%
-                (bz_x.eval(T, [1]), bz_y.eval(T, [1]), bz_z.eval(T, [1])))
-        print("Solution Acceleration: [%.3f, %.3f, %.3f]"%(bz_x.eval(T, [2]), bz_y.eval(T, [2]), bz_z.eval(T, [2])))
-
-
-        trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w))
-      
-        # Compute the absolute times for this trajectory
         t_start = rospy.get_time()
-        t_end = t_start + T
-
-        mission = Mission()
-        mission.update(
-                    p = start_pos,
-                    v = start_vel, 
-                    tg_p = tg_pre, 
-                    tg_v = tg_vpre, 
-                    tg_a = tg_apre,
-                    trj_gen = trj_obj,
-                    start_time = t_start,
-                    stop_time = t_end, 
-                    ttype = TrajectoryType.FullTrj)
+        mission_element = gen_MissionAuto(ndeg, start_vel, 
+                start_pos, 
+                tg_pre, 
+                tg_vpre, 
+                np.zeros(3, dtype=float), 
+                t_start, T)
 
         # Reset
-        self.mission_queue.update(mission)
+        self.mission_queue.update(mission_element)
+        
+        mission_element = gen_MissionAtt(tg_q, tg_pre, tg_vpre, tg_pos, tg_v, np.array([0, 0, -9.81]), t_start + T, DT * 10)   
+        self.mission_queue.insertItem(mission_element)
+        self.mission_queue.insertItem(Mission()) # Insert empty mission element to stop
 
-        eul_angles = ToEulerAngles(tg_q)
-        endTrj = ConstAttitudeTrj(tg_pre, tg_vpre, tg_a, eul_angles[0], eul_angles[1], eul_angles[2])
- 
-        mission = Mission()
-        t_start = t_end
-        t_end = t_start + DT
-
-        mission.update(
-                    p = tg_pre,
-                    v = tg_vpre, 
-                    tg_p = tg_pos, 
-                    tg_v = tg_v,
-                    tg_a = tg_a,
-                    trj_gen = endTrj,
-                    start_time = t_start,
-                    stop_time = t_end, 
-                    ttype = TrajectoryType.AttTrj)
-
-        self.mission_queue.insertItem(mission)
-
+        self.Active = True
         return True
+
 
     def handle_genImpTrjAuto(self, req):
         """
@@ -689,94 +762,97 @@ class GuidanceClass:
         # a Tz_norm acceleration along the Zb
         (tg_v, tg_a) = computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm)
 
-        #tg_v = tg_v + np.array([0.0, 0.0, DT * tg_a[2]])
-
-        # I want the Zb speed to be at least -1.0
-        #tg_v[2] = np.minimum(tg_v[2], -0.5)
-        tg_v[2] = -0.5 
+        tg_v[2] = -2.0 
  
         (tg_pre, tg_vpre, tg_apre) = computeTerminalTrj(
                 tg_pos,
                 tg_v,
                 tg_a,
-                DT)
-
-        print("Acc pre = \n", tg_apre)
-        print("Vel pre = \n", tg_vpre)
-        print("Pos pre = \n", tg_pre)
-
-        rospy.loginfo("Target Vel= [" + str(tg_v[0]) + " " +
-                str(tg_v[1]) + " " + str(tg_v[2]) + "]")
-
-        rospy.loginfo("Target Acc= [" + str(tg_a[0]) + " " +
-                str(tg_a[1]) + " " + str(tg_a[2]) + "]")
-
-        # Generate the interpolation matrices to reach the pre-impact 
-        # point with a given speed and acceleration.
-        (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(start_vel, tg_pre - start_pos, tg_vpre, tg_apre)
-
-        # Generation of the trajectory with Bezier curves
-        x_lim = [3.0, 5.5, 11.0]
-        y_lim = [3.0, 5.5, 11.0]
-        z_lim = [2.4, 2.5, 5.0]
-
-        x_cnstr = np.array([[-x_lim[0], x_lim[0]], [-x_lim[1], x_lim[1]], [-x_lim[2], x_lim[2]]])
-        y_cnstr = np.array([[-y_lim[0], y_lim[0]], [-y_lim[1], y_lim[1]], [-y_lim[2], y_lim[2]]])
-        z_cnstr = np.array([[-start_pos[2], z_lim[0]], [-z_lim[1], z_lim[1]], [-9.90, z_lim[2]]])
-
-        # Generate the polynomial
-        #
-        print("Generating X")
-        bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=T)
-        print("\nGenerating Y")
-        bz_y = bz.Bezier(waypoints=Ywp, constraints=y_cnstr, degree=ndeg, s=T)
-        print("\nGenerating Z")
-        bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T)
-        print("\nGenerating W")
-        bz_w = bz.Bezier(waypoints=Wwp, degree=7, s=T)
-
-        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
-        print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
-        print("Final Acceleration: [%.3f, %.3f, %.3f]"%(Xwp[2,1], Ywp[2,1], Zwp[2,1]))
-
-        print("Solution Position: [%.3f, %.3f, %.3f]"%(bz_x.eval(T), bz_y.eval(T), bz_z.eval(T)))
-        print("Solution Velocity: [%.3f, %.3f, %.3f]"%
-                (bz_x.eval(T, [1]), bz_y.eval(T, [1]), bz_z.eval(T, [1])))
-        print("Solution Acceleration: [%.3f, %.3f, %.3f]"%(bz_x.eval(T, [2]), bz_y.eval(T, [2]), bz_z.eval(T, [2])))
-
-
-        trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w))
-      
-        # Compute the absolute times for this trajectory
+                DT) 
+        
         t_start = rospy.get_time()
-        t_end = t_start + T
+        mission_element = gen_MissionAuto(ndeg, start_vel,
+                start_pos,
+                tg_pre,
+                tg_vpre,
+                tg_apre,
+                t_start, T)
 
-        mission = Mission()
-        mission.update(
-                    p = start_pos,
-                    v = start_vel, 
-                    tg_p = tg_pre, 
-                    tg_v = tg_vpre, 
-                    tg_a = tg_apre,
-                    trj_gen = trj_obj,
-                    start_time = t_start,
-                    stop_time = t_end, 
-                    ttype = TrajectoryType.FullTrj)
+        # Reset the current mission queue
+        self.mission_queue.update(mission_element)
 
-        # Reset
-        self.mission_queue.update(mission)
+        mission_element = gen_MissionAtt(tg_q, tg_pre, tg_vpre, tg_pos, tg_v, tg_a, t_start + T, DT * 10)   
+        self.mission_queue.insertItem(mission_element)
+        self.mission_queue.insertItem(Mission())
 
-        eul_angles = ToEulerAngles(tg_q)
-        endTrj = ConstAttitudeTrj(tg_pre, tg_vpre, tg_a, eul_angles[0], eul_angles[1], eul_angles[2])
- 
-        mission = Mission()
-        t_start = t_end
+        self.Active = True
+        return True
+
+    def gen_flip(self, duration):
+        """
+        Generate a tracking trajectory to reach an absolute waypoint 
+        with a given velocity and acceleration.
+        """
+        start_pos = posFromOdomMsg(self.current_odometry)
+        start_vel = velFromOdomMsg(self.current_odometry)
+
+        # Go up half a meter
+        tg_p = start_pos + np.array([0, 0, 0.8])
+        tg_prel = tg_p - start_pos
+        tg_v = np.zeros((3))
+        tg_a = np.zeros((3))
+                 
+        goto_vel = 0.2 
+
+        rospy.loginfo("Target Relative = [%.3f, %.3f, %.3f]" % (tg_prel[0], tg_prel[1], tg_prel[2]))
+
+        (X, Y, Z, W) = genInterpolationMatrices(start_vel, tg_prel, tg_v, tg_a)
+        
+        DT = np.linalg.norm(tg_prel) / goto_vel 
+
+        # Times (Absolute and intervals)
+        knots = np.array([0, DT]) # One second each piece
+
+        # Polynomial characteristic:  order
+        ndeg = 7
+
+        ppx = pw.PwPoly(X, knots, ndeg)
+        ppy = pw.PwPoly(Y, knots, ndeg)
+        ppz = pw.PwPoly(Z, knots, ndeg)
+        ppw = pw.PwPoly(W, knots, ndeg) 
+        traj_obj = trj.Trajectory(ppx, ppy, ppz, ppw)
+
+        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(X[0,1], Y[0,1], Z[0,1]))
+        print("Solution: [%.3f, %.3f, %.3f]"%(ppx.eval(DT, 0), ppy.eval(DT, 0), ppz.eval(DT, 0)))
+
+        # Update the mission object
+        t_start = rospy.get_time()
         t_end = t_start + DT
+        miss = Mission()
+        miss.update(
+                p = start_pos,
+                v = start_vel, 
+                tg_p = tg_p, 
+                tg_v = tg_v, 
+                tg_a = tg_a,
+                trj_gen = traj_obj,
+                start_time = t_start,
+                stop_time = t_end, 
+                ttype = TrajectoryType.FullTrj
+                )
+        self.mission_queue.update(miss)
+
+
+        tg_a = np.array([0, 0, -9.81])
+        endTrj = ConstAttitudeTrj(tg_p, tg_v, tg_a, (45.0 / 180.0) * math.pi, 0.0, 0.0) 
+        mission = Mission()
+        t_start = t_end 
+        t_end = t_start + duration
 
         mission.update(
-                    p = tg_pre,
-                    v = tg_vpre, 
-                    tg_p = tg_pos, 
+                    p = tg_prel,
+                    v = tg_v, 
+                    tg_p = tg_p, 
                     tg_v = tg_v,
                     tg_a = tg_a,
                     trj_gen = endTrj,
@@ -786,8 +862,7 @@ class GuidanceClass:
 
         self.mission_queue.insertItem(mission)
 
-        return True
-
+        return True 
 
 
     def handle_exeMission(self, req):
@@ -797,6 +872,7 @@ class GuidanceClass:
         tg_p = req.target_p
         tg_v = req.target_v
         tg_a = req.target_a
+
 
         if (req.mission_type == "goTo"):
             self.gen_goTo(tg_p, t2go)        
@@ -814,6 +890,10 @@ class GuidanceClass:
         if (req.mission_type == "impact_acc"):
             self.gen_impact()
 
+        if (req.mission_type == "flip"):
+            self.gen_flip(t2go)
+
+        self.Active = True
         return True
 
 
