@@ -311,13 +311,14 @@ class GuidanceClass:
                 output_msg = ControlSetpoint()
                 output_msg.header.stamp = rospy.Time.now()
 
+                recovery_time = 0.3
                 (keep_pos, v, _) = self.current_mission.getEnd() 
                 # Send the message once and then set the flag to stop
                 # updating.
                 if self.Active:
-                    output_msg.p.x = keep_pos[0]
-                    output_msg.p.y = keep_pos[1]
-                    output_msg.p.z = keep_pos[2]
+                    output_msg.p.x = keep_pos[0] + v[0] * recovery_time 
+                    output_msg.p.y = keep_pos[1] + v[1] * recovery_time 
+                    output_msg.p.z = keep_pos[2] + v[2] * recovery_time 
                     
                     output_msg.v.x = 0.0 
                     output_msg.v.y = 0.0
@@ -713,7 +714,7 @@ class GuidanceClass:
         t_start = rospy.get_time()
         mission_element = gen_MissionAuto(ndeg, start_vel, 
                 start_pos, 
-                tg_pre, 
+                tg_pre + np.array([0,0,-0.10]), 
                 tg_vpre, 
                 np.zeros(3, dtype=float), 
                 t_start, T)
@@ -773,7 +774,7 @@ class GuidanceClass:
         t_start = rospy.get_time()
         mission_element = gen_MissionAuto(ndeg, start_vel,
                 start_pos,
-                tg_pre,
+                tg_pre + np.array([0,0,-0.10]),
                 tg_vpre,
                 tg_apre,
                 t_start, T)
@@ -781,8 +782,8 @@ class GuidanceClass:
         # Reset the current mission queue
         self.mission_queue.update(mission_element)
 
-        mission_element = gen_MissionAtt(tg_q, tg_pre, tg_vpre, tg_pos, tg_v, tg_a, t_start + T, DT * 10)   
-        self.mission_queue.insertItem(mission_element)
+        #mission_element = gen_MissionAtt(tg_q, tg_pre, tg_vpre, tg_pos, tg_v, tg_a, t_start + T, DT * 10)   
+        #self.mission_queue.insertItem(mission_element)
         self.mission_queue.insertItem(Mission())
 
         self.Active = True
