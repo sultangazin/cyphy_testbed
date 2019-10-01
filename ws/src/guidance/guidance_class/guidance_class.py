@@ -184,14 +184,22 @@ def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, t0, T):
 def gen_MissionAtt(qf, x0, v0, xf, vf, af, t_s, DT):
     # Extract the Z axis from the target quaternion
     tg_Z = quat2Z(qf)
+    #b_Z = quat2Z(qb)
 
-    n = np.array([-tg_Z[1], tg_Z[0], 0.0]) 
-    theta = math.asin(np.linalg.norm(n))
-    
-    temp_q = np.concatenate(([math.cos(theta/2.0)], n * math.sin(theta/2.0)))
-    eul_angles = ToEulerAngles(temp_q)
+    c_prod = vex(np.array([0,0,1])) * tg_Z
+    c_prod_norm = np.linalg.norm(c_prod)
 
-    endTrj = ConstAttitudeTrj(x0, v0, np.array([0, 0, -9.81]), eul_angles[0], eul_angles[1], eul_angles[2])
+    theta = math.asin(c_prod_norm)
+    n = c_prod / c_prod_norm 
+
+    #R = quat2Rot(qb)
+    #nb = np.matmul(np.transpose(R), n) 
+    temp_q = np.concatenate(([math.cos(theta / 2.0)], 
+        n * math.sin(theta / 2.0)))
+   
+    eul_angles = ToEulerAngles(temp_q) 
+
+    endTrj = ConstAttitudeTrj(x0, v0, af, eul_angles[0], eul_angles[1], eul_angles[2])
 
     mission = Mission()
     t_start = t_s 
@@ -714,7 +722,7 @@ class GuidanceClass:
         t_start = rospy.get_time()
         mission_element = gen_MissionAuto(ndeg, start_vel, 
                 start_pos, 
-                tg_pre + np.array([0,0,-0.10]), 
+                tg_pre,# + np.array([0,0,-0.10]), 
                 tg_vpre, 
                 np.zeros(3, dtype=float), 
                 t_start, T)
@@ -797,40 +805,33 @@ class GuidanceClass:
         start_pos = posFromOdomMsg(self.current_odometry)
         start_vel = velFromOdomMsg(self.current_odometry)
 
-        # Go up half a meter
-        tg_p = start_pos + np.array([0, 0, 0.8])
+        # Generate a trajectory to start the flip with a given 
+        # upwards velocity.
+        tg_p = start_pos + np.array([0, 0, 1.0])
         tg_prel = tg_p - start_pos
-        tg_v = np.zeros((3))
+        tg_v = np.array([0, 0, 2.0])
         tg_a = np.zeros((3))
                  
-        goto_vel = 0.2 
-
-        rospy.loginfo("Target Relative = [%.3f, %.3f, %.3f]" % (tg_prel[0], tg_prel[1], tg_prel[2]))
-
+        goto_vel = 1.0 
         (X, Y, Z, W) = genInterpolationMatrices(start_vel, tg_prel, tg_v, tg_a)
         
         DT = np.linalg.norm(tg_prel) / goto_vel 
 
         # Times (Absolute and intervals)
         knots = np.array([0, DT]) # One second each piece
-
         # Polynomial characteristic:  order
         ndeg = 7
-
         ppx = pw.PwPoly(X, knots, ndeg)
         ppy = pw.PwPoly(Y, knots, ndeg)
         ppz = pw.PwPoly(Z, knots, ndeg)
         ppw = pw.PwPoly(W, knots, ndeg) 
         traj_obj = trj.Trajectory(ppx, ppy, ppz, ppw)
 
-        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(X[0,1], Y[0,1], Z[0,1]))
-        print("Solution: [%.3f, %.3f, %.3f]"%(ppx.eval(DT, 0), ppy.eval(DT, 0), ppz.eval(DT, 0)))
-
         # Update the mission object
         t_start = rospy.get_time()
         t_end = t_start + DT
-        miss = Mission()
-        miss.update(
+        miss_element = Mission()
+        miss_element.update(
                 p = start_pos,
                 v = start_vel, 
                 tg_p = tg_p, 
@@ -841,27 +842,65 @@ class GuidanceClass:
                 stop_time = t_end, 
                 ttype = TrajectoryType.FullTrj
                 )
-        self.mission_queue.update(miss)
-
-
+        self.mission_queue.update(miss_element)
+        
+        # Tilt the drone: the motion is free falling (balistic)
         tg_a = np.array([0, 0, -9.81])
         endTrj = ConstAttitudeTrj(tg_p, tg_v, tg_a, (45.0 / 180.0) * math.pi, 0.0, 0.0) 
         mission = Mission()
         t_start = t_end 
         t_end = t_start + duration
 
+        (X, Y, Z, self.r, self.p, self.y) = endTrj.eval(duration)
+        p_end = np.array([X[0], Y[0], Z[0]])
+        v_end = np.array([X[1], Y[1], Z[1]])
+        a_end = np.array([X[2], Y[2], Z[2]])
         mission.update(
-                    p = tg_prel,
+                    p = tg_p,
                     v = tg_v, 
-                    tg_p = tg_p, 
-                    tg_v = tg_v,
-                    tg_a = tg_a,
+                    tg_p = p_end,
+                    tg_v = v_end,
+                    tg_a = a_end,
                     trj_gen = endTrj,
                     start_time = t_start,
                     stop_time = t_end, 
                     ttype = TrajectoryType.AttTrj)
 
         self.mission_queue.insertItem(mission)
+
+        # Generate the recovery trajectory. 
+        RecTime = 0.5
+        (X, Y, Z, W) = genInterpolationMatrices(v_end, p_end + v_end * RecTime, np.zeros(3), np.zeros(3))
+        
+        # Times (Absolute and intervals)
+        knots = np.array([0, RecTime]) # One second each piece
+
+        # Polynomial characteristic:  order
+        ndeg = 7
+
+        ppx = pw.PwPoly(X, knots, ndeg)
+        ppy = pw.PwPoly(Y, knots, ndeg)
+        ppz = pw.PwPoly(Z, knots, ndeg)
+        ppw = pw.PwPoly(W, knots, ndeg) 
+        traj_obj = trj.Trajectory(ppx, ppy, ppz, ppw)
+
+        # Update the mission object
+        t_start = t_end 
+        t_end = t_start + RecTime 
+        miss = Mission()
+        miss.update(
+                p = p_end,
+                v = v_end, 
+                tg_p = p_end + v_end * RecTime, 
+                tg_v = np.zeros(3), 
+                tg_a = np.zeros(3),
+                trj_gen = traj_obj,
+                start_time = t_start,
+                stop_time = t_end, 
+                ttype = TrajectoryType.FullTrj
+                )
+        self.mission_queue.insertItem(miss)
+
 
         return True 
 
