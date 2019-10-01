@@ -49,7 +49,6 @@ def quat2Z(q):
          1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2])]) 
     return Z
 
-
 # Convert from quaternion to euler angles
 def ToEulerAngles(q):
     # roll (x-axis rotation)
@@ -69,6 +68,43 @@ def ToEulerAngles(q):
     yaw = math.atan2(siny_cosp, cosy_cosp);
 
     return np.array([roll, pitch, yaw])
+
+
+def Rx(a):
+    # Roll Matrix
+    R = np.eye(3)
+    R[1][1] = math.cos(a)
+    R[1][2] = -math.sin(a)
+    R[2][1] = math.sin(a)
+    R[2][2] = math.cos(a)
+    return R
+    
+def Ry(a):
+    # Pitch Matrix
+    R = np.eye(3)
+    R[0][0] = math.cos(a)
+    R[0][2] = math.sin(a)
+    R[2][0] = -math.sin(a)
+    R[2][2] = math.cos(a)
+    return R
+
+def Rz(a):
+    # Yaw Matrix
+    R = np.eye(3)
+    R[0][0] = math.cos(a)
+    R[0][1] = -math.sin(a)
+    R[1][0] = math.sin(a)
+    R[1][1] = math.cos(a)
+    return R
+
+def quat2Rot(q):
+    # Quaternion to Rotation matrix
+    R = np.zeros((3,3))
+    eul = ToEulerAngles(q)
+
+    # Yaw * Pitch * Roll (Robotic convention)
+    R = np.matmul(np.matmul(Rz(eul[2]), Ry(eul[1])), Rx(eul[0]))
+    return R
 
 
 def Mq(p):
