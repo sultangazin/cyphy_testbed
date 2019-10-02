@@ -119,16 +119,16 @@ class MissionQueue:
 
 
 ###### HELPERS ######
-def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, t0, T): 
+def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, T): 
     # Generate the interpolation matrices to reach the pre-impact 
     # point with a given speed and acceleration.
     (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(v0, xf - x0, vf, 
             af)
 
     # Generation of the trajectory with Bezier curves
-    x_lim = [3.0, 5.5, 11.0]
-    y_lim = [3.0, 5.5, 11.0]
-    z_lim = [2.4, 2.5, 4.0]
+    x_lim = [3.5, 2.5, 7.0]
+    y_lim = [3.5, 2.5, 7.0]
+    z_lim = [2.4, 2.3, 4.0]
 
     x_cnstr = np.array([[-x_lim[0], x_lim[0]], [-x_lim[1], x_lim[1]], [-x_lim[2], x_lim[2]]])
     y_cnstr = np.array([[-y_lim[0], y_lim[0]], [-y_lim[1], y_lim[1]], [-y_lim[2], y_lim[2]]])
@@ -164,7 +164,7 @@ def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, t0, T):
     trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w))
   
     # Compute the absolute times for this trajectory
-    t_start = t0
+    t_start = rospy.get_time()
     t_end = t_start + T
 
     mission = Mission()
@@ -186,7 +186,7 @@ def gen_MissionAtt(qf, x0, v0, xf, vf, af, t_s, DT):
     tg_Z = quat2Z(qf)
     #b_Z = quat2Z(qb)
 
-    c_prod = vex(np.array([0,0,1])) * tg_Z
+    c_prod = np.matmul(vex(np.array([0,0,1])), tg_Z)
     c_prod_norm = np.linalg.norm(c_prod)
 
     theta = math.asin(c_prod_norm)
@@ -232,11 +232,12 @@ class GuidanceClass:
 
         self.loadParameters()
 
+        self.advertiseTopics()
+
         self.registerCallbacks()
 
         self.registerServices()
 
-        self.advertiseTopics()
 
         rospy.loginfo("\n [%s] Guidance Initialized!"%rospy.get_name()) 
 
@@ -476,7 +477,40 @@ class GuidanceClass:
                 )
         self.mission_queue.update(miss)
 
-        return True 
+        return True
+
+    def gen_goToBZ(self, p, t2go = 0.0):
+        """
+        Generate a tracking trajectory to reach an absolute waypoint 
+        with a given velocity and acceleration.
+        """
+        start_pos = posFromOdomMsg(self.current_odometry)
+        start_vel = velFromOdomMsg(self.current_odometry)
+
+        tg_p = p 
+        tg_prel = tg_p - start_pos
+        tg_v = np.zeros((3))
+        tg_a = np.zeros((3))
+                 
+
+        if (t2go == 0.0):
+            goto_vel = 0.5 
+            T = np.linarg.norm(tg_prel) / goto_vel
+        else:
+            T = t2go
+
+        ndeg = 12
+        mission_element = gen_MissionAuto(ndeg, start_vel, 
+                start_pos, 
+                tg_p,
+                tg_v, 
+                np.zeros(3, dtype=float), 
+                T)
+
+        self.mission_queue.update(mission_element)
+
+        return True
+
 
     def gen_land(self, p = None):
         """
@@ -539,9 +573,8 @@ class GuidanceClass:
         self.mission_queue.update(miss_element)
         self.mission_queue.insertItem(Mission())
 
-        
-
         return True 
+
 
     def gen_takeoff(self, h, t2go=None):
         """
@@ -677,7 +710,7 @@ class GuidanceClass:
         Generate a impact trajectory just specifying the modulus of the 
         speed and the time-to-go to reach the target.
         """
-        ndeg = 12
+        ndeg = 17
         a_norm = req.a_norm
         v_norm = req.v_norm
 
@@ -703,7 +736,7 @@ class GuidanceClass:
         
         # Compute the velocity and acceleration on the target
         # (Want to get there with 0 acceleration)
-        (tg_v, tg_a) = computeTerminalNormalVel(tg_q, v_norm)
+        (tg_v, _) = computeTerminalNormalVel(tg_q, v_norm)
 
         tg_v[2] = -2.0
         
@@ -719,18 +752,18 @@ class GuidanceClass:
         # Generate the interpolation matrices to reach the pre-impact point
         # This service produce a trajectory to reach the point with a
         # constant speed.
-        t_start = rospy.get_time()
         mission_element = gen_MissionAuto(ndeg, start_vel, 
                 start_pos, 
                 tg_pre,# + np.array([0,0,-0.10]), 
                 tg_vpre, 
                 np.zeros(3, dtype=float), 
-                t_start, T)
+                T)
 
+        t_end = mission_element.t_stop 
         # Reset
         self.mission_queue.update(mission_element)
         
-        mission_element = gen_MissionAtt(tg_q, tg_pre, tg_vpre, tg_pos, tg_v, np.array([0, 0, -9.81]), t_start + T, DT * 10)   
+        mission_element = gen_MissionAtt(tg_q, tg_pre, tg_vpre, tg_pos, tg_v, np.array([0, 0, -9.81]), t_end, DT * 5)   
         self.mission_queue.insertItem(mission_element)
         self.mission_queue.insertItem(Mission()) # Insert empty mission element to stop
 
@@ -743,7 +776,7 @@ class GuidanceClass:
         Generate a impact trajectory just specifying the modulus of the 
         acceleration, speed and the time to go.
         """
-        ndeg = 16
+        ndeg = 17
         Tz_norm = req.a_norm
         v_norm = req.v_norm
 
@@ -753,6 +786,7 @@ class GuidanceClass:
         start_orientation = quatFromOdomMsg(self.current_odometry)
         start_yaw = quat2yaw(start_orientation)
 
+        start_vel = np.array([0,0,0])
         # Take the current target pose
         tg_pos = posFromPoseMsg(self.current_target)
         tg_q = quatFromPoseMsg(self.current_target) 
@@ -779,13 +813,14 @@ class GuidanceClass:
                 tg_a,
                 DT) 
         
-        t_start = rospy.get_time()
         mission_element = gen_MissionAuto(ndeg, start_vel,
                 start_pos,
                 tg_pre + np.array([0,0,-0.10]),
                 tg_vpre,
                 tg_apre,
-                t_start, T)
+                T)
+        
+        t_start = mission_element.t_start 
 
         # Reset the current mission queue
         self.mission_queue.update(mission_element)
@@ -915,7 +950,8 @@ class GuidanceClass:
 
 
         if (req.mission_type == "goTo"):
-            self.gen_goTo(tg_p, t2go)        
+            #self.gen_goTo(tg_p, t2go)        
+            self.gen_goToBZ(tg_p, t2go)
  
         if (req.mission_type == "land"): 
             self.gen_land()
