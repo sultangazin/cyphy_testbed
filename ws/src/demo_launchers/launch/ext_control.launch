@@ -5,6 +5,7 @@
   <arg name="topics/setpoint_topic" default="setpoint" />
   <arg name="topics/state_topic" default="state" />
   <arg name="topics/control_topic" default="control" />
+  <arg name="topics/ctrl_perf_topic" default="ctrl_perf" />
 
   <!-- Control parameters. -->
   <arg name="stabMode" value="1" /> <!-- 1: Angle 0: Rates -->
@@ -95,5 +96,8 @@
     <param name="topics/setpoint" value="$(arg topics/setpoint_topic)" />
     <param name="topics/state" value="$(arg topics/state_topic)" />
     <param name="topics/control" value="$(arg topics/control_topic)" />
+    <param name="topics/ctrl_perf" value="/$(arg topics/ctrl_perf_topic)" />
+
+
   </node>
 </launch>

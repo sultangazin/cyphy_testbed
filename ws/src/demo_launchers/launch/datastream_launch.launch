@@ -125,6 +125,7 @@ RArena node
 Visualization with RVIZ 
 -->
 <node pkg="tf" type="static_transform_publisher" name="baselink_broadcaster" args="0 0 0 0 0 0 1 $(arg vehicle_frame) /world 100" />
+
 <node pkg="rviz" type="rviz" name="rviz" args="-d $(find state_aggregator)/launch/cyphy_rviz.rviz" /> 
 
 <!--
@@ -135,5 +136,5 @@ Bag recording
 - /$(arg vehicle_frame)/external_odom: External Odometry from the state aggregator
 - /$(arg vehicle_frame)/external_pose_rpy: External RPY angles from the state aggregator
 -->
-<node pkg="rosbag" name="record_ext" type="record" args="-O /tmp/$(arg vehicle_frame)_ext /vrpn_client_node/$(arg vehicle_frame)/pose /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/external_pose /$(arg vehicle_frame)/external_pose_rpy"/>
+<node pkg="rosbag" name="record_ext" type="record" args="-O /tmp/$(arg vehicle_frame)_ext /vrpn_client_node/$(arg vehicle_frame)/pose /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/external_odom /$(arg vehicle_frame)/external_pose /$(arg vehicle_frame)/external_pose_rpy"/>
 </launch>

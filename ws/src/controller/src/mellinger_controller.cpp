@@ -34,6 +34,9 @@ namespace controller {
         control_pub_ = nl.advertise<testbed_msgs::ControlStamped>(
                 control_topic_.c_str(), 1, false);
 
+        error_pub_ = nl.advertise<testbed_msgs::CtrlPerfStamped>(
+                ctrl_perf_topic_.c_str(), 1, false);
+
         Reset();
 
         initialized_ = true;
@@ -85,6 +88,8 @@ namespace controller {
         if (!nl.getParam("topics/state", state_topic_)) return false;
         if (!nl.getParam("topics/setpoint", setpoint_topic_)) return false;
         if (!nl.getParam("topics/control", control_topic_)) return false;
+        
+        if (!nl.getParam("topics/ctrl_perf", ctrl_perf_topic_)) return false;
 
         // Control Mode
         if (!nl.getParam("control_mode", (int&)ctrl_mode_)) return false;
@@ -204,6 +209,16 @@ namespace controller {
             // std::cout << "p_error: " << p_error << std::endl;
             // std::cout << "v_error: " << v_error << std::endl;
 
+            testbed_msgs::CtrlPerfStamped ctrl_perf_msg;
+            ctrl_perf_msg.ep.x = p_error(0);
+            ctrl_perf_msg.ep.y = p_error(1);
+            ctrl_perf_msg.ep.z = p_error(2);
+            
+            ctrl_perf_msg.ev.x = v_error(0);
+            ctrl_perf_msg.ev.y = v_error(1);
+            ctrl_perf_msg.ev.z = v_error(2);
+
+
             // Integral Error
             i_error_x += p_error(0) * dt;
             i_error_x = std::max(std::min(p_error(0), i_range_xy), -i_range_xy);
@@ -225,9 +240,19 @@ namespace controller {
             target_thrust(0) = sp_acc_(0);
             target_thrust(1) = sp_acc_(1);
             target_thrust(2) = (sp_acc_(2) + GRAVITY_MAGNITUDE);
+                        
+            ctrl_perf_msg.fb_t.x = fb_thrust(0);
+            ctrl_perf_msg.fb_t.y = fb_thrust(1);
+            ctrl_perf_msg.fb_t.z = fb_thrust(2);
+        
+            ctrl_perf_msg.ff_t.x = target_thrust(0);
+            ctrl_perf_msg.ff_t.y = target_thrust(1);
+            ctrl_perf_msg.ff_t.z = target_thrust(2) - GRAVITY_MAGNITUDE;
 
             target_thrust = target_thrust + fb_thrust;  
             // std::cout << "target_thrust: " << target_thrust << std::endl;
+
+            error_pub_.publish(ctrl_perf_msg);
 
             // Move YAW angle setpoint
             double yaw_rate = 0;
@@ -321,13 +346,40 @@ namespace controller {
         }
 
         if (setpoint_type_ == "AttTrj") {
-            // I need to keep the thrust over a limit 
-            // in order to control angles, otherwise
-            // everything will be set to 0.
-            control_msg.control.thrust = 0.24;
-            control_msg.control.roll = sp_roll_;
-            control_msg.control.pitch = sp_pitch_;
-            control_msg.control.yaw_dot = 0.0;
+            
+            Quaterniond qt_i;
+            qt_i = Eigen::AngleAxisd(sp_yaw_, Vector3d::UnitZ()) * 
+                Eigen::AngleAxisd(sp_pitch_, Vector3d::UnitY()) *
+                Eigen::AngleAxisd(sp_roll_, Vector3d::UnitX());
+
+           // // Z target in inertial frame
+           // double x = cos(sp_roll_) * sin(sp_pitch) * cos(sp_yaw_) + sin(sp_roll_) * sin(sp_yaw_);
+           // double y = cos(sp_roll_) * sin(sp_pitch) * sin(sp_yaw_) - sin(sp_roll_) * cos(sp_yaw_);
+           // double z = cos(sp_yaw_) * cos(sp_roll_);
+           // Vector3d zt_i(x, y, z); 
+
+           // // Z target in body frame
+           // Vector3d zt_b = quat_.inverse() * zt_i;
+
+           Quaterniond qt_b = quat_.inverse() * qt_i; // Rotation Body to Target
+
+           double sinr_cosp = 2.0 * (qt_b.w() * qt_b.x() + qt_b.y() * qt_b.z());
+           double cosr_cosp = 1.0 - 2.0 * (qt_b.x() * qt_b.x() + qt_b.y() * qt_b.y());
+           double roll = atan2(sinr_cosp, cosr_cosp);
+            
+           double sinp = 2.0 * (qt_b.w() * qt_b.y() - qt_b.z() * qt_b.x());
+
+           double pitch = asin(sinp);
+
+            
+           // I need to keep the thrust over a limit 
+           // in order to control angles, otherwise
+           // everything will be set to 0.
+           control_msg.control.thrust = 0.25;
+           control_msg.control.roll = roll;
+           control_msg.control.pitch = pitch;
+           control_msg.control.yaw_dot = 0.0;
+
         }
 
         if (setpoint_type_ == "StopCmd") {
