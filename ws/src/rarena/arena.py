@@ -23,10 +23,10 @@ def posFromPoseMsg(pose_msg):
     return pos
 
 def quatFromPoseMsg(pose_msg):
-    quat = np.array([pose_msg.pose.orientation.w,
-        pose_msg.pose.orientation.x, 
-        pose_msg.pose.orientation.y,
-        pose_msg.pose.orientation.z])
+    quat = np.array([pose_msg.pose.orientation.x, 
+                     pose_msg.pose.orientation.y,
+                     pose_msg.pose.orientation.z,
+                     pose_msg.pose.orientation.w])
     return quat 
 
 
@@ -160,8 +160,8 @@ class NodeArenaClass(RArenaClass):
 
 ###### DRONE ARENA CLASS ########
 class DroneArenaClass(NodeArenaClass):
-    def __init__(self, client, scene, name, id, shape="cube", scale=[0.2,0.2,0.2], color="#AAAAAA", animate=False,
-        pose_source=None, on_click_clb=None):
+    def __init__(self, client, scene, name, id, shape="cube", color="#AAAAAA", animate=False,
+        scale=[0.5, 0.5, 0.5], pose_source=None, on_click_clb=None):
 
         self.on_click = on_click_clb
 
@@ -201,19 +201,21 @@ class DroneArenaClass(NodeArenaClass):
 
 
 ###### TARGET ARENA CLASS #######
-class TargetArenaClass(RArenaClass):
-    def __init__(self, on_click_clb, mqtt_client, scene, name, c = "#FFFFFF",
-            p = [0,0,0], s = [0.5, 0.5, 0.5], isMovable=False):
+class TargetArenaClass(NodeArenaClass):
+    def __init__(self, client, scene, name, id, shape="cube", color="#AAAAAA", animate=False,
+        pos=[0,1,0], quat=[0,0,0,0], scale=[0.5, 0.5, 0.5], pose_source=None, on_click_clb=None):
 
-        print("Creating Arena Target Object")
         self.on_click = on_click_clb
-        super(TargetArenaClass, self).__init__(mqtt_client, scene, obj_name = name, 
-                color = c, position = p, scale=s)
 
-        if (isMovable):
-            self.obj_pose_topic_ =  "/" + name + "/external_pose"
-            self.registerCallbacks()
-            
+        super(TargetArenaClass, self).__init__(client, scene, name, id, shape=shape, color=color, animate=animate, 
+        pos=pos, quat=quat, scale=scale, pose_source=pose_source)
+
+        self.registerServices()
+
+        print("Created Arena Target Object")
+
+    def registerServices(self):
+        pass
             
     def on_click_input(self, client, userdata, msg):
         click_x, click_y, click_z, user = msg.payload.split(',')
@@ -230,19 +232,6 @@ class TargetArenaClass(RArenaClass):
 
             tg_p = np.array([float(click_x), -float(click_z), float(click_y)])
             self.on_click(tg_p)
-                        
-    def registerCallbacks(self):
-        # Subscribe to vehicle state update
-        print("Subscribing to ", self.obj_pose_topic_)
-        rospy.Subscriber(self.obj_pose_topic_, 
-                PoseStamped, self.pose_callback)
-
-    def pose_callback(self, pose_msg):
-        self.position = posFromPoseMsg(pose_msg)
-        self.quaternion = quatFromPoseMsg(pose_msg)
-      
-        # plot the object in arena
-        super(TargetArenaClass, self).plot_arenaObj(self.position, self.quaternion, color=self.color)
 
 
 
@@ -253,7 +242,7 @@ class EdgeArenaClass(RArenaClass):
 
         self.packet_scale = [0.05,0.05,0.05]
         self.packet_duration = 200
-        self.loop = "true"
+        self.loop = "false"
 
         if start_node and end_node:
             self.start_node = start_node
@@ -317,7 +306,7 @@ class EdgeArenaClass(RArenaClass):
         # Update animation
         if self.animate:
             tg_scene_string = self.scene + "/"  + "cube" + "_{}".format(self.id) + "/animation"
-            cmd_string = "property: position; from: {} {} {}; to: {} {} {}; dur: {}; loop: {};".format(
+            cmd_string = "property: position; from: {} {} {}; to: {} {} {};".format(
                 self.start_node.pos[0],self.start_node.pos[1],self.start_node.pos[2],
                 self.end_node.pos[0],self.end_node.pos[1],self.end_node.pos[2],
                 self.packet_duration, self.loop)
