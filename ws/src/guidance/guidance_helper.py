@@ -200,6 +200,34 @@ def integrationStep(X, u, dt, direction):
     return X
 
 
+def IntegrationAtt(q, w, Tf, dt, direction):
+    t = 0.0  
+    N = 4
+    out_state = np.zeros((N, 1), dtype=float)
+    
+    X = np.vstack((q))
+
+    while (t < Tf):
+        X = integrationAttStep(X, w, dt, direction)
+        t = t + dt
+
+    out_state = np.copy(X)
+
+    return out_state
+
+
+# Integration Step 
+def integrationAttStep(X, w, dt, direction):
+    # x(k+1) = A(dt) x(k)  + B(dt) u(k)
+    wq = np.concatenate(([0], -w))  
+    
+    qd = M(X) * wq * 0.5
+
+    X = X + qd * dt * direction
+
+    return X
+
+
 # Back integration
 def Integration(p, v, a, Tf, dt, direction):  
     t = 0.0  
