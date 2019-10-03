@@ -128,8 +128,8 @@ def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, T):
             af)
 
     # Generation of the trajectory with Bezier curves
-    x_lim = [3.5, 2.5, 9.0]
-    y_lim = [3.5, 2.5, 9.0]
+    x_lim = [4.5, 3.5, 9.0]
+    y_lim = [4.5, 3.5, 9.0]
     z_lim = [2.4, 2.3, 5.0]
 
     x_cnstr = np.array([[-x_lim[0], x_lim[0]], [-x_lim[1], x_lim[1]], [-x_lim[2], x_lim[2]]])
@@ -501,7 +501,7 @@ class GuidanceClass:
         else:
             T = t2go
 
-        ndeg = 12
+        ndeg = 10
         mission_element = gen_MissionAuto(ndeg, start_vel, 
                 start_pos, 
                 tg_p,
@@ -712,7 +712,7 @@ class GuidanceClass:
         Generate a impact trajectory just specifying the modulus of the 
         speed and the time-to-go to reach the target.
         """
-        ndeg = 17
+        ndeg = 12
         a_norm = req.a_norm
         v_norm = req.v_norm
 

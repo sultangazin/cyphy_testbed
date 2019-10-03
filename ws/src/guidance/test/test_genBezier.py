@@ -34,20 +34,24 @@ np.set_printoptions(suppress=True)
 #Final Velocity: [0.747, 0.041, -0.039]
 #Final Acceleration: [-2.488, -0.137, -9.605]
 
+#Final Relative Position: [3.853, 0.884, -0.327]
+#Final Velocity: [2.287, 0.144, -0.062]
+#Final Acceleration: [-1.492, -0.094, -9.684]
+
 # Build the waypoint matrix
-x0 = 0.0
+x0 = 1.5
 X = np.array([
-        [ 0,  3.101], # p
-        [ 0,  0.747], # v
-        [ 0,  -2.48], # a
+        [ 0,  -0.327], # p
+        [ 0,  -0.062], # v
+        [ 0,  -9.68], # a
         ])
 
-x_lim = [3.5, 2.5, 7.0]
-x_cnstr = np.array([[-x0, x_lim[0]], [-x_lim[1], x_lim[1]], [-9.90, x_lim[2]], [-300, 300] ])
+x_lim = [2.5, 2.5, 5.0]
+x_cnstr = np.array([[-x0, x_lim[0]], [-x_lim[1], x_lim[1]], [-9.90, x_lim[2]], [-2300, 2300] ])
 
 # Generate the polynomial
-T = 3.0
-bz_x = bz.Bezier(waypoints=X, constraints=x_cnstr, degree=6, s=T, opt_der = 1)
+T = 4.5
+bz_x = bz.Bezier(waypoints=X, constraints=x_cnstr, degree=8, s=T, opt_der = 2)
 
 print("Evaluation of the bezier polynomial")
 print(bz_x.eval(T, [0,1,2]))
