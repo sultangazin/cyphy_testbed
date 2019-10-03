@@ -17,7 +17,8 @@ scene = "/topic/test"
 entities = []
 
 mqtt_client = mqtt.Client("client-ros", clean_session=True, userdata=None ) 
-mqtt_broker = "oz.andrew.cmu.edu"
+#mqtt_broker = "oz.andrew.cmu.edu"
+mqtt_broker = "192.168.1.108"
 
 # Services callbacks
 goTo = rospy.ServiceProxy('/cf2/Commander_Node/goTo_srv', GoTo)
@@ -102,11 +103,21 @@ def generate_entities():
     nodeB = NodeArenaClass(mqtt_client, scene, 'nodeB', id=1, 
       pos=[-1,0.5,-1], scale=[.2,.2,.2], pose_source="vrpn_client_node", color="#AA00AA")
     edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=2, 
-      start_node=nodeA, end_node=nodeB, color="#AA00AA", animate=True)
+      start_node=nodeA, end_node=nodeB, color="#AA00AA", animate=False)
     drone = DroneArenaClass(mqtt_client, scene, 'cf2', id=3, 
-      scale=[.2,.1,.2], pose_source="vrpn_client_node", color="#0000AA")
+      scale=[.05,.02,.05], pose_source="vrpn_client_node", color="#0000AA")
+    target = TargetArenaClass(mqtt_client, scene, 'target', id=4, 
+      scale=[.3,.01,.3], pose_source="vrpn_client_node", color="#00AAAA")
+    floor = TargetArenaClass(mqtt_client, scene, 'floor', id=5, 
+      pos=[0,0,0], quat=[0,0,0,0], scale=[5,.01,3], color="#AAAAAA")
+    workstation = NodeArenaClass(mqtt_client, scene, 'workstation', id=6, 
+      pos=[-2.25,0.25,-1.4], scale=[.5,.5,.2], color="#AAAA00")
+    edge2 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=7, 
+      start_node=workstation, end_node=drone, color="#AAAA00", animate=False)
+      
 
-    entities = [nodeA,nodeB,edge1,drone]
+
+    entities = [nodeA,nodeB,edge1,drone,target,floor,workstation,edge2]
 
 def update_entities():
     global entities
@@ -150,7 +161,7 @@ if __name__ == '__main__':
     mqtt_client.loop_start() #start loop to process received mqtt messages
 
     #rospy.spin()
-    rate = rospy.Rate(.5)
+    rate = rospy.Rate(24)
     while not rospy.is_shutdown():
         update_entities()
         rate.sleep()
