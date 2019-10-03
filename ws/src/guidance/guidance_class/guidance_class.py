@@ -48,6 +48,8 @@ class ConstAttitudeTrj:
         self.p = p
         self.y = y
 
+        self.qf = ToQuaternion(r, p, y)
+
     def eval(self, t):
         x = Integration(self.p_0, self.v_0, self.a_0, t, self.dt, 1)
         
@@ -126,9 +128,9 @@ def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, T):
             af)
 
     # Generation of the trajectory with Bezier curves
-    x_lim = [3.5, 2.5, 7.0]
-    y_lim = [3.5, 2.5, 7.0]
-    z_lim = [2.4, 2.3, 4.0]
+    x_lim = [3.5, 2.5, 9.0]
+    y_lim = [3.5, 2.5, 9.0]
+    z_lim = [2.4, 2.3, 5.0]
 
     x_cnstr = np.array([[-x_lim[0], x_lim[0]], [-x_lim[1], x_lim[1]], [-x_lim[2], x_lim[2]]])
     y_cnstr = np.array([[-y_lim[0], y_lim[0]], [-y_lim[1], y_lim[1]], [-y_lim[2], y_lim[2]]])
@@ -137,13 +139,13 @@ def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, T):
     # Generate the polynomial
     #
     print("Generating X")
-    bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=T)
+    bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=T, opt_der=3)
     print("\nGenerating Y")
-    bz_y = bz.Bezier(waypoints=Ywp, constraints=y_cnstr, degree=ndeg, s=T)
+    bz_y = bz.Bezier(waypoints=Ywp, constraints=y_cnstr, degree=ndeg, s=T, opt_der=3)
     print("\nGenerating Z")
-    bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T)
+    bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T, opt_der=3)
     print("\nGenerating W")
-    bz_w = bz.Bezier(waypoints=Wwp, degree=7, s=T)
+    bz_w = bz.Bezier(waypoints=Wwp, degree=7, s=T, opt_der=4)
 
     print(" ================================================== \n")
     print("Summary ")
@@ -747,7 +749,8 @@ class GuidanceClass:
                 tg_pos, 
                 tg_v, 
                 np.array([0, 0, -9.81]), 
-                DT) 
+                DT,
+                tg_q) 
         
         # Generate the interpolation matrices to reach the pre-impact point
         # This service produce a trajectory to reach the point with a
@@ -776,7 +779,7 @@ class GuidanceClass:
         Generate a impact trajectory just specifying the modulus of the 
         acceleration, speed and the time to go.
         """
-        ndeg = 17
+        ndeg = 8
         Tz_norm = req.a_norm
         v_norm = req.v_norm
 
