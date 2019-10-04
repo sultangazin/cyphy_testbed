@@ -39,19 +39,22 @@ np.set_printoptions(suppress=True)
 #Final Acceleration: [-1.492, -0.094, -9.684]
 
 # Build the waypoint matrix
-x0 = 1.5
+x0 = 1.3
 X = np.array([
         [ 0,  -0.327], # p
         [ 0,  -0.062], # v
-        [ 0,  -9.68], # a
+        [ 0,  -5.68], # a
         ])
 
-x_lim = [2.5, 2.5, 5.0]
+x_lim = [1.5, 3.5, 5.0]
 x_cnstr = np.array([[-x0, x_lim[0]], [-x_lim[1], x_lim[1]], [-9.90, x_lim[2]], [-2300, 2300] ])
 
 # Generate the polynomial
-T = 4.5
-bz_x = bz.Bezier(waypoints=X, constraints=x_cnstr, degree=8, s=T, opt_der = 2)
+Tv = np.arange(-0.5, 2, 0.5)
+for t in np.nditer(Tv):
+    T = 2.5 + t
+    print("TIME ", T)
+    bz_x = bz.Bezier(waypoints=X, constraints=x_cnstr, degree=8, s=T, opt_der = 3)
 
 print("Evaluation of the bezier polynomial")
 print(bz_x.eval(T, [0,1,2]))
@@ -80,6 +83,6 @@ axs[2].set_title("a")
 axs[3].plot(t, Xtj[:, 3], t, np.ones(N) * x_cnstr[3,0], t, np.ones(N) * x_cnstr[3,1])
 axs[3].set_title("j")
 
-plt.show()
+#plt.show()
 
 
