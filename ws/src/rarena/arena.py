@@ -7,7 +7,7 @@ import sys
 import time
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), './')))
 
-from commander_interface.srv import GoTo 
+from commander_interface.srv import GoTo, Land
 from guidance.srv import GenImpTrajectoryAuto
 
 from geometry_msgs.msg import PoseStamped
@@ -119,7 +119,7 @@ class NodeArenaClass(RArenaClass):
         click_x, click_y, click_z, user = msg.payload.split(',')
 
         if str(msg.topic).find("mousedown") != -1:
-            # print("Got click: {} {} {}".format(click_x, click_y, click_z))
+            print("Got click: {} {} {}".format(click_x, click_y, click_z))
             pass
             
 
@@ -163,6 +163,8 @@ class DroneArenaClass(NodeArenaClass):
     def __init__(self, client, scene, name, id, shape="cube", color="#AAAAAA", animate=False,
         scale=[0.5, 0.5, 0.5], pose_source=None, on_click_clb=None):
 
+        self.Active = False
+
         self.on_click = on_click_clb
 
         super(DroneArenaClass, self).__init__(client, scene, name, id, shape=shape, scale=scale, color=color, 
@@ -177,27 +179,37 @@ class DroneArenaClass(NodeArenaClass):
         #rospy.wait_for_service("/" + self.name + "/Commander_Node/goTo_srv")
         self.goTo = rospy.ServiceProxy("/" + self.name + "/Commander_Node/goTo_srv", GoTo)
         self.inTer = rospy.ServiceProxy("/" + self.name + "/gen_ImpTrajectoryAuto", GenImpTrajectoryAuto)
+        self.land = rospy.ServiceProxy("/" + self.name + "/Commander_Node/land_srv", Land)
+
         pass
 
 
     def on_click_input(self, client, userdata, msg):
         click_x, click_y, click_z, user = msg.payload.split(',')
     
-        if (self.isActive):
-            self.isActive = False
-            super(DroneArenaClass, self).set_color('#000022')
-            self.color = "#000022"
-            print("Drone {} Deselected\n".format(self.name))
-            super(DroneArenaClass, self).plot_arenaObj(self.position, self.quaternion)
+#        if (self.Active):
+#            self.deactivate() 
+#        else:
+#            self.activate()
+#
+        if (self.on_click is not None):
+            self.on_click(self.name) 
         else:
-            self.isActive = True
-            super(DroneArenaClass, self).set_color('#00FF00')
-            print("Drone {} Selected\n".format(self.name))
-            super(DroneArenaClass, self).plot_arenaObj(self.position, self.quaternion)
+            print("Drone {}: Click Callback not specified\n".format(self.name))
+ 
+    def deactivate(self):
+        self.Active = False
+        super(DroneArenaClass, self).set_color('#000022')
+        self.color = "#000022"
+        print("Drone {} Deselected\n".format(self.name))
 
-        self.on_click(self.name) 
-            
-       
+    def activate(self):
+        self.Active = True
+        super(DroneArenaClass, self).set_color('#00FF00')
+        print("Drone {} Selected\n".format(self.name))
+
+    def isActive(self):
+        return self.Active
 
 
 ###### TARGET ARENA CLASS #######
@@ -222,16 +234,11 @@ class TargetArenaClass(NodeArenaClass):
 
         # Create array with the target position
 
-        if str(msg.topic).find("mousedown") != -1:
-            print( "Target Position: " + str(click_x) + "," + str(click_y) + "," + str(click_z) )
-            
-            tg_string = "TargetGoto" + self.base_str;
-            client.publish(self.scene_path + "TargetGoto", 
-                    tg_string.format(click_x, click_y, click_z, 0.0, 0.0, 0.0, 0.0, 
-                    0.1, 0.1, 0.1, "#FF0000"), retain=True) 
-
-            tg_p = np.array([float(click_x), -float(click_z), float(click_y)])
-            self.on_click(tg_p)
+        print( "Target Position: " + str(click_x) + "," + str(click_y) + "," + str(click_z) )
+        
+        self.draw()
+        tg_p = np.array([float(click_x), -float(click_z), float(click_y)])
+        self.on_click(tg_p)
 
 
 
