@@ -15,13 +15,13 @@
 
   <arg name="kp_xy" value="15.5" />
   <arg name="kd_xy" value="9.2" />
-  <arg name="ki_xy" value="0.0" />
-  <arg name="i_range_xy" value="0.0" />
+  <arg name="ki_xy" value="0.2" />
+  <arg name="i_range_xy" value="0.2" />
 
   <arg name="kp_z" value="18.0" />
-  <arg name="kd_z" value="2.0" />
-  <arg name="ki_z" value="0.2" />
-  <arg name="i_range_z" value="0.1" />
+  <arg name="kd_z" value="8.0" />
+  <arg name="ki_z" value="0.4" />
+  <arg name="i_range_z" value="0.4" />
   
   <arg name="kR_xy" value="180000" />
   <arg name="kw_xy" value="13000" />
