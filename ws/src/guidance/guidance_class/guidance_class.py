@@ -134,7 +134,7 @@ def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, T):
 
     x_cnstr = np.array([[-x_lim[0], x_lim[0]], [-x_lim[1], x_lim[1]], [-x_lim[2], x_lim[2]]])
     y_cnstr = np.array([[-y_lim[0], y_lim[0]], [-y_lim[1], y_lim[1]], [-y_lim[2], y_lim[2]]])
-    z_cnstr = np.array([[-x0[2], z_lim[0]], [-z_lim[1], z_lim[1]], [-9.90, z_lim[2]]])
+    z_cnstr = np.array([[-x0[2] + 0.1, z_lim[0]], [-z_lim[1], z_lim[1]], [-9.90, z_lim[2]]])
 
     # Generate the polynomial
     #
