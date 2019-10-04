@@ -37,7 +37,7 @@ the CF.
 Run the data aggregator node, which takes the information from external 
 sensors and provides an estimator of the drone state.
 -->
-<node pkg="state_aggregator" name="aggregator" type="state_aggregator" 
+<node pkg="state_aggregator" name="aggregator_$(arg vehicle_frame)" type="state_aggregator" 
         output="screen"> 
         <!-- Topic parameters -->
         <param name="topics/in_vrpn_topic" value="$(arg vehicle_frame)" />
@@ -62,7 +62,7 @@ sensors and provides an estimator of the drone state.
 Run the data aggregator node, which takes the information from external 
 sensors and provides an estimator of the drone state.
 -->
-<node pkg="state_aggregator" name="aggregator_d2" type="state_aggregator" 
+<node pkg="state_aggregator" name="aggregator_$(arg vehicle_frame2)" type="state_aggregator" 
         output="screen"> 
         <!-- Topic parameters -->
         <param name="topics/in_vrpn_topic" value="$(arg vehicle_frame2)" />
@@ -116,8 +116,11 @@ RArena node
         output="screen"> 
 </node>
 
--->
 <node pkg="rarena" name="rarena" type="rarena_node.py" 
+      output="screen" respawn="true" respawn_delay="5"> </node>
+-->
+
+<node pkg="rarena" name="arena" type="arena_node.py" 
       output="screen" respawn="true" respawn_delay="5"> </node>
 
 <!--
