@@ -239,7 +239,11 @@ class TargetArenaClass(NodeArenaClass):
 
         print( "Target Position: " + str(click_x) + "," + str(click_y) + "," + str(click_z) )
         
-        self.draw_marker([click_x, str(float(click_y) + 0.7), click_z])
+        if (self.id == 6):
+            self.draw_marker([click_x, str(float(click_y) + 0.7), click_z])
+        else:
+            self.draw_marker([click_x, click_y, click_z])
+
         tg_p = np.array([float(click_x), -float(click_z), float(click_y)])
         self.on_click(tg_p)
 
