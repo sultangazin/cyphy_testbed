@@ -778,7 +778,7 @@ class GuidanceClass:
         Generate a impact trajectory just specifying the modulus of the 
         acceleration, speed and the time to go.
         """
-        ndeg = 8
+        ndeg = 10
         Tz_norm = req.a_norm
         v_norm = req.v_norm
 
