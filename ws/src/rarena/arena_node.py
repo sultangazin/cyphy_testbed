@@ -13,14 +13,14 @@ from commander_interface.srv import GoTo
 
 from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaClass
 
-scene = "/topic/test"
+scene = "/topic/luigi"
 entities = []
 
 drones = {'cf1': None, 'cf2': None}
 
 mqtt_client = mqtt.Client("client-ros", clean_session=True, userdata=None ) 
-#mqtt_broker = "oz.andrew.cmu.edu"
-mqtt_broker = "192.168.1.108"
+mqtt_broker = "oz.andrew.cmu.edu"
+#mqtt_broker = "192.168.1.108"
 
 
 ## Callbacks for click events
