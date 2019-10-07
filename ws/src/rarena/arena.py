@@ -30,7 +30,6 @@ def quatFromPoseMsg(pose_msg):
     return quat 
 
 
-
 ################# ROS ARENA CLASS #####################
 class RArenaClass(object):
     """
@@ -217,10 +216,14 @@ class TargetArenaClass(NodeArenaClass):
     def __init__(self, client, scene, name, id, shape="cube", color="#AAAAAA", animate=False,
         pos=[0,1,0], quat=[0,0,0,0], scale=[0.5, 0.5, 0.5], pose_source=None, on_click_clb=None):
 
-        self.on_click = on_click_clb
-
         super(TargetArenaClass, self).__init__(client, scene, name, id, shape=shape, color=color, animate=animate, 
         pos=pos, quat=quat, scale=scale, pose_source=pose_source)
+
+        self.on_click = on_click_clb
+
+        self.marker_base_topic = self.scene + "/"  + "cube_{}00".format(self.id)
+        #                                                    x  y  z  qx qy qz qw sx sy sz col
+        self.marker_message = "cube_{}00".format(self.id)  + ",{},{},{},0,0,0,0,{},{},{},{},on"
 
         self.registerServices()
 
@@ -236,9 +239,18 @@ class TargetArenaClass(NodeArenaClass):
 
         print( "Target Position: " + str(click_x) + "," + str(click_y) + "," + str(click_z) )
         
-        self.draw()
+        self.draw_marker([click_x, click_y, click_z])
         tg_p = np.array([float(click_x), -float(click_z), float(click_y)])
         self.on_click(tg_p)
+
+    def draw_marker(self, pos=[0,0,0], scale=[.1,.1,.1], color="#FF0000"):
+        mqtt_string = self.marker_message.format(
+            pos[0], pos[1], pos[2],
+            scale[0], scale[1], scale[2],
+            color)
+
+        # Draw object
+        self.client.publish(self.base_topic, mqtt_string, retain=True)
 
 
 
