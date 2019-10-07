@@ -239,13 +239,13 @@ class TargetArenaClass(NodeArenaClass):
 
         print( "Target Position: " + str(click_x) + "," + str(click_y) + "," + str(click_z) )
         
-        self.draw_marker([click_x, click_y, click_z])
+        self.draw_marker([click_x, str(float(click_y) + 0.7), click_z])
         tg_p = np.array([float(click_x), -float(click_z), float(click_y)])
         self.on_click(tg_p)
 
     def draw_marker(self, pos=[0,0,0], scale=[.1,.1,.1], color="#FF0000"):
         mqtt_string = self.marker_message.format(
-            pos[0], pos[1], pos[2],
+            pos[0], pos[1], (pos[2]),
             scale[0], scale[1], scale[2],
             color)
 
