@@ -261,6 +261,19 @@ def computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm):
     # Compute the normal of the target surface
     tg_Zi = quat2Z(tg_q)
 
+    n = np.matmul(vex(np.array([0, 0, 1.0])), tg_Zi)
+    norm_n = np.linalg.norm(n)
+    alpha = math.asin(norm_n)
+
+    angle_lim = math.pi / 4
+    if (abs(alpha) > angle_lim):
+        print("Reducing Angle")
+        temp_quat = np.concatenate((
+            [math.cos(angle_lim / 2.0)], 
+            n * math.sin(angle_lim / 2.0)))
+
+        tg_Zi = quat2Z(temp_quat)
+
     # Compute the acceleration vector
     a_dem = Tz_norm * tg_Zi - np.array([0.0, 0.0, 9.81])
 
