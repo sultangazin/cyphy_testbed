@@ -712,7 +712,7 @@ class GuidanceClass:
         Generate a impact trajectory just specifying the modulus of the 
         speed and the time-to-go to reach the target.
         """
-        ndeg = 12
+        ndeg = 8
         a_norm = req.a_norm
         v_norm = req.v_norm
 
@@ -740,7 +740,7 @@ class GuidanceClass:
         # (Want to get there with 0 acceleration)
         (tg_v, _) = computeTerminalNormalVel(tg_q, v_norm)
 
-        tg_v[2] = -2.0
+        tg_v[2] = -1.0
         
         # Generate the entry poin to the final part of the trajectory 
         # This part is balistic because we are supposed to control just
@@ -817,7 +817,7 @@ class GuidanceClass:
         
         mission_element = gen_MissionAuto(ndeg, start_vel,
                 start_pos,
-                tg_pre + np.array([0,0,-0.10]),
+                tg_pre + np.array([0,0,0]),
                 tg_vpre,
                 tg_apre,
                 T)
@@ -827,7 +827,7 @@ class GuidanceClass:
         # Reset the current mission queue
         self.mission_queue.update(mission_element)
 
-        mission_element = gen_MissionAtt(tg_q, tg_pre, tg_vpre, tg_pos, tg_v, tg_a, t_stop, DT * 5)   
+        mission_element = gen_MissionAtt(tg_q, tg_pre, tg_vpre, tg_pos, tg_v, tg_a, t_stop, 2*DT)   
         self.mission_queue.insertItem(mission_element)
         self.mission_queue.insertItem(Mission())
 
