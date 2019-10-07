@@ -389,8 +389,8 @@ void StateAggregator::onNewPose(
     ext_pose_rpy_msg_.vector.z = euler_(2) * 180.0 / M_PI;
 
     // Odometry Topic
-    ext_odometry_msg_.header.stamp = msg->header.stamp;
-    //ext_odometry_msg_.header.stamp = current_time;
+    //ext_odometry_msg_.header.stamp = msg->header.stamp;
+    ext_odometry_msg_.header.stamp = current_time;
     ext_odometry_msg_.pose.pose.position = ext_pose_msg_.pose.position;
     ext_odometry_msg_.pose.pose.orientation = ext_pose_msg_.pose.orientation;
     ext_odometry_msg_.twist.twist.linear.x = vel_(0);
@@ -415,8 +415,8 @@ void StateAggregator::onNewPose(
 
 
     // Update Tranformation Message	
-    ext_odom_trans_.header.stamp = msg->header.stamp;
-    //ext_odom_trans_.header.stamp = current_time;
+    //ext_odom_trans_.header.stamp = msg->header.stamp;
+    ext_odom_trans_.header.stamp = current_time;
     // Position
     ext_odom_trans_.transform.translation.x = p_pf_(0);
     ext_odom_trans_.transform.translation.y = p_pf_(1);
