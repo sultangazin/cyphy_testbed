@@ -72,7 +72,7 @@ def intercept_command(p):
         for (k, v) in drones.items():
             if (v.isActive()):
                 try:
-                    resp1 = drones[k].inTer(2.0, 1.5, 3.5, 0.2)
+                    resp1 = drones[k].inTer(2.0, 3.5, 3.5, 0.2)
                 except rospy.ServiceException as exc:
                     print("Service did not process request: " + str(exc))
 
