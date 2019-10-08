@@ -1,30 +1,69 @@
 <?xml version="1.0"?>
+<!--
+    Global Launch File to start the system.
+    The following nodes will be started:
+     - VRPN Client Node
+     - Estimator Nodes for the drones
+     - Arena Node
+     - Commander + Guidance Nodes
+-->
 <launch>
-    <arg name="vehicle_frame" default="cf2" />
+    <arg name="vehicle_frame1" default="cf1" />
+    <arg name="vehicle_frame2" default="cf2" />
+    <arg name="vehicle_frame3" default="cf3" />
     <arg name="ip" default="192.168.1.198" />
     <arg name="port" default="3883" />
 
 <!-- ===================================== -->
-<!-- Launch the data aquisition components -->
-<include file="$(find demo_launchers)/launch/datastream_launch.launch">
-    <arg name="vehicle_frame" value="$(arg vehicle_frame)" />
+<!-- Launch the data aquisition component 
+     Source of raw pose data: VRPN Server
+     -->
+<include file="$(find demo_launchers)/launch/vrpn_launch.launch">
     <arg name="ip" value="$(arg ip)" />
     <arg name="port" value="$(arg port)" />
+</include>
+
+
+<!-- ===================================== -->
+<!-- Launch the estimator of the object state from
+     the VRPN raw data.
+     -->
+<include file="$(find demo_launchers)/launch/estimator_launch.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame1)" />
+</include>
+
+<include file="$(find demo_launchers)/launch/estimator_launch.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame2)" />
+</include>
+
+<include file="$(find demo_launchers)/launch/estimator_launch.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame3)" />
+</include>
+
+
+<!-- ===================================== -->
+<!-- Launch the Arena Node
+     -->
+<include file="$(find demo_launchers)/launch/arena.launch">
 </include>
 
 
 <!-- ======================================== -->
 <!-- Launch the controller/guidance componets -->
 <include file="$(find demo_launchers)/launch/commander_launch.launch">
-    <arg name="vehicle_frame" value="$(arg vehicle_frame)" />
+    <arg name="vehicle_frame" value="$(arg vehicle_frame1)" />
     <arg name="commander_id" value="cm1" />
 </include>
 
-<!-- ====================================================== -->
-<!-- Recording the performance of the system
-     external_odom: Ground truth
-     setpoint: Demanded setpoin
-     pose: Estimated Pose
--->
-<node pkg="rosbag" name="record_perf" type="record" args="-O /tmp/$(arg vehicle_frame)_perf /vrpn_client_node/$(arg vehicle_frame)/pose /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/setpoint /$(arg vehicle_frame)/pose /$(arg vehicle_frame)/logMotors" /> 
+<include file="$(find demo_launchers)/launch/commander_launch.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame2)" />
+    <arg name="commander_id" value="cm2" />
+</include>
+
+<include file="$(find demo_launchers)/launch/commander_launch.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame3)" />
+    <arg name="commander_id" value="cm3" />
+</include>
+
+
 </launch>
