@@ -1,21 +1,13 @@
 <?xml version="1.0"?>
 <launch>
         <arg name="uri" default="radio://0/100/2M/E7E7E7E7E7" />
-        <arg name="frame" default="cf2" />
+        <arg name="frame" default="cf1" />
         <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
         </include>
 
 
-<!-- GROUP CF1
-============================================================================
-============================================================================
-============================================================================
-============================================================================
--->
 <group ns="$(arg frame)">
 
-============================================================================
-Start the server process that connects the CF to the ROS system
 <node pkg="crazyflie_driver"
     type="crazyflie_add"
     name="crazyflie_add"
@@ -64,9 +56,9 @@ odometry topics, which can be represented in rviz, or in other
 visualization tool
 
 Publish the Estimated odometry 
--->
 <node name="Est_Odometry" pkg="crazyflie_demo" type="publish_kalman_odometry.py" output="screen"> 
 </node>
+-->
 
 </group>
 
@@ -90,6 +82,6 @@ Bag recording
 - /ghost_trajectory: This is the requested trajectory pose (simulated)
 -->
 
-<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/$(arg frame)_crazyflie /$(arg frame)/pose /$(arg frame)/logEstAttRPY "/>
+<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/$(arg frame)_crazyflie /$(arg frame)/pose /$(arg frame)/logEstAttRPY /$(arg frame)/rssi"/>
 
 </launch>
