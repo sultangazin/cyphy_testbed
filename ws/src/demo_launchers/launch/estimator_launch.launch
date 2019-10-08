@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<launch>
+        <arg name="vehicle_frame" default="cf1" />
+
+<!-- VEHICLE 1 -->
+<group ns="$(arg vehicle_frame)">
+<!--
+===========================================================================
+Run the data aggregator node, which takes the information from external 
+sensors and provides an estimator of the drone state.
+-->
+<node pkg="state_aggregator" name="aggregator_$(arg vehicle_frame)" type="state_aggregator" 
+        respawn="true"
+        respawn_delay="3"
+        output="screen"> 
+        <!-- Topic parameters -->
+        <param name="topics/in_vrpn_topic" value="$(arg vehicle_frame)" />
+        <param name="AxisUp" value="Y" />
+        <param name="topics/out_ext_position_topic" value="external_position" />
+        <param name="topics/out_ext_pose_topic" value="external_pose" />
+        <param name="topics/out_ext_pose_rpy_topic" value="external_pose_rpy" />
+        <param name="topics/out_ext_odom_topic" value="external_odom" />
+	    <param name="topics/out_ext_codom_topic" value="external_codom" />
+
+        <param name="valpha" value="0.6" type='double' />
+        <param name="filt_order" value="2" type="int" />
+        <param name="qdalpha" value="0.9" type='double' />
+    	<param name="time_delay" value="0.0" type='double' />
+</node>
+</group>
+
+</launch>
