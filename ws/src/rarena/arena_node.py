@@ -13,11 +13,12 @@ from commander_interface.srv import GoTo
 
 from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaClass
 
-scene = "/topic/test"
+floor_offset = 0.7
+
+scene = "/topic/luigi"
 entities = []
 
 drones = {'cf3': None, 'cf2': None}
-floor_offset=0.1
 
 mqtt_client = mqtt.Client("client-ros", clean_session=True, userdata=None ) 
 mqtt_broker = "oz.andrew.cmu.edu"
@@ -51,7 +52,6 @@ def issue_command(tg_p):
                     print("Service did not process request: " + str(exc))
 
 def land_command(tg_p):
-
     if (drones['cf3'] == None and drones['cf2'] == None):
         print("No drone selected!")
     else:
@@ -115,7 +115,7 @@ def generate_entities():
       
     drone2 = DroneArenaClass(mqtt_client, scene, 'cf2', id=4,
       pos=[0,0.05,0.25], scale=[.05,.02,.05], pose_source="vrpn_client_node", color="#00A0AA", on_click_clb=toggle_active)
-   
+         
     drones['cf3'] = drone1
     drones['cf2'] = drone2
 
