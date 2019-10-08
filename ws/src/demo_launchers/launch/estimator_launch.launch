@@ -9,7 +9,7 @@
 Run the data aggregator node, which takes the information from external 
 sensors and provides an estimator of the drone state.
 -->
-<node pkg="state_aggregator" name="aggregator" type="state_aggregator" 
+<node pkg="state_aggregator" name="aggregator_$(arg vehicle_frame)" type="state_aggregator" 
         respawn="true"
         respawn_delay="3"
         output="screen"> 
