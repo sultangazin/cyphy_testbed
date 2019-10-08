@@ -1,13 +1,26 @@
 <?xml version="1.0"?>
-<launch>
-        <arg name="vehicle_frame" default="cf2" /> <!-- Identify the frame to be controlled (Currently not used)--> 
 <!-- 
     This launcher sets up the nodes to send commands to the vehicle.
 -->
 
+<launch>
+    <arg name="vehicle_frame" default="cf1" /> 
+    <arg name="uri" default="radio://0/100/2M/E7E7E7E7E7" /> 
+
+
+    <!--
+    ===================================================
+    CF Server Node
+    -->
+    <include file="$(find demo_launchers)/launch/cf_server.launch">
+        <arg name="uri" value="$(arg uri)" />
+        <arg name="frame" value="$(arg vehicle_frame)" />
+    </include>
+
+
 <group ns="$(arg vehicle_frame)"> 
     <!--
-    ============================================================================
+    ===================================================
     Contoller Node
     -->
      <include file="$(find demo_launchers)/launch/ext_control.launch">
@@ -18,7 +31,7 @@
      </include>
 
     <!--
-    ============================================================================
+    ===================================================
     Command Converter
     -->
     <node name="cmd_vel_converter"
@@ -28,10 +41,10 @@
             <param name="topics/control" value="/$(arg vehicle_frame)/control" />
             <param name="topics/cmd_vel" value="/$(arg vehicle_frame)/cmd_vel" />
     </node>
-
 </group>
+
 <!--
-============================================================================
+===================================================
 Bag recording 
 
 - /setpoint: Trajectory setpoint for the crazyflie 
