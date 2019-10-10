@@ -271,7 +271,10 @@ def evalObstacleInt(p0, pf, po, mindist):
     t = np.dot(Ve, n) * n 
     e = t - Ve
 
-    if (np.linalg.norm(e) < mindist):
+    curr_mindist = np.linalg.norm(e)
+    print("Distance from path")
+    print(curr_mindist)
+    if (curr_mindist < mindist):
         return (True, e)
     else:
         return (False, e)
@@ -300,7 +303,6 @@ def genAvoidWaypoints(p0, pf, po, r):
 
     # Check which vertex should I pass by 
     if (np.dot(o, W) + 1.0 < 0):
-        print("Obstacle on the right")
         # Select vertex > 0
         for i in range(Vertex.shape[0]):
             if (np.dot(W, Vertex[i]) + 1.0) > 0:
@@ -308,7 +310,6 @@ def genAvoidWaypoints(p0, pf, po, r):
                 print(Vertex[i])
                 wps.append(Vertex[i])
     else:
-        print("Obstacle on the left")
         # Select vertex > 0
         for i in range(Vertex.shape[0]):
             if (np.dot(W, Vertex[i]) + 1.0) < 0:
