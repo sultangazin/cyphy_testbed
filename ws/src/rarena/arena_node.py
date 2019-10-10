@@ -13,7 +13,7 @@ from commander_interface.srv import GoTo
 
 from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaClass
 
-scene = "/topic/luigi"
+scene = "/topic/test"
 entities = []
 
 drones = {'cf1': None, 'cf2': None}
@@ -99,48 +99,49 @@ def generate_entities():
     global entities
 
     nodeA = NodeArenaClass(mqtt_client, scene, 'nodeA', id=0, 
-      pos=[1,0.5,1], scale=[.2,.2,.2], pose_source="vrpn_client_node", color="#AA00AA")
+      pos=[-1,1.5,1], scale=[.2,.2,.2], pose_source="vrpn_client_node", color="#AA00AA", transparent=True)
 
     nodeB = NodeArenaClass(mqtt_client, scene, 'nodeB', id=1, 
-      pos=[-1,0.5,-1], scale=[.2,.2,.2], pose_source="vrpn_client_node", color="#AA00AA")
+      pos=[-1,0.5,-1], scale=[.2,.2,.2], pose_source="vrpn_client_node", color="#AA00AA", transparent=True)
 
     edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=2, 
-      start_node=nodeA, end_node=nodeB, color="#AA00AA", animate=False)
-    
-    drone1 = DroneArenaClass(mqtt_client, scene, 'cf1', id=3, 
-      scale=[.05,.02,.05], pose_source="vrpn_client_node", color="#0000AA", on_click_clb=toggle_active)
-
-    drone2 = DroneArenaClass(mqtt_client, scene, 'cf2', id=4, 
-      scale=[.05,.02,.05], pose_source="vrpn_client_node", color="#00A0AA", on_click_clb=toggle_active)
+      start_node=nodeA, end_node=nodeB, color="#AA00AA", ros_topic="vrpn_client_node/cf3/pose", 
+      animate=True, interval=500, packet_duration=100)
+      
+    drone1 = DroneArenaClass(mqtt_client, scene, 'cf3', id=3,
+      pos=[0,0.05,-0.25], scale=[.05,.02,.05], pose_source="vrpn_client_node", color="#0000AA", on_click_clb=toggle_active)
+      
+    drone2 = DroneArenaClass(mqtt_client, scene, 'cf2', id=4,
+      pos=[0,0.05,0.25], scale=[.05,.02,.05], pose_source="vrpn_client_node", color="#00A0AA", on_click_clb=toggle_active)
    
-    drones['cf1'] = drone1
+    drones['cf3'] = drone1
     drones['cf2'] = drone2
 
     target = TargetArenaClass(mqtt_client, scene, 'target', id=5, 
-      scale=[.3,.01,.3], pose_source="vrpn_client_node", color="#00AA3A", on_click_clb=intercept_command)
+      pos=[1,0.05,1], scale=[.3,.01,.3], pose_source="vrpn_client_node", color="#00AA3A", on_click_clb=intercept_command)
 
     floor = TargetArenaClass(mqtt_client, scene, 'floor', id=6, 
-      pos=[0,0,0], quat=[0,0,0,0], scale=[5,.01,3], color="#AAAAAA", on_click_clb=issue_command)
+      pos=[0,0,0], quat=[0,0,0,0], scale=[5,.01,3], color="#222222", on_click_clb=issue_command)
 
     workstation = NodeArenaClass(mqtt_client, scene, 'workstation', id=7, 
-      pos=[-2.25,0.25,-1.4], scale=[.5,.5,.2], color="#AAAA00")
+      pos=[-2.25,0.25,-1.4], scale=[.5,.5,.2], color="#AAAA00", transparent=True)
 
     edge2 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=8, 
       start_node=workstation, end_node=drone2, color="#AAAA00", animate=False)
     land = TargetArenaClass(mqtt_client, scene, 'land', id=9, 
-      scale=[.3,.01,.3], pose_source="vrpn_client_node", color="#00EEEA", on_click_clb=land_command)
+      pos=[1,0.05,-1], scale=[.3,.01,.3], pose_source="vrpn_client_node", color="#00EEEA", on_click_clb=land_command)
 
       
     entities = [nodeA,
-            nodeB,
-            edge1,
-            drone1,
-            drone2,
-            target,
-            floor,
-            workstation,
-            edge2,
-            land]
+                nodeB,
+                edge1,
+                drone1,
+                drone2,
+                target,
+                floor,
+                workstation,
+                edge2,
+                land]
 
 def update_entities():
     global entities
@@ -171,7 +172,7 @@ if __name__ == '__main__':
     mqtt_client.loop_start() #start loop to process received mqtt messages
 
     #rospy.spin()
-    rate = rospy.Rate(27)
+    rate = rospy.Rate(10)
     while not rospy.is_shutdown():
         update_entities()
         rate.sleep()

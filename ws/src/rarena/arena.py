@@ -44,6 +44,8 @@ class RArenaClass(object):
         self.shape = shape
         self.color = color
         self.base_topic = self.scene + "/"  + self.shape + "_{}".format(self.id) 
+        self.text = name
+        self.text_topic = self.scene + "/"  + "text"+ "_{}".format(self.id) 
         self.animate = animate
 
         self.registerCallbacks()
@@ -78,13 +80,20 @@ class RArenaClass(object):
 
 ###### NODE ARENA CLASS ####### 
 class NodeArenaClass(RArenaClass):
-    def __init__(self, client, scene, name, id, shape="cube", color="#AAAAAA", animate=False,
-        pos=[0,1,0], quat=[0,0,0,0], scale=[0.5, 0.5, 0.5], pose_source=None):
+    def __init__(self, client, scene, name, id, shape="cube", color="#AAAAAA", animate=False, transparent=False, 
+        pos=[0,1,0], quat=[0,0,0,0], scale=[0.5, 0.5, 0.5], pose_source=None, show_text=True, offset=[0,0.5,0]):
 
         self.pos = pos
         self.quat = quat
         self.scale = scale
         self.pose_source = pose_source
+
+        self.show_text = show_text
+        self.text_quat = [0,0,0,1]
+        self.text_scale = [0.08,0.08,0.08]
+        self.offset = offset
+        self.transparent = transparent
+        self.opacity = 0.5
 
         super(NodeArenaClass, self).__init__(client, scene, name, id, shape=shape, color=color)
 
@@ -92,8 +101,10 @@ class NodeArenaClass(RArenaClass):
 
 
     def initArenaObject(self):
-        #                                            x  y  z  qx qy qz qw sx sy sz col
+        #                                                      x  y  z  qx qy qz qw sx sy sz col
         self.message = self.shape + "_{}".format(self.id)  + ",{},{},{},{},{},{},{},{},{},{},{},on"
+        #                           x  y  z  qx qy qz qw sx sy sz txt
+        self.text_message = "text" + "_{}".format(self.id) + ",{},{},{},{},{},{},{},{},{},{},{},on"
 
         # Redraw object
         self.remove()
@@ -102,8 +113,11 @@ class NodeArenaClass(RArenaClass):
         # Enable click listener for object (allows it to be clickable)
         self.client.publish(self.base_topic + "/click-listener", "enable", retain=True)
         self.client.subscribe(self.base_topic + "/mousedown")
+        print("Subscribed to MQTT: " + self.base_topic + "/mousedown")
         self.client.message_callback_add(self.base_topic + "/mousedown", self.on_click_input)
-
+        
+        if self.transparent:
+            self.client.publish(self.base_topic + "/material", "transparent: true; opacity: {}".format(self.opacity), retain=True)
 
     def registerCallbacks(self):
         if self.pose_source:
@@ -124,14 +138,23 @@ class NodeArenaClass(RArenaClass):
 
     def draw(self):
         # Fill mqtt message
-        mqtt_string = self.message.format(
+        message = self.message.format(
             self.pos[0], self.pos[1], self.pos[2],
             self.quat[0], self.quat[1], self.quat[2], self.quat[3],
             self.scale[0], self.scale[1], self.scale[2], 
             self.color)
 
         # Draw object
-        self.client.publish(self.base_topic, mqtt_string, retain=True)
+        self.client.publish(self.base_topic, message, retain=True)
+
+        message = self.text_message.format(
+            self.pos[0] + self.offset[0], self.pos[1] + self.offset[1], self.pos[2] + self.offset[2],
+            self.text_quat[0], self.text_quat[1], self.text_quat[2], self.text_quat[3],
+            self.text_scale[0], self.text_scale[1], self.text_scale[2], 
+            self.text)
+        
+        self.client.publish(self.text_topic, message, retain=True)
+
 
     def update(self):
         # Update pose
@@ -140,7 +163,7 @@ class NodeArenaClass(RArenaClass):
         # Update animation
         if self.animate:
             tg_scene_string = self.base_topic + "/animation"
-            cmd_string = "property: color; to: #FF0000; loop:true; duration: 500;"
+            cmd_string = "property: color; to: #FF0000; loop:true; dur: 500;"
             self.client.publish(tg_scene_string, cmd_string, retain=True)
 
 
@@ -148,6 +171,10 @@ class NodeArenaClass(RArenaClass):
         self.client.publish(self.base_topic, "", retain=True)
         self.client.publish(self.base_topic + "/click-listener", "", retain=True)
         self.client.publish(self.base_topic + "/animation", "", retain=True)
+
+        self.client.publish(self.text_topic, "", retain=True)
+        self.client.publish(self.text_topic + "/click-listener", "", retain=True)
+        self.client.publish(self.text_topic + "/animation", "", retain=True)
 
 
     def pose_callback(self, pose_msg):
@@ -160,13 +187,13 @@ class NodeArenaClass(RArenaClass):
 ###### DRONE ARENA CLASS ########
 class DroneArenaClass(NodeArenaClass):
     def __init__(self, client, scene, name, id, shape="cube", color="#AAAAAA", animate=False,
-        scale=[0.5, 0.5, 0.5], pose_source=None, on_click_clb=None):
+        pos=[0,0.05,0], scale=[0.5, 0.5, 0.5], pose_source=None, on_click_clb=None):
 
         self.Active = False
 
         self.on_click = on_click_clb
 
-        super(DroneArenaClass, self).__init__(client, scene, name, id, shape=shape, scale=scale, color=color, 
+        super(DroneArenaClass, self).__init__(client, scene, name, id, shape=shape, pos=pos, scale=scale, color=color, 
             animate=animate, pose_source=pose_source)
 
         self.registerServices()
@@ -216,14 +243,14 @@ class TargetArenaClass(NodeArenaClass):
     def __init__(self, client, scene, name, id, shape="cube", color="#AAAAAA", animate=False,
         pos=[0,1,0], quat=[0,0,0,0], scale=[0.5, 0.5, 0.5], pose_source=None, on_click_clb=None):
 
-        super(TargetArenaClass, self).__init__(client, scene, name, id, shape=shape, color=color, animate=animate, 
-        pos=pos, quat=quat, scale=scale, pose_source=pose_source)
-
         self.on_click = on_click_clb
 
-        self.marker_base_topic = self.scene + "/"  + "cube_{}00".format(self.id)
+        self.marker_base_topic = scene + "/"  + "cube_{}00".format(id)
         #                                                    x  y  z  qx qy qz qw sx sy sz col
-        self.marker_message = "cube_{}00".format(self.id)  + ",{},{},{},0,0,0,0,{},{},{},{},on"
+        self.marker_message = "cube_{}00".format(id)  + ",{},{},{},0,0,0,0,{},{},{},{},on"
+
+        super(TargetArenaClass, self).__init__(client, scene, name, id, shape=shape, color=color, animate=animate, 
+        pos=pos, quat=quat, scale=scale, pose_source=pose_source)
 
         self.registerServices()
 
@@ -256,16 +283,36 @@ class TargetArenaClass(NodeArenaClass):
         # Draw object
         self.client.publish(self.base_topic, mqtt_string, retain=True)
 
+    def remove(self):
+        self.client.publish(self.base_topic, "", retain=True)
+        self.client.publish(self.base_topic + "/click-listener", "", retain=True)
+        self.client.publish(self.base_topic + "/animation", "", retain=True)
+
+        self.client.publish(self.text_topic, "", retain=True)
+        self.client.publish(self.text_topic + "/click-listener", "", retain=True)
+        self.client.publish(self.text_topic + "/animation", "", retain=True)
+
+        self.client.publish(self.marker_base_topic, "", retain=True)
+        self.client.publish(self.marker_base_topic + "/click-listener", "", retain=True)
+        self.client.publish(self.marker_base_topic + "/animation", "", retain=True)
+
 
 
 
 ###### EDGE ARENA CLASS #######
 class EdgeArenaClass(RArenaClass):
-    def __init__(self, client, scene, name, id, start_node, end_node, color="#AAAAAA", animate=False):
+    def __init__(self, client, scene, name, id, start_node, end_node, color="#AAAAAA", 
+        animate=False, ros_topic=None, interval=1000, packet_duration=200, active=True):
 
+        self.last_time = rospy.get_time()
+        self.visible = "on"
         self.packet_scale = [0.05,0.05,0.05]
-        self.packet_duration = 200
-        self.loop = "false"
+        self.packet_duration = packet_duration
+        self.ros_topic = ros_topic
+        self.interval = interval
+        self.active = active
+        self.transparent=True
+        self.opacity=0.5
 
         if start_node and end_node:
             self.start_node = start_node
@@ -281,7 +328,7 @@ class EdgeArenaClass(RArenaClass):
     def initArenaObject(self):
         self.packet_base_topic = self.scene + "/"  + "cube_{}".format(self.id)
         #                                       x  y  z  x  y  z          col
-        self.message = "line_{}".format(self.id) + ",{},{},{},{},{},{},0,0,0,0,{},on"
+        self.message = "line_{}".format(self.id) + ",{},{},{},{},{},{},0,0,0,0,{},{}"
         #                                                    x  y  z  qx qy qz qw sx sy sz col
         self.packet_message = "cube_{}".format(self.id)  + ",{},{},{},0,0,0,0,{},{},{},{},on"
 
@@ -296,20 +343,38 @@ class EdgeArenaClass(RArenaClass):
 
 
     def registerCallbacks(self):
-        # if self.pose_source:
-        #     self.pose_topic_ = "/" + self.pose_source + "/" + self.name + "/pose" 
-        #     # Subscribe to vehicle state update
-        #     print("Subscribing to ", self.pose_topic_)
-        #     rospy.Subscriber(self.pose_topic_, PoseStamped, self.pose_callback)
-        pass
-        
+        if self.ros_topic:
+            self.ros_topic = "/" + self.ros_topic
+            # Subscribe to vehicle state update
+            print("Subscribing to: {}".format(self.ros_topic))
+            rospy.Subscriber(self.ros_topic, PoseStamped, self.topic_callback)
+
+    def topic_callback(self, msg):
+        #If enough time has passed, trigger single packet animationg
+        if rospy.get_time() > (self.last_time + self.interval/1000.0) and self.animate:
+            tg_scene_string = self.scene + "/"  + "cube" + "_{}".format(self.id) + "/animation"
+            cmd_string = "property: position; from: {} {} {}; to: {} {} {}; dur:{};".format(
+                self.start_node.pos[0],self.start_node.pos[1],self.start_node.pos[2],
+                self.end_node.pos[0],self.end_node.pos[1],self.end_node.pos[2],
+                self.packet_duration)
+
+            self.client.publish(tg_scene_string, cmd_string, retain=True)
+            self.last_time = rospy.get_time()
+
         
     def draw(self):
-        # Fill mqtt message
+        if self.active:
+            color = self.color
+            # self.visible = "on"
+        else:
+            color = "#000000"
+            # self.visible = "off"
+
+
         mqtt_string = self.message.format(
             self.start_node.pos[0], self.start_node.pos[1], self.start_node.pos[2],
             self.end_node.pos[0], self.end_node.pos[1], self.end_node.pos[2],
-            self.color)
+            color, self.visible)
 
         # Draw object
         self.client.publish(self.base_topic, mqtt_string, retain=True)
@@ -320,21 +385,15 @@ class EdgeArenaClass(RArenaClass):
             self.packet_scale[0], self.packet_scale[1], self.packet_scale[2], self.color)
         
         self.client.publish(self.packet_base_topic, packet_string, retain=True)
+
+        if self.transparent:
+            self.client.publish(self.packet_base_topic + "/material", 
+            "transparent: true; opacity: {}".format(self.opacity), retain=True)
             
 
     def update(self):
         # Update pose
         self.draw()
-        
-        # Update animation
-        if self.animate:
-            tg_scene_string = self.scene + "/"  + "cube" + "_{}".format(self.id) + "/animation"
-            cmd_string = "property: position; from: {} {} {}; to: {} {} {};".format(
-                self.start_node.pos[0],self.start_node.pos[1],self.start_node.pos[2],
-                self.end_node.pos[0],self.end_node.pos[1],self.end_node.pos[2],
-                self.packet_duration, self.loop)
-
-            self.client.publish(tg_scene_string, cmd_string, retain=True)
 
 
     def remove(self):
@@ -355,3 +414,11 @@ class EdgeArenaClass(RArenaClass):
         self.animate = False
         self.client.publish(self.base_topic + "/animation", "", retain=True)
         self.client.publish(self.packet_base_topic + "/animation", "", retain=True)
+
+
+    def activate(self):
+        self.active = True
+
+
+    def deactivate(self):
+        self.active = False
