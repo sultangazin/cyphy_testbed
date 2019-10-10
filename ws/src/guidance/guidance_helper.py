@@ -263,25 +263,17 @@ def evalObstacleInt(p0, pf, po, mindist):
 
     V = pf[0:2] - p0[0:2]
     n = V / np.linalg.norm(V)
-<<<<<<< HEAD
-=======
-    print("V = ")
-    print(V)
->>>>>>> Added obstacle avoidance
 
     Ve = po[0:2] - p0[0:2]
     print(Ve)
     t = np.dot(Ve, n) * n 
     e = t - Ve
 
-<<<<<<< HEAD
     curr_mindist = np.linalg.norm(e)
     print("Distance from path")
     print(curr_mindist)
+
     if (curr_mindist < mindist):
-=======
-    if (np.linalg.norm(e) < mindist):
->>>>>>> Added obstacle avoidance
         return (True, e)
     else:
         return (False, e)
@@ -310,10 +302,6 @@ def genAvoidWaypoints(p0, pf, po, r):
 
     # Check which vertex should I pass by 
     if (np.dot(o, W) + 1.0 < 0):
-<<<<<<< HEAD
-=======
-        print("Obstacle on the right")
->>>>>>> Added obstacle avoidance
         # Select vertex > 0
         for i in range(Vertex.shape[0]):
             if (np.dot(W, Vertex[i]) + 1.0) > 0:
@@ -321,10 +309,6 @@ def genAvoidWaypoints(p0, pf, po, r):
                 print(Vertex[i])
                 wps.append(Vertex[i])
     else:
-<<<<<<< HEAD
-=======
-        print("Obstacle on the left")
->>>>>>> Added obstacle avoidance
         # Select vertex > 0
         for i in range(Vertex.shape[0]):
             if (np.dot(W, Vertex[i]) + 1.0) < 0:
@@ -334,11 +318,7 @@ def genAvoidWaypoints(p0, pf, po, r):
 
 
     if (len(wps) == 0):
-<<<<<<< HEAD
             return list(wps)
-=======
-            return wps
->>>>>>> Added obstacle avoidance
 
     wps_dist = map(np.linalg.norm, wps - p0[0:2])
     print("Waypoints Distances")
@@ -354,11 +334,7 @@ def genAvoidWaypoints(p0, pf, po, r):
     print("Ordered Waypoints")
     print(wps_)
     wps = np.copy(wps_) 
-<<<<<<< HEAD
     return list(wps)
-=======
-    return wps
->>>>>>> Added obstacle avoidance
 
 def computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm):
     """
