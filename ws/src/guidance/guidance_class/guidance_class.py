@@ -518,7 +518,9 @@ class GuidanceClass:
         tg_v = np.zeros((3))
         tg_a = np.zeros((3))
                  
-        ndeg = 5
+        ndeg = 8
+        rospy.loginfo("Start Point = [%.3f, %.3f, %.3f]" % (start_pos[0], start_pos[1], start_pos[2]))
+        rospy.loginfo("End Point = [%.3f, %.3f, %.3f]" % (tg_p[0], tg_p[1], tg_p[2]))
 
         # Check whether there is an intersection with the obstacle.
         obst_int = False
@@ -533,7 +535,7 @@ class GuidanceClass:
                 return False
 
             (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, 0.8)
-            print(e)
+            print("Vector to trajectory: ", e)
 
         wps = []
         temp = np.copy(start_pos)
