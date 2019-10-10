@@ -124,7 +124,6 @@ class MissionQueue:
 
 
 ###### HELPERS ######
-
 def gen_MissionAtt(qf, x0, v0, xf, vf, af, t_s, DT):
     # Extract the Z axis from the target quaternion
     tg_Z = quat2Z(qf)
@@ -1043,11 +1042,13 @@ class GuidanceClass:
 
         return mission
 
+
     def gen_stop(self):
         miss_element = Mission()
         self.mission_queue.update(miss_element)
 
         return True
+
 
     def handle_exeMission(self, req):
         # Dispach the mission requests
