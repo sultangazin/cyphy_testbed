@@ -9,6 +9,7 @@
 #include "commander_interface/GoTo.h"
 #include "commander_interface/Impact.h"
 #include "commander_interface/Flip.h"
+#include "commander_interface/Stop.h"
 
 // =================================================================
 // CLASS
@@ -44,35 +45,39 @@ class CommanderInterface {
                 commander_interface::Flip::Request &req,
                 commander_interface::Flip::Response &res);
 
+        bool stop_callback(
+                commander_interface::Stop::Request &req,
+                commander_interface::Stop::Response &res);
 
-                private:
+    private:
 
-                // Load Parameters
-                bool LoadParameters(const ros::NodeHandle& n);
-                //                bool RegisterCallbacks(const ros::NodeHandle& n);
+        // Load Parameters
+        bool LoadParameters(const ros::NodeHandle& n);
+        //                bool RegisterCallbacks(const ros::NodeHandle& n);
 
-                // ROS variables
-                //
-                // Service Server
-                ros::ServiceServer takeoff_srv_;
-                ros::ServiceServer land_srv_;
-                ros::ServiceServer goTo_srv_;
-                ros::ServiceServer track_srv_;
-                ros::ServiceServer impact_srv_;
-                ros::ServiceServer flip_srv_;
+        // ROS variables
+        //
+        // Service Server
+        ros::ServiceServer takeoff_srv_;
+        ros::ServiceServer land_srv_;
+        ros::ServiceServer goTo_srv_;
+        ros::ServiceServer track_srv_;
+        ros::ServiceServer impact_srv_;
+        ros::ServiceServer flip_srv_;
+        ros::ServiceServer stop_srv_;
 
-                // Service Client
-                ros::ServiceClient guidance_clnt_;
-
-
-                // Callbacks
+        // Service Client
+        ros::ServiceClient guidance_clnt_;
 
 
-                // Names and topics
-                std::string name_;
-                std::string namespace_;
+        // Callbacks
 
-                bool initialized_;
+
+        // Names and topics
+        std::string name_;
+        std::string namespace_;
+
+        bool initialized_;
 };
 
 #endif

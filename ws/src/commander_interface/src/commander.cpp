@@ -10,7 +10,7 @@
 // =================================================================
 CommanderInterface::CommanderInterface() :
     takeoff_srv_(), land_srv_(), goTo_srv_(), track_srv_(),
-    impact_srv_()
+    impact_srv_(), stop_srv_()
 {
     initialized_ = false;
 }
@@ -60,6 +60,9 @@ bool CommanderInterface::Initialize(const ros::NodeHandle& n) {
 
     flip_srv_ = nh.advertiseService("flip_srv",
             &CommanderInterface::flip_callback, this);
+
+    stop_srv_ = nh.advertiseService("stop_srv",
+            &CommanderInterface::stop_callback, this);
 
             // Connect to the service provided by the guidance node.
             // That node will create the guidance (produce reference points) for accomplishing the task
@@ -214,3 +217,27 @@ bool CommanderInterface::flip_callback(
 
     return true;
 }
+
+bool CommanderInterface::stop_callback(
+        commander_interface::Stop::Request  &req,
+        commander_interface::Stop::Response &res) {
+
+    guidance::ExeMission srv;
+
+    boost::array<float, 3> v{{0.0, 0.0, 0.0}};
+
+    // Relative request to the current point
+    srv.request.mission_type = "stop";
+    srv.request.target_p = v; 
+    srv.request.target_a = v;
+
+    srv.request.tg_time = 0.0; 
+
+    if (guidance_clnt_.call(srv))
+        res.ack = "Roger!";
+    else
+        res.ack = "Fail!";
+
+    return true;
+}
+
