@@ -12,10 +12,16 @@
     ========================================
     Trajectory Generation Service
     -->
-    <node name="Guidance_Node" pkg="guidance" type="guidance_node.py" output="screen"> 
+    <node name="Guidance_Node" 
+        pkg="guidance" 
+        type="guidance_node.py" 
+        output="screen"
+        respawn="true"
+        respawn_delay="3"> 
         <param name="target_frame" value="$(arg vehicle_frame)" type='str' />
         <param name="topics/in_tg_pose_topic" value="target" type="str" />
         <param name="topics/in_vehicle_odom_topic" value="external_codom" type='str' />
+        <param name="topics/in_obst_pose_topic" value="nodeB" type='str'/>
         <param name="topics/out_ctrl_setpoint" value="setpoint" type="str" />
     </node>
 
