@@ -12,6 +12,7 @@
     <arg name="vehicle_frame2" default="cf2" />
     <arg name="vehicle_frame3" default="cf3" />
     <arg name="target" default="target" />
+    <arg name="nodeB" default="nodeB" />
     <arg name="ip" default="192.168.1.198" />
     <arg name="port" default="3883" />
 
@@ -43,6 +44,10 @@
 
 <include file="$(find demo_launchers)/launch/estimator_launch.launch">
     <arg name="vehicle_frame" value="$(arg target)" />
+</include>
+
+<include file="$(find demo_launchers)/launch/estimator_launch.launch">
+    <arg name="vehicle_frame" value="$(arg nodeB)" />
 </include>
 
 
