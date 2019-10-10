@@ -16,7 +16,8 @@ from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaCl
 scene = "/topic/test"
 entities = []
 
-drones = {'cf1': None, 'cf2': None}
+drones = {'cf3': None, 'cf2': None}
+floor_offset=0.1
 
 mqtt_client = mqtt.Client("client-ros", clean_session=True, userdata=None ) 
 mqtt_broker = "oz.andrew.cmu.edu"
@@ -38,26 +39,27 @@ def toggle_active(name):
 
 # Click on target
 def issue_command(tg_p):
-    if (drones['cf1'] == None and drones['cf2'] == None):
+    if (drones['cf3'] == None and drones['cf2'] == None):
         print("No drone selected!")
     else:
         for (k, v) in drones.items():
             if (v.isActive()):
                 try:
                     print("Issuing GOTO command to drone {}".format(k))
-                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 3.0)
+                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + floor_offset], 3.0)
                 except rospy.ServiceException as exc:
                     print("Service did not process request: " + str(exc))
 
 def land_command(tg_p):
-    if (drones['cf1'] == None and drones['cf2'] == None):
+
+    if (drones['cf3'] == None and drones['cf2'] == None):
         print("No drone selected!")
     else:
         for (k, v) in drones.items():
             if (v.isActive()):
                 try:
                     print("Issuing LAND command to drone {}".format(k))
-                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + 0.7], 3.0)
+                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + floor_offset], 3.0)
                     time.sleep(4.0)
                     resp1 = drones[k].land(3.0)
 
@@ -66,13 +68,13 @@ def land_command(tg_p):
 
 def intercept_command(p):
     print("Intercept requested")
-    if (drones['cf1'] == None and drones['cf2'] == None):
+    if (drones['cf3'] == None and drones['cf2'] == None):
         print("No drone selected!")
     else:
         for (k, v) in drones.items():
             if (v.isActive()):
                 try:
-                    resp1 = drones[k].inTer(1.8, 5.0, 3.5, 0.1)
+                    resp1 = drones[k].inTer(1.5, 6.0, 3.5, 0.05)
                 except rospy.ServiceException as exc:
                     print("Service did not process request: " + str(exc))
 

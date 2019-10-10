@@ -171,10 +171,12 @@ class NodeArenaClass(RArenaClass):
         self.client.publish(self.base_topic, "", retain=True)
         self.client.publish(self.base_topic + "/click-listener", "", retain=True)
         self.client.publish(self.base_topic + "/animation", "", retain=True)
+        self.client.publish(self.base_topic + "/material", "", retain=True)
 
         self.client.publish(self.text_topic, "", retain=True)
         self.client.publish(self.text_topic + "/click-listener", "", retain=True)
         self.client.publish(self.text_topic + "/animation", "", retain=True)
+        self.client.publish(self.text_topic + "/material", "", retain=True)
 
 
     def pose_callback(self, pose_msg):
@@ -244,13 +246,22 @@ class TargetArenaClass(NodeArenaClass):
         pos=[0,1,0], quat=[0,0,0,0], scale=[0.5, 0.5, 0.5], pose_source=None, on_click_clb=None):
 
         self.on_click = on_click_clb
+        self.duration = 2
 
         self.marker_base_topic = scene + "/"  + "cube_{}00".format(id)
         #                                                    x  y  z  qx qy qz qw sx sy sz col
-        self.marker_message = "cube_{}00".format(id)  + ",{},{},{},0,0,0,0,{},{},{},{},on"
+        self.marker_message = "cube_{}00".format(id)  + ",{},{},{},0,0,0,0,{},{},{},{},{}"
+
+        self.last_time=None
 
         super(TargetArenaClass, self).__init__(client, scene, name, id, shape=shape, color=color, animate=animate, 
         pos=pos, quat=quat, scale=scale, pose_source=pose_source)
+
+        self.draw_marker(status="on")
+
+        #if self.transparent:
+        self.client.publish(self.marker_base_topic + "/material", 
+            "transparent: true; opacity: {}".format(self.opacity), retain=True)
 
         self.registerServices()
 
@@ -274,27 +285,40 @@ class TargetArenaClass(NodeArenaClass):
         tg_p = np.array([float(click_x), -float(click_z), float(click_y)])
         self.on_click(tg_p)
 
-    def draw_marker(self, pos=[0,0,0], scale=[.1,.1,.1], color="#FF0000"):
+        self.last_time = rospy.get_time()
+
+    def draw_marker(self, pos=[0,0,0], scale=[.1,.1,.1], color="#FF0000",status="on"):
         mqtt_string = self.marker_message.format(
             pos[0], pos[1], (pos[2]),
             scale[0], scale[1], scale[2],
-            color)
+            color,status)
 
         # Draw object
-        self.client.publish(self.base_topic, mqtt_string, retain=True)
+        self.client.publish(self.marker_base_topic, mqtt_string, retain=True)
+
+    def update(self):
+        # Update pose
+        self.draw()
+        # Clean up
+        if self.last_time!=None and (rospy.get_time() - self.last_time) > self.duration:
+            self.client.publish(self.marker_base_topic, self.marker_message.format(
+            0,0,0,0,0,0,0,"off"), retain=True)
 
     def remove(self):
         self.client.publish(self.base_topic, "", retain=True)
         self.client.publish(self.base_topic + "/click-listener", "", retain=True)
         self.client.publish(self.base_topic + "/animation", "", retain=True)
+        self.client.publish(self.base_topic + "/material", "", retain=True)
 
         self.client.publish(self.text_topic, "", retain=True)
         self.client.publish(self.text_topic + "/click-listener", "", retain=True)
         self.client.publish(self.text_topic + "/animation", "", retain=True)
+        self.client.publish(self.text_topic + "/material", "", retain=True)
 
         self.client.publish(self.marker_base_topic, "", retain=True)
         self.client.publish(self.marker_base_topic + "/click-listener", "", retain=True)
         self.client.publish(self.marker_base_topic + "/animation", "", retain=True)
+        self.client.publish(self.marker_base_topic + "/material", "", retain=True)
 
 
 
@@ -400,10 +424,12 @@ class EdgeArenaClass(RArenaClass):
         self.client.publish(self.base_topic, "", retain=True)
         self.client.publish(self.base_topic + "/click-listener", "", retain=True)
         self.client.publish(self.base_topic + "/animation", "", retain=True)
+        self.client.publish(self.base_topic + "/material", "", retain=True)
 
         self.client.publish(self.packet_base_topic, "", retain=True)
         self.client.publish(self.packet_base_topic + "/click-listener", "", retain=True)
         self.client.publish(self.packet_base_topic + "/animation", "", retain=True)
+        self.client.publish(self.packet_base_topic + "/material", "", retain=True)
 
 
     def start_animation(self):  
@@ -422,3 +448,57 @@ class EdgeArenaClass(RArenaClass):
 
     def deactivate(self):
         self.active = False
+
+
+###### SETPOINT ARENA CLASS ########
+class SetpointArenaClass(NodeArenaClass):
+    def __init__(self, client, scene, name, id, shape="cube", color="#AAAAAA", animate=False,
+        pos=[0,0.05,0], scale=[0.5, 0.5, 0.5], pose_source=None, on_click_clb=None):
+
+        self.Active = False
+
+        self.on_click = on_click_clb
+
+        super(DroneArenaClass, self).__init__(client, scene, name, id, shape=shape, pos=pos, scale=scale, color=color, 
+            animate=animate, pose_source=pose_source)
+
+        self.registerServices()
+
+        print("Created Arena Drone Object")
+
+        
+    def registerServices(self):
+        #rospy.wait_for_service("/" + self.name + "/Commander_Node/goTo_srv")
+        self.goTo = rospy.ServiceProxy("/" + self.name + "/Commander_Node/goTo_srv", GoTo)
+        self.inTer = rospy.ServiceProxy("/" + self.name + "/gen_ImpTrajectoryAuto", GenImpTrajectoryAuto)
+        self.land = rospy.ServiceProxy("/" + self.name + "/Commander_Node/land_srv", Land)
+
+        pass
+
+
+    def on_click_input(self, client, userdata, msg):
+        click_x, click_y, click_z, user = msg.payload.split(',')
+    
+#        if (self.Active):
+#            self.deactivate() 
+#        else:
+#            self.activate()
+#
+        if (self.on_click is not None):
+            self.on_click(self.name) 
+        else:
+            print("Drone {}: Click Callback not specified\n".format(self.name))
+ 
+    def deactivate(self):
+        self.Active = False
+        super(DroneArenaClass, self).set_color('#000022')
+        self.color = "#000022"
+        print("Drone {} Deselected\n".format(self.name))
+
+    def activate(self):
+        self.Active = True
+        super(DroneArenaClass, self).set_color('#00FF00')
+        print("Drone {} Selected\n".format(self.name))
+
+    def isActive(self):
+        return self.Active
