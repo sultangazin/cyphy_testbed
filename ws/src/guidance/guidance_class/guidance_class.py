@@ -121,20 +121,32 @@ class MissionQueue:
 
 
 ###### HELPERS ######
-def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, T): 
+def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, T, t0 = None): 
     # Generate the interpolation matrices to reach the pre-impact 
     # point with a given speed and acceleration.
-    (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(v0, xf - x0, vf, 
-            af)
+    (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(v0, xf - x0, vf, af)
 
+    delta = (xf - x0) * 1.1
     # Generation of the trajectory with Bezier curves
-    x_lim = [4.5, 3.5, 9.0]
-    y_lim = [4.5, 3.5, 9.0]
+    x_lim = [5.5, 15.5, 9.0]
+    y_lim = [5.5, 15.5, 9.0]
     z_lim = [2.4, 2.3, 5.0]
 
-    x_cnstr = np.array([[-x_lim[0], x_lim[0]], [-x_lim[1], x_lim[1]], [-x_lim[2], x_lim[2]]])
-    y_cnstr = np.array([[-y_lim[0], y_lim[0]], [-y_lim[1], y_lim[1]], [-y_lim[2], y_lim[2]]])
-    z_cnstr = np.array([[-x0[2] + 0.1, z_lim[0]], [-z_lim[1], z_lim[1]], [-9.90, z_lim[2]]])
+    x_cnstr = np.array([
+        #[min(delta[0], -0.2), max(delta[0], 0)],
+        [-x_lim[0], x_lim[0]],
+        [-x_lim[1], x_lim[1]],
+        [-x_lim[2], x_lim[2]]])
+    y_cnstr = np.array([
+        #[min(delta[1], -0,2), max(delta[1], 0)],
+        [-y_lim[0], y_lim[0]], 
+        [-y_lim[1], y_lim[1]], 
+        [-y_lim[2], y_lim[2]]])
+    z_cnstr = np.array([
+        #[min(delta[2], -0,2), max(delta[2], 0)],
+        [-x0[2] + 0.2, z_lim[0]],
+        [-z_lim[1], z_lim[1]],
+        [-9.90, z_lim[2]]])
 
     # Generate the polynomial
     #
@@ -145,7 +157,7 @@ def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, T):
     print("\nGenerating Z")
     bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T, opt_der=3)
     print("\nGenerating W")
-    bz_w = bz.Bezier(waypoints=Wwp, degree=7, s=T, opt_der=4)
+    bz_w = bz.Bezier(waypoints=Wwp, degree=ndeg, s=T, opt_der=0)
 
     print(" ================================================== \n")
     print("Summary ")
@@ -166,8 +178,12 @@ def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, T):
     trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w))
   
     # Compute the absolute times for this trajectory
-    t_start = rospy.get_time()
-    t_end = t_start + T
+    if (t0 is None):
+        t_start = rospy.get_time()
+        t_end = t_start + T
+    else:
+        t_start = t0
+        t_end = t_start + T
 
     mission = Mission()
     mission.update(
@@ -247,6 +263,7 @@ class GuidanceClass:
     def initData(self):
         self.current_odometry = CustOdometryStamped()
         self.current_target = PoseStamped()
+        self.current_obst = None
 
         # Mission object to store information about
         # the current status of the plan.
@@ -272,12 +289,15 @@ class GuidanceClass:
         # Load the name of the Input Topics
         self.dr_odom_topic_ = rospy.get_param('topics/in_vehicle_odom_topic', 'external_codom')    
         target_name = rospy.get_param('topics/in_tg_pose_topic', "target")
+        obst_name = rospy.get_param('topics/in_obst_pose_topic', "nodeB")
         self.tg_pose_topic_ = '/' + target_name + '/external_pose'
+        self.obs_pose_topic_  = '/' + obst_name + '/external_pose'
 
     def registerCallbacks(self):
         # Subscribe to vehicle state update
         rospy.Subscriber(self.dr_odom_topic_, CustOdometryStamped, self.odom_callback)
         rospy.Subscriber(self.tg_pose_topic_, PoseStamped, self.tg_callback)
+        rospy.Subscriber(self.obs_pose_topic_, PoseStamped, self.obst_callback)
 
 
     def registerServices(self):
@@ -420,6 +440,9 @@ class GuidanceClass:
         self.current_target = pose_msg
         return
 
+    def obst_callback(self, pose_msg):
+        self.current_obst = pose_msg
+        return
 
     ## ===================================================================
     #####                     Guidance Methods
@@ -489,27 +512,86 @@ class GuidanceClass:
         start_pos = posFromOdomMsg(self.current_odometry)
         start_vel = velFromOdomMsg(self.current_odometry)
 
+
         tg_p = p 
         tg_prel = tg_p - start_pos
         tg_v = np.zeros((3))
         tg_a = np.zeros((3))
                  
+        ndeg = 5
 
-        if (t2go == 0.0):
-            goto_vel = 0.5 
-            T = np.linarg.norm(tg_prel) / goto_vel
-        else:
-            T = t2go
+        # Check whether there is an intersection with the obstacle.
+        obst_int = False
 
-        ndeg = 10
-        mission_element = gen_MissionAuto(ndeg, start_vel, 
-                start_pos, 
+        if (self.current_obst is not None):
+            obst_p = posFromPoseMsg(self.current_obst)
+            print("Obstacle at ")
+            print(obst_p)
+            
+            if (np.linalg.norm(tg_p - obst_p) < 0.8):
+                print("Going into the Obstacle area!")
+                return False
+
+            (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, 0.8)
+            print(e)
+
+        wps = []
+        temp = np.copy(start_pos)
+        if (obst_int):
+            print("Intersecting")
+            goto_vel = 0.3
+            wps = genAvoidWaypoints(start_pos, tg_p, obst_p, 0.3)
+            self.mission_queue.reset()
+            t_start = rospy.get_time()
+            for i in range(len(wps)):
+                w = wps[i]
+                delta = w - temp
+                delta_norm = np.linalg.norm(delta)
+                T =  delta_norm / goto_vel
+
+                next_v = np.zeros(3)
+                if (i < len(wps) - 1):
+                    next_d = wps[i + 1] - w
+                    next_v = goto_vel * next_d/np.linalg.norm(next_d)
+
+                mission_element = gen_MissionAuto(ndeg, np.zeros(3), 
+                    temp, 
+                    w,
+                    next_v, 
+                    np.zeros(3, dtype=float), 
+                    T, 
+                    t_start)
+                temp = w
+                t_start = t_start + T
+                self.mission_queue.insertItem(mission_element)
+
+            delta = tg_p - temp
+            T = np.linalg.norm(delta) / goto_vel
+            mission_element = gen_MissionAuto(ndeg, np.zeros(3), 
+                temp, 
                 tg_p,
                 tg_v, 
                 np.zeros(3, dtype=float), 
-                T)
+                T,
+                t_start)
+            self.mission_queue.insertItem(mission_element)
 
-        self.mission_queue.update(mission_element)
+        else:
+            print("Not intersecting")
+            if (t2go == 0.0):
+                goto_vel = 0.5
+                T = np.linarg.norm(tg_prel) / goto_vel
+            else:
+                T = t2go
+
+            mission_element = gen_MissionAuto(ndeg, start_vel, 
+                    start_pos, 
+                    tg_p,
+                    tg_v, 
+                    np.zeros(3, dtype=float), 
+                    T)
+
+            self.mission_queue.update(mission_element)
 
         return True
 
@@ -585,6 +667,11 @@ class GuidanceClass:
         """
         start_pos = posFromOdomMsg(self.current_odometry)
 
+        if (start_pos[2] > 0.4):
+            rospy.loginfo("Already Flying!")
+            return True
+
+                
         vtakeoff = 0.3
         t_end = h / vtakeoff
 
@@ -596,7 +683,7 @@ class GuidanceClass:
         tg_prel = np.array([0.0, 0.0, h])
         tg_v = np.zeros((3))
         tg_a = np.zeros((3))
-                 
+                  
         (X, Y, Z, W) = genInterpolationMatrices(
                 np.zeros(3), 
                 tg_prel, 
@@ -778,7 +865,7 @@ class GuidanceClass:
         Generate a impact trajectory just specifying the modulus of the 
         acceleration, speed and the time to go.
         """
-        ndeg = 10
+        ndeg = 8
         Tz_norm = req.a_norm
         v_norm = req.v_norm
 
@@ -788,7 +875,7 @@ class GuidanceClass:
         start_orientation = quatFromOdomMsg(self.current_odometry)
         start_yaw = quat2yaw(start_orientation)
 
-        start_vel = np.array([0,0,0])
+        #start_vel = np.array([0,0,0])
         # Take the current target pose
         tg_pos = posFromPoseMsg(self.current_target)
         tg_q = quatFromPoseMsg(self.current_target) 
@@ -828,7 +915,7 @@ class GuidanceClass:
         self.mission_queue.update(mission_element)
 
         mission_element = gen_MissionAtt(tg_q, tg_pre, tg_vpre, tg_pos, tg_v, tg_a, t_stop, 2*DT)   
-        self.mission_queue.insertItem(mission_element)
+        #self.mission_queue.insertItem(mission_element)
         self.mission_queue.insertItem(Mission())
 
         self.Active = True
@@ -941,17 +1028,22 @@ class GuidanceClass:
 
         return True 
 
+    def gen_stop(self):
+        miss_element = Mission()
+        self.mission_queue.update(miss_element)
+
+        return True
 
     def handle_exeMission(self, req):
         # Dispach the mission requests
 
-        t2go = req.tg_time   
-        tg_p = req.target_p
-        tg_v = req.target_v
-        tg_a = req.target_a
-
-
+    
         if (req.mission_type == "goTo"):
+            t2go = req.tg_time
+            tg_p = req.target_p
+            tg_v = req.target_v
+            tg_a = req.target_a
+
             #self.gen_goTo(tg_p, t2go)        
             self.gen_goToBZ(tg_p, t2go)
  
@@ -959,6 +1051,11 @@ class GuidanceClass:
             self.gen_land()
 
         if (req.mission_type == "takeoff"):
+            t2go = req.tg_time
+            tg_p = req.target_p
+            tg_v = req.target_v
+            tg_a = req.target_a
+
             h = tg_p[2]
             self.gen_takeoff(h, t2go)
 
@@ -969,7 +1066,12 @@ class GuidanceClass:
             self.gen_impact()
 
         if (req.mission_type == "flip"):
+            t2go = req.tg_time
+
             self.gen_flip(t2go)
+
+        if (req.mission_type == "stop"):
+            self.gen_stop()
 
         self.Active = True
         return True

@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.matlib
 import math
 import time
 import rospy
@@ -251,6 +252,90 @@ def Integration(p, v, a, Tf, dt, direction):
     return out_state
 
 
+def evalObstacleInt(p0, pf, po, mindist):
+    """
+    p0: Starting position
+    pf: Final position
+    po: Obstacle position
+    """
+    V = np.zeros(2)
+    Ve = np.zeros(2)
+
+    V = pf[0:2] - p0[0:2]
+    n = V / np.linalg.norm(V)
+    print("V = ")
+    print(V)
+
+    Ve = po[0:2] - p0[0:2]
+    print(Ve)
+    t = np.dot(Ve, n) * n 
+    e = t - Ve
+
+    if (np.linalg.norm(e) < mindist):
+        return (True, e)
+    else:
+        return (False, e)
+
+def genAvoidWaypoints(p0, pf, po, r): 
+    o = np.array(po[0:2])
+    p = np.array(p0[0:2])
+    f = np.array(pf[0:2])
+
+    wps = []
+
+    # Compute the hyperplane
+    X = np.concatenate(([p], [f]))
+    W = -np.matmul(np.linalg.inv(X), np.ones(2))
+
+    Vertex = np.matlib.repmat([o], 4, 1)
+    temp = np.matlib.repmat(np.array([r, r]), 4, 1)
+    temp_1 = np.concatenate((
+        np.transpose(np.array([1, 1, -1, -1], ndmin = 2)),
+        np.transpose(np.array([1, -1, 1, -1], ndmin = 2))
+        ), axis=1)
+    Vertex = Vertex +  temp * temp_1
+
+    print("Obstacle vertices: ")
+    print(Vertex)
+
+    # Check which vertex should I pass by 
+    if (np.dot(o, W) + 1.0 < 0):
+        print("Obstacle on the right")
+        # Select vertex > 0
+        for i in range(Vertex.shape[0]):
+            if (np.dot(W, Vertex[i]) + 1.0) > 0:
+                print("Adding Vertex")
+                print(Vertex[i])
+                wps.append(Vertex[i])
+    else:
+        print("Obstacle on the left")
+        # Select vertex > 0
+        for i in range(Vertex.shape[0]):
+            if (np.dot(W, Vertex[i]) + 1.0) < 0:
+                print("Adding Vertex")
+                print(Vertex[i])
+                wps.append(Vertex[i])
+
+
+    if (len(wps) == 0):
+            return wps
+
+    wps_dist = map(np.linalg.norm, wps - p0[0:2])
+    print("Waypoints Distances")
+    print(wps_dist)
+
+    wps_ = [] 
+    
+    index = np.argsort(wps_dist)
+
+    for el in list(index):
+        wps_.append(np.concatenate((wps[el], [pf[2]])))
+
+    print("Ordered Waypoints")
+    print(wps_)
+    wps = np.copy(wps_) 
+    return wps
+
 def computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm):
     """
     Given the orientation of a surface and the norm of
@@ -265,7 +350,7 @@ def computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm):
     norm_n = np.linalg.norm(n)
     alpha = math.asin(norm_n)
 
-    angle_lim = math.pi / 4
+    angle_lim = math.pi / 3.0
     if (abs(alpha) > angle_lim):
         print("Reducing Angle")
         temp_quat = np.concatenate((
@@ -499,6 +584,3 @@ def getInterpolMatrices(tg, tg_q, yaw, v_norm, a_norm, dt):
     ])
     
     return (X, Y, Z, W)
-
-
-
