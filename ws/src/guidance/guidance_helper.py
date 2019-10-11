@@ -263,8 +263,6 @@ def evalObstacleInt(p0, pf, po, mindist):
 
     V = pf[0:2] - p0[0:2]
     n = V / np.linalg.norm(V)
-    print("V = ")
-    print(V)
 
     Ve = po[0:2] - p0[0:2]
     print(Ve)
@@ -319,7 +317,7 @@ def genAvoidWaypoints(p0, pf, po, r):
 
 
     if (len(wps) == 0):
-            return wps
+            return list(wps)
 
     wps_dist = map(np.linalg.norm, wps - p0[0:2])
     print("Waypoints Distances")
@@ -335,7 +333,7 @@ def genAvoidWaypoints(p0, pf, po, r):
     print("Ordered Waypoints")
     print(wps_)
     wps = np.copy(wps_) 
-    return wps
+    return list(wps)
 
 def computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm):
     """

@@ -10,6 +10,7 @@ from tf.transformations import euler_from_matrix
 
 from testbed_msgs.msg import CustOdometryStamped
 from testbed_msgs.msg import ControlSetpoint 
+from testbed_msgs.msg import BZCurve
 from geometry_msgs.msg import PoseStamped
 
 from guidance.srv import GenImpTrajectoryAuto
@@ -28,6 +29,8 @@ from guidance_helper import *
 from guidance_helper_classes.mission_class import Mission, MissionType, TrajectoryType
 from guidance_helper_classes.trajectorygenerator_class import TrajectoryGenerator
 
+
+safety_dist = 0.25
 
 class ConstAttitudeTrj:
     def __init__(self, p0, v0, a, r, p, y):
@@ -121,83 +124,6 @@ class MissionQueue:
 
 
 ###### HELPERS ######
-def gen_MissionAuto(ndeg, v0, x0, xf, vf, af, T, t0 = None): 
-    # Generate the interpolation matrices to reach the pre-impact 
-    # point with a given speed and acceleration.
-    (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(v0, xf - x0, vf, af)
-
-    delta = (xf - x0) * 1.1
-    # Generation of the trajectory with Bezier curves
-    x_lim = [5.5, 15.5, 9.0]
-    y_lim = [5.5, 15.5, 9.0]
-    z_lim = [2.4, 2.3, 5.0]
-
-    x_cnstr = np.array([
-        #[min(delta[0], -0.2), max(delta[0], 0)],
-        [-x_lim[0], x_lim[0]],
-        [-x_lim[1], x_lim[1]],
-        [-x_lim[2], x_lim[2]]])
-    y_cnstr = np.array([
-        #[min(delta[1], -0,2), max(delta[1], 0)],
-        [-y_lim[0], y_lim[0]], 
-        [-y_lim[1], y_lim[1]], 
-        [-y_lim[2], y_lim[2]]])
-    z_cnstr = np.array([
-        #[min(delta[2], -0,2), max(delta[2], 0)],
-        [-x0[2] + 0.2, z_lim[0]],
-        [-z_lim[1], z_lim[1]],
-        [-9.90, z_lim[2]]])
-
-    # Generate the polynomial
-    #
-    print("Generating X")
-    bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=T, opt_der=3)
-    print("\nGenerating Y")
-    bz_y = bz.Bezier(waypoints=Ywp, constraints=y_cnstr, degree=ndeg, s=T, opt_der=3)
-    print("\nGenerating Z")
-    bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T, opt_der=3)
-    print("\nGenerating W")
-    bz_w = bz.Bezier(waypoints=Wwp, degree=ndeg, s=T, opt_der=0)
-
-    print(" ================================================== \n")
-    print("Summary ")
-    print("Pos pre = \n", xf)
-    print("Vel pre = \n", vf)
-    print("Acc pre = \n", af)
-
-    print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
-    print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
-    print("Final Acceleration: [%.3f, %.3f, %.3f]"%(Xwp[2,1], Ywp[2,1], Zwp[2,1]))
-
-    print("Solution Position: [%.3f, %.3f, %.3f]"%(bz_x.eval(T), bz_y.eval(T), bz_z.eval(T)))
-    print("Solution Velocity: [%.3f, %.3f, %.3f]"%
-            (bz_x.eval(T, [1]), bz_y.eval(T, [1]), bz_z.eval(T, [1])))
-    print("Solution Acceleration: [%.3f, %.3f, %.3f]"%(bz_x.eval(T, [2]), bz_y.eval(T, [2]), bz_z.eval(T, [2])))
-
-
-    trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w))
-  
-    # Compute the absolute times for this trajectory
-    if (t0 is None):
-        t_start = rospy.get_time()
-        t_end = t_start + T
-    else:
-        t_start = t0
-        t_end = t_start + T
-
-    mission = Mission()
-    mission.update(
-                p = x0,
-                v = v0, 
-                tg_p = xf, 
-                tg_v = vf, 
-                tg_a = af,
-                trj_gen = trj_obj,
-                start_time = t_start,
-                stop_time = t_end, 
-                ttype = TrajectoryType.FullTrj)
-
-    return mission
 
 def gen_MissionAtt(qf, x0, v0, xf, vf, af, t_s, DT):
     # Extract the Z axis from the target quaternion
@@ -292,6 +218,7 @@ class GuidanceClass:
         obst_name = rospy.get_param('topics/in_obst_pose_topic', "nodeB")
         self.tg_pose_topic_ = '/' + target_name + '/external_pose'
         self.obs_pose_topic_  = '/' + obst_name + '/external_pose'
+        self.bzcurve_topic_ = '/bzcurve'
 
     def registerCallbacks(self):
         # Subscribe to vehicle state update
@@ -317,8 +244,10 @@ class GuidanceClass:
 
     def advertiseTopics(self):
         # Setpoint Publisher
-        self.ctrl_setpoint_pub = rospy.Publisher(self.ctrlsetpoint_topic_, 
-            ControlSetpoint, queue_size=10)
+        self.ctrl_setpoint_pub = rospy.Publisher(
+                self.ctrlsetpoint_topic_, ControlSetpoint, queue_size=10)
+        self.bzCurve_pub = rospy.Publisher( self.bzcurve_topic_,
+                BZCurve, queue_size=10)
  
 
     ###### CALLBACKS
@@ -530,21 +459,23 @@ class GuidanceClass:
             print("Obstacle at ")
             print(obst_p)
             
-            if (np.linalg.norm(tg_p - obst_p) < 0.8):
+            if (np.linalg.norm(tg_p - obst_p) < safety_dist):
                 print("Going into the Obstacle area!")
                 return False
 
-            (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, 0.8)
-            print("Vector to trajectory: ", e)
+            (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, safety_dist)
+            print("Distance Vector to trajectory: ", e)
 
         wps = []
         temp = np.copy(start_pos)
         if (obst_int):
             print("Intersecting")
             goto_vel = 0.3
-            wps = genAvoidWaypoints(start_pos, tg_p, obst_p, 0.3)
+            wps = genAvoidWaypoints(start_pos, tg_p, obst_p, safety_dist)
+            wps.append(tg_p) # Add the last point
             self.mission_queue.reset()
             t_start = rospy.get_time()
+
             for i in range(len(wps)):
                 w = wps[i]
                 delta = w - temp
@@ -554,9 +485,9 @@ class GuidanceClass:
                 next_v = np.zeros(3)
                 if (i < len(wps) - 1):
                     next_d = wps[i + 1] - w
-                    next_v = goto_vel * next_d/np.linalg.norm(next_d)
+                    next_v = goto_vel * next_d / np.linalg.norm(next_d)
 
-                mission_element = gen_MissionAuto(ndeg, np.zeros(3), 
+                mission_element = self.gen_MissionAuto(ndeg, start_vel, 
                     temp, 
                     w,
                     next_v, 
@@ -566,16 +497,8 @@ class GuidanceClass:
                 temp = w
                 t_start = t_start + T
                 self.mission_queue.insertItem(mission_element)
-
-            delta = tg_p - temp
-            T = np.linalg.norm(delta) / goto_vel
-            mission_element = gen_MissionAuto(ndeg, np.zeros(3), 
-                temp, 
-                tg_p,
-                tg_v, 
-                np.zeros(3, dtype=float), 
-                T,
-                t_start)
+                start_vel = next_v
+            # Add mission element
             self.mission_queue.insertItem(mission_element)
 
         else:
@@ -586,7 +509,7 @@ class GuidanceClass:
             else:
                 T = t2go
 
-            mission_element = gen_MissionAuto(ndeg, start_vel, 
+            mission_element = self.gen_MissionAuto(ndeg, start_vel, 
                     start_pos, 
                     tg_p,
                     tg_v, 
@@ -843,7 +766,7 @@ class GuidanceClass:
         # Generate the interpolation matrices to reach the pre-impact point
         # This service produce a trajectory to reach the point with a
         # constant speed.
-        mission_element = gen_MissionAuto(ndeg, start_vel, 
+        mission_element = self.gen_MissionAuto(ndeg, start_vel, 
                 start_pos, 
                 tg_pre,# + np.array([0,0,-0.10]), 
                 tg_vpre, 
@@ -904,7 +827,7 @@ class GuidanceClass:
                 tg_a,
                 DT) 
         
-        mission_element = gen_MissionAuto(ndeg, start_vel,
+        mission_element = self.gen_MissionAuto(ndeg, start_vel,
                 start_pos,
                 tg_pre + np.array([0,0,0]),
                 tg_vpre,
@@ -1029,6 +952,96 @@ class GuidanceClass:
 
 
         return True 
+    
+    def gen_MissionAuto(self, ndeg, v0, x0, xf, vf, af, T, t0 = None): 
+        # Generate the interpolation matrices to reach the pre-impact 
+        # point with a given speed and acceleration.
+        (Xwp, Ywp, Zwp, Wwp) = genInterpolationMatrices(v0, xf - x0, vf, af)
+
+        delta = (xf - x0) * 1.1
+        # Generation of the trajectory with Bezier curves
+        x_lim = [5.5, 15.5, 9.0]
+        y_lim = [5.5, 15.5, 9.0]
+        z_lim = [2.4, 2.3, 5.0]
+
+        x_cnstr = np.array([
+            #[min(delta[0], -0.2), max(delta[0], 0)],
+            [-x_lim[0], x_lim[0]],
+            [-x_lim[1], x_lim[1]],
+            [-x_lim[2], x_lim[2]]])
+        y_cnstr = np.array([
+            #[min(delta[1], -0,2), max(delta[1], 0)],
+            [-y_lim[0], y_lim[0]], 
+            [-y_lim[1], y_lim[1]], 
+            [-y_lim[2], y_lim[2]]])
+        z_cnstr = np.array([
+            #[min(delta[2], -0,2), max(delta[2], 0)],
+            [-x0[2] + 0.2, z_lim[0]],
+            [-z_lim[1], z_lim[1]],
+            [-9.90, z_lim[2]]])
+
+        # Generate the polynomial
+        #
+        print("Generating X")
+        bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=T, opt_der=3)
+        print("\nGenerating Y")
+        bz_y = bz.Bezier(waypoints=Ywp, constraints=y_cnstr, degree=ndeg, s=T, opt_der=3)
+        print("\nGenerating Z")
+        bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T, opt_der=3)
+        print("\nGenerating W")
+        bz_w = bz.Bezier(waypoints=Wwp, degree=ndeg, s=T, opt_der=0)
+
+        print(" ================================================== \n")
+        print("Summary ")
+        print("Pos pre = \n", xf)
+        print("Vel pre = \n", vf)
+        print("Acc pre = \n", af)
+
+        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
+        print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
+        print("Final Acceleration: [%.3f, %.3f, %.3f]"%(Xwp[2,1], Ywp[2,1], Zwp[2,1]))
+
+        print("Solution Position: [%.3f, %.3f, %.3f]"%(bz_x.eval(T), bz_y.eval(T), bz_z.eval(T)))
+        print("Solution Velocity: [%.3f, %.3f, %.3f]"%
+                (bz_x.eval(T, [1]), bz_y.eval(T, [1]), bz_z.eval(T, [1])))
+        print("Solution Acceleration: [%.3f, %.3f, %.3f]"%(bz_x.eval(T, [2]), bz_y.eval(T, [2]), bz_z.eval(T, [2])))
+
+
+        trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w))
+      
+        # Compute the absolute times for this trajectory
+        if (t0 is None):
+            t_start = rospy.get_time()
+            t_end = t_start + T
+        else:
+            t_start = t0
+            t_end = t_start + T
+
+        mission = Mission()
+        mission.update(
+                    p = x0,
+                    v = v0, 
+                    tg_p = xf, 
+                    tg_v = vf, 
+                    tg_a = af,
+                    trj_gen = trj_obj,
+                    start_time = t_start,
+                    stop_time = t_end, 
+                    ttype = TrajectoryType.FullTrj)
+
+        bz_msg = BZCurve()
+        bz_msg.header.stamp = rospy.get_rostime()
+        bz_msg.t_start  = t_start
+        bz_msg.p0.x = x0[0]
+        bz_msg.p0.y = x0[1]
+        bz_msg.p0.z = x0[2]
+        bz_msg.coeff_x = bz_x.getControlPts()
+        bz_msg.coeff_y = bz_y.getControlPts() 
+        bz_msg.coeff_z = bz_z.getControlPts() 
+        bz_msg.duration = bz_x.duration
+        self.bzCurve_pub.publish(bz_msg)
+
+        return mission
 
     def gen_stop(self):
         miss_element = Mission()
