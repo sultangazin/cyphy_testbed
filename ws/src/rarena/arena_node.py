@@ -114,7 +114,7 @@ def generate_entities():
       pos=[0,0.05,-0.25], scale=[.1,.05,.1], color="#0000AA", opacity=0.2)
       
     drone2 = DroneArenaClass(mqtt_client, scene, 'cf2', id=4, source="vrpn_client_node",  on_click_clb=toggle_active,
-      pos=[0,0.05,0.25], scale=[.1,.05,.1], color="#00A0AA", opacity=0.2)
+      pos=[0,0.05,0.25], scale=[.1,.05,.1], color="#A36044", opacity=0.2)
          
     drones['cf3'] = drone1
     drones['cf2'] = drone2
