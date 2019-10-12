@@ -353,9 +353,10 @@ def computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm):
     angle_lim = math.pi / 3.0
     if (abs(alpha) > angle_lim):
         print("Reducing Angle")
+        new_angle = angle_lim * np.sign(alpha) 
         temp_quat = np.concatenate((
-            [math.cos(angle_lim / 2.0)], 
-            n * math.sin(angle_lim / 2.0)))
+            [math.cos(new_angle / 2.0)], 
+            n * math.sin(new_angle / 2.0)))
 
         tg_Zi = quat2Z(temp_quat)
 
