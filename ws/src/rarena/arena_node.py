@@ -14,6 +14,7 @@ from commander_interface.srv import GoTo
 from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaClass, TrajectoryArenaClass
 
 floor_offset = 0.7
+realm_y_offset = 0
 
 scene = "/topic/test"
 entities = []
@@ -79,23 +80,6 @@ def intercept_command(p):
                     print("Service did not process request: " + str(exc))
 
 
-# # Signal handler for destroying object in Arena
-# def signal_handler(sig, frame):
-#     # print("Removing objects before quitting...")
-#     # mqtt_client.publish(scene + "/" + "cube_0", "", retain=True)  
-#     # mqtt_client.publish(scene + "/" + "cube_1", "", retain=True) 
-#     # mqtt_client.publish(scene + "/" + "cube_2", "", retain=True)
-#     # mqtt_client.publish(scene + "/" + "line_0", "", retain=True)    
-#     # mqtt_client.publish(scene + "/" + "line_1", "", retain=True)
-#     # mqtt_client.publish(scene + "/" + "line_2", "", retain=True)
-
-#     # time.sleep(1)
-
-#     print("Quitting")
-#     mqtt_client.disconnect() #disconnect
-#     mqtt_client.loop_stop() #stop loop
-
-# signal.signal(signal.SIGINT, signal_handler)
 
 def generate_entities():
     global entities
@@ -106,9 +90,9 @@ def generate_entities():
     nodeB = NodeArenaClass(mqtt_client, scene, 'nodeB', id=1, source="vrpn_client_node",
       color="#7733AA", scale=[.2,.2,.2], opacity=0.3)
 
-    edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=2, 
-      start_node=nodeA, end_node=nodeB, color="#AA00AA", ros_topic="vrpn_client_node/cf3/pose", 
-      animate=True, interval=500, packet_duration=200)
+    edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=2, source="vrpn_client_node/cf1/pose",
+      start_node=nodeA, end_node=nodeB, color="#7733AA", opacity=1, animate=True, 
+      packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
       
     drone1 = DroneArenaClass(mqtt_client, scene, 'cf3', id=3, source="vrpn_client_node", on_click_clb=toggle_active,
       pos=[0,0.05,-0.25], scale=[.1,.05,.1], color="#0000AA", opacity=0.2)
@@ -119,22 +103,22 @@ def generate_entities():
     drones['cf3'] = drone1
     drones['cf2'] = drone2
 
-    target = TargetArenaClass(mqtt_client, scene, 'target', id=5, 
-      color="#00AA3A", source="vrpn_client_node", on_click_clb=intercept_command, scale=[0.3, 0.05, 0.3], opacity=0.5)
+    target = TargetArenaClass(mqtt_client, scene, 'target', id=5, source="vrpn_client_node", on_click_clb=intercept_command,
+      color="#00AA3A", scale=[0.3, 0.05, 0.3], opacity=0.2)
 
-    floor = TargetArenaClass(mqtt_client, scene, 'floor', id=6, 
-      color="#222222", pos=[0,-0.21,0], quat=[0,0,0,0], scale=[5,.01,3], on_click_clb=issue_command, opacity=0.5)
+    floor = TargetArenaClass(mqtt_client, scene, 'floor', id=6, on_click_clb=issue_command,
+      color="#222222", pos=[0,realm_y_offset,0], quat=[0,0,0,1], scale=[5,.01,3], opacity=0.2, marker_offset=[0,1,0])
 
     workstation = NodeArenaClass(mqtt_client, scene, 'workstation', id=7, 
-      color="#AAAA00", pos=[-2.25,-0.21 + 0.25,-1.4], scale=[.5,.5,.2], opacity=0.5)
+      color="#AAAA00", pos=[-2.25,realm_y_offset + 0.25,-1.4], scale=[.5,.5,.2], opacity=0.5)
 
-    edge2 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=8, 
-      start_node=workstation, end_node=drone2, color="#AAAA00", animate=False)
+    edge2 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=8,
+      start_node=workstation, end_node=drone2, color="#AAAA00")
 
-    land = TargetArenaClass(mqtt_client, scene, 'land', id=9, 
-      color="#FF22EA", source="vrpn_client_node", on_click_clb=land_command, scale=[0.3, 0.05, 0.3], opacity=0.5)
+    land = TargetArenaClass(mqtt_client, scene, 'land', id=9, source="vrpn_client_node", on_click_clb=land_command,
+      color="#FF22EA", scale=[0.3, 0.05, 0.3], opacity=0.5)
 
-    #traj = TrajectoryArenaClass(mqtt_client, scene, 'target', id=10, listen=True, scale=[.02,.02,.02])
+    traj = TrajectoryArenaClass(mqtt_client, scene, 'target', id=10, listen=True, scale=[.02,.02,.02])
 
       
     entities = [nodeA,
@@ -146,8 +130,8 @@ def generate_entities():
                 floor,
                 workstation,
                 edge2,
-                land#,
-                #traj
+                land,
+                traj
                 ]
 
 def update_entities():
