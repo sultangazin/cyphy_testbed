@@ -285,10 +285,25 @@ def genAvoidWaypoints(p0, pf, po, r):
 
     wps = []
 
+    W = np.zeros(2)
+    b = 0.0
     # Compute the hyperplane
-    X = np.concatenate(([p], [f]))
-    W = -np.matmul(np.linalg.inv(X), np.ones(2))
-
+    # The p0 is quite [0, 0]
+    if (np.linalg.norm(p) < 0.001 and np.linalg.norm(f) > 0.001):
+        W = np.array([f[1], -f[0]])
+        W = W / np.linalg.norm(W)
+        b = 0.0;
+    
+    if (np.linalg.norm(p) > 0.001 and np.linalg.norm(f) < 0.001):
+        W = np.array([p[1], -p[0]])
+        W = W / np.linalg.norm(W)
+        b = 0.0
+    
+    if (np.linalg.norm(p) > 0.001 and np.linalg.norm(f) > 0.001):
+        X = np.concatenate(([p], [f]))
+        W = -np.matmul(np.linalg.inv(X), np.ones(2))
+        b = 1.0
+ 
     Vertex = np.matlib.repmat([o], 4, 1)
     temp = np.matlib.repmat(np.array([r, r]), 4, 1)
     temp_1 = np.concatenate((
@@ -301,17 +316,17 @@ def genAvoidWaypoints(p0, pf, po, r):
     print(Vertex)
 
     # Check which vertex should I pass by 
-    if (np.dot(o, W) + 1.0 < 0):
+    if (np.dot(o, W) + b < 0):
         # Select vertex > 0
         for i in range(Vertex.shape[0]):
-            if (np.dot(W, Vertex[i]) + 1.0) > 0:
+            if (np.dot(W, Vertex[i]) + b) > 0:
                 print("Adding Vertex")
                 print(Vertex[i])
                 wps.append(Vertex[i])
     else:
         # Select vertex > 0
         for i in range(Vertex.shape[0]):
-            if (np.dot(W, Vertex[i]) + 1.0) < 0:
+            if (np.dot(W, Vertex[i]) + b) < 0:
                 print("Adding Vertex")
                 print(Vertex[i])
                 wps.append(Vertex[i])
@@ -335,6 +350,7 @@ def genAvoidWaypoints(p0, pf, po, r):
     print(wps_)
     wps = np.copy(wps_) 
     return list(wps)
+
 
 def computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm):
     """

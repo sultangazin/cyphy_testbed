@@ -24,6 +24,7 @@ import trjgen.trjgen_helpers as trjh
 import trjgen.trjgen_core as tj
 
 import trjgen.class_bz as bz
+import trjgen.class_bzfixed as bz_fix
 import trjgen.class_bztraj as bz_t
 
 from guidance_helper import *
@@ -139,6 +140,8 @@ def genBZCurveMsg(mission_item, bx, by, bz):
     bz_msg.coeff_z = bz.getControlPts() 
     bz_msg.duration = bx.duration
     return bz_msg
+
+
 
 
 def gen_MissionAtt(qf, x0, v0, xf, vf, af, t_s, DT):
@@ -468,7 +471,7 @@ class GuidanceClass:
         tg_v = np.zeros((3))
         tg_a = np.zeros((3))
                  
-        ndeg = 8
+        ndeg = 5
         rospy.loginfo("Start Point = [%.3f, %.3f, %.3f]" % (start_pos[0], start_pos[1], start_pos[2]))
         rospy.loginfo("End Point = [%.3f, %.3f, %.3f]" % (tg_p[0], tg_p[1], tg_p[2]))
 
@@ -508,23 +511,43 @@ class GuidanceClass:
 
                 next_v = np.zeros(3)
                 if (i < len(wps) - 1):
-                    next_d = wps[i + 1] - w
+                    if (len(wps) == 3):
+                        # If there are at least 2 corners
+                        # take the speed alogn the edge for both of them
+                        next_d = wps[1] - wps[0]
+                    else:
+                        # If there is only one corner, point directly
+                        # to the final target
+                        next_d = wps[i + 1] - w
                     next_v = goto_vel * next_d / np.linalg.norm(next_d)
+                    next_v[2] = 0.0
+                
+                (mission_element, bz_msg) = self.gen_MissionFixed(
+                        start_vel,
+                        temp,
+                        w,
+                        next_v,
+                        T,
+                        t_start)
+               
+#                (mission_element, bz_msg) = self.gen_MissionAuto(ndeg,
+#                        start_vel,
+#                        temp,
+#                        w,
+#                        next_v,
+#                        np.zeros(3, dtype=float),
+#                        T,
+#                        t_start)
 
-                (mission_element, bz_msg) = self.gen_MissionAuto(ndeg, start_vel, 
-                    temp, 
-                    w,
-                    next_v, 
-                    np.zeros(3, dtype=float), 
-                    T, 
-                    t_start)
+                print("Adding Pos WP = [%.3f, %.3f, %.3f]" %
+                         (w[0], w[1], w[2]))
+                print("WP Velocity = [%.3f, %.3f, %.3f]" %
+                         (next_v[0], next_v[1], next_v[2]))
 
                 temp = w
                 t_start = t_start + T
                 start_vel = next_v
 
-                self.mission_queue.insertItem(mission_element)
-                 
                 mission_msg.mission.append(bz_msg)
              
                 # Add mission element
@@ -831,7 +854,8 @@ class GuidanceClass:
         global mission_msg
 
 
-        InitialPosition = [2.131, 0.077, 0.229]
+        #InitialPosition = [2.131, 0.077, 0.229]
+        #Final Acceleration: [-5.967, -0.473, -6.222]
 
         ndeg = 5
         Tz_norm = req.a_norm
@@ -1066,7 +1090,60 @@ class GuidanceClass:
 
 
         return True 
+   
+    def gen_MissionFixed(self, v0, x0, xf, vf, T, t0 = None):
+        dp = xf - x0
+        InitialX = [0, v0[0], 0]
+        InitialY = [0, v0[1], 0]
+        InitialZ = [0, v0[2], 0]
+
+        FinalX = [dp[0], vf[0], 0]
+        FinalY = [dp[1], vf[1], 0]
+        FinalZ = [dp[2], vf[2], 0]
+
+        bz_x = bz_fix.BZ5deg(InitialX, FinalX, -8.0, 8.0)
+        bz_y = bz_fix.BZ5deg(InitialY, FinalY, -8.0, 8.0)
+        bz_z = bz_fix.BZ5deg(InitialZ, FinalZ, -8.0, 4.0)
+
+        (x_coeff, _, _) = bz_x.evalCPoints(T)
+        (y_coeff, _, _) = bz_y.evalCPoints(T)
+        (z_coeff, _, _) = bz_z.evalCPoints(T)
+
+        bz_x = bz.Bezier(cntp=x_coeff, s=T)
+        bz_y = bz.Bezier(cntp=y_coeff, s=T)
+        bz_z = bz.Bezier(cntp=z_coeff, s=T)
+        bz_w = bz.Bezier(cntp=np.zeros(6), s=T)
     
+        trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, 
+            bz_y, 
+            bz_z, 
+            bz_w))
+      
+        # Compute the absolute times for this trajectory
+        if (t0 is None):
+            t_start = rospy.get_time()
+            t_end = t_start + T
+        else:
+            t_start = t0
+            t_end = t_start + T
+
+        
+        mission_item = Mission()
+        mission_item.update(
+                    p = x0,
+                    v = v0, 
+                    tg_p = xf, 
+                    tg_v = vf, 
+                    tg_a = np.zeros(3),
+                    trj_gen = trj_obj,
+                    start_time = t_start,
+                    stop_time = t_end, 
+                    ttype = TrajectoryType.FullTrj) 
+
+        bz_msg = genBZCurveMsg(mission_item, bz_x, bz_y, bz_z)
+        return (mission_item, bz_msg)
+
+
     def gen_MissionAuto(self, ndeg, v0, x0, xf, vf, af, T, t0 = None): 
         # Generate the interpolation matrices to reach the pre-impact 
         # point with a given speed and acceleration.
@@ -1093,10 +1170,17 @@ class GuidanceClass:
             [-x0[2] + 0.2, z_lim[0]],
             [-z_lim[1], z_lim[1]],
             [-9.90, z_lim[2]]])
+        
+        print(" ================================================== \n")
+        print("Request Summary ")
+        print("Pos pre = \n", xf)
+        print("Vel pre = \n", vf)
+        print("Acc pre = \n", af)
+        print("Time To Go = \n", T)
 
         # Generate the polynomial
         #
-        print("Generating X")
+        print("\nGenerating X")
         bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=T, opt_der=3)
         print("\nGenerating Y")
         bz_y = bz.Bezier(waypoints=Ywp, constraints=y_cnstr, degree=ndeg, s=T, opt_der=3)
@@ -1105,12 +1189,7 @@ class GuidanceClass:
         print("\nGenerating W")
         bz_w = bz.Bezier(waypoints=Wwp, degree=ndeg, s=T, opt_der=0)
 
-        print(" ================================================== \n")
-        print("Summary ")
-        print("Pos pre = \n", xf)
-        print("Vel pre = \n", vf)
-        print("Acc pre = \n", af)
-
+        
         print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
         print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
         print("Final Acceleration: [%.3f, %.3f, %.3f]"%(Xwp[2,1], Ywp[2,1], Zwp[2,1]))
