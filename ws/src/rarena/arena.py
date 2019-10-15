@@ -5,12 +5,14 @@ import rospy
 import os
 import sys
 import time
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), './')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../guidance/trjgen')))
 
 from commander_interface.srv import GoTo, Land
 from guidance.srv import GenImpTrajectoryAuto
 
 from geometry_msgs.msg import PoseStamped
+from testbed_msgs.msg import MissionMsg
+from trjgen.class_bz import Bezier
 
 import numpy as np
 
@@ -53,8 +55,8 @@ class RArenaClass(object):
         self.visible = visible
         self.active=active
 
-        self.base_topic = self.scene + "/"  + self.shape + "_{}".format(self.id) 
-        self.text_topic = self.scene + "/"  + "text"+ "_{}".format(self.id) 
+        self.base_topic = "/topic/" + self.scene + "/"  + self.shape + "_{}".format(self.id) 
+        self.text_topic = "/topic/" + self.scene + "/"  + "text"+ "_{}".format(self.id) 
 
         self.registerCallbacks()
         self.registerServices()
@@ -303,7 +305,7 @@ class TargetArenaClass(NodeArenaClass):
         self.text_message = "text" + "_{}".format(self.id) + ",{},{},{},{},{},{},{},{},{},{},{},on"
         self.marker_message = "sphere_00{}".format(self.id)  + ",{},{},{},0,0,0,0,{},{},{},{},{}"
 
-        self.marker_topic = self.scene + "/"  + "sphere_00{}".format(self.id)
+        self.marker_topic = "/topic/" + self.scene + "/"  + "sphere_00{}".format(self.id)
 
         # Redraw object
         self.remove()
@@ -402,7 +404,7 @@ class EdgeArenaClass(RArenaClass):
 
 
     def initArenaObject(self):
-        self.packet_base_topic = self.scene + "/"  + "sphere_00{}".format(self.id)
+        self.packet_base_topic = "/topic/" + self.scene + "/"  + "sphere_00{}".format(self.id)
         #                                       x  y  z  x  y  z          col
         self.message = "line_{}".format(self.id) + ",{},{},{},{},{},{},0,0,0,0,{},{}"
         #                                                    x  y  z  qx qy qz qw sx sy sz col
@@ -428,7 +430,7 @@ class EdgeArenaClass(RArenaClass):
     def topic_callback(self, msg):
         #If enough time has passed, trigger single packet animationg
         if rospy.get_time() > (self.last_time + self.packet_interval/1000.0) and self.animate:
-            mqtt_topic = self.scene + "/"  + "sphere_00{}".format(self.id) + "/animation"
+            mqtt_topic = "/topic/" + self.scene + "/"  + "sphere_00{}".format(self.id) + "/animation"
             message = "property: position; from: {} {} {}; to: {} {} {}; dur:{};".format(
                 self.start_node.pos[0],self.start_node.pos[1],self.start_node.pos[2],
                 self.end_node.pos[0],self.end_node.pos[1],self.end_node.pos[2],
@@ -515,80 +517,145 @@ class EdgeArenaClass(RArenaClass):
 ###### TRAJECTORY ARENA CLASS ########
 class TrajectoryArenaClass(RArenaClass):
     def __init__(self, client, scene, name, id, shape="sphere", color="#AAAAAA", opacity=False, 
-        animate=False, source=None, listen=True, on_click_clb=None, visible=True, 
-        scale=[0.2,0.2,0.2], points=20, duration=2, draw_interval=0):
+        animate=False, source=None, listen=False, on_click_clb=None, visible=True, 
+        scale=[0.2,0.2,0.2], points=20, duration=2, point_interval=0):
 
         self.scale = scale
         self.points = points
         self.duration = duration
-        self.draw_interval=draw_interval
+        self.point_interval=point_interval
 
         self.ros_topic = None
         self.start_time=None
+        self.point_count=0
 
         super(TrajectoryArenaClass, self).__init__(client, scene, name, id, shape=shape, color=color, opacity=opacity,
             animate=animate, source=source, listen=listen, on_click_clb=on_click_clb, visible=visible)
 
 
     def initArenaObject(self):
-        self.topic_frame = self.scene + "/" + self.shape + "_{}" + "0{}".format(self.id)
+        self.topic_frame = "/topic/" + self.scene + "/" + self.shape + "_{}" + "0{}".format(self.id)
         self.message_frame = self.shape + "_{}" + "0{}".format(self.id) + ",{},{},{}" + ",0,0,0,1,{},{},{}".format(self.scale[0],
             self.scale[1],self.scale[2]) + ",{},on".format(self.color)
 
+        self.registerCallbacks()
+
         # Redraw object
-        self.remove_trajectory()
+        self.remove_trajectory(100)
 
         # TEMPORARY: Enable click listener for object (allows it to be clickable)
-        if self.listen:
-            self.client.message_callback_add(self.scene + "/cube_6/mousedown", self.on_click_input)
+        # if self.listen:
+        #     self.client.message_callback_add(self.scene + "/cube_6/mousedown", self.on_click_input)
 
 
     def registerCallbacks(self):
         if self.source:
             self.ros_topic = "/" + self.source
             # Subscribe to vehicle state update
-            rospy.Subscriber(self.ros_topic, PoseStamped, self.traj_callback)
-            rospy.loginfo("Subscribed to: {}".format(self.traj_callback))
+            rospy.Subscriber(self.ros_topic, MissionMsg, self.traj_callback)
+            rospy.loginfo("Subscribed to: {}".format(self.ros_topic))
 
 
-    def on_click_input(self, client, userdata, msg):
-        self.draw_trajectory(msg)
+    # def on_click_input(self, client, userdata, msg):
+    #     self.draw_trajectory(msg)
 
 
-    def traj_callback(self, traj_msg):
-        print("Received trajectory!: {}".format(traj_msg))
-
-
-    def draw_trajectory(self, msg):
+    def traj_callback(self, msg):
+        self.remove_trajectory()
         self.start_time = rospy.get_time()
-        click_x, click_y, click_z, user = msg.payload.split(',')
-        for i in range(self.points):
-            pos = [float(click_x),0,float(click_z) + int(i)/5.] # To be changed
-            message = self.message_frame.format(i,pos[0],pos[1],pos[2])
-            topic = self.topic_frame.format(i)
+        self.duration = 0
+        self.point_count = 0
+        time_offset = 0
+        
+        print("Received trajectory!")
+        print(msg)
+
+        for curve in msg.mission:
+            print("Got Cuve")
+            #normed_interval = float(self.point_interval) / curve.duration # Calculate scaled interval
+            #normed_offset, points = self.draw_curve(curve, normed_interval, self.point_count, time_offset)
+            #time_offset = normed_offset * curve.duration # Re-scale to real time
+            #self.point_count = self.point_count + points 
+            #self.duration = self.duration + curve.duration # Add to the total duration of the trajectory
+            
+    def draw_curve(self, curve, interval, idx_start=0, time_offset=0):
+        c_x = Bezier(curve.coeff_x)
+        c_y = Bezier(curve.coeff_y)
+        c_z = Bezier(curve.coeff_z)
+        time = float(time_offset)
+        idx = idx_start
+
+        # Draw curve with points at specified interval and indices starting from idx_start
+        while time <= 1.0:  # Curve assumes a time length of 1.0s
+            pos = [c_x.eval(time), c_y.eval(time), c_z.eval(time)]
+            message = self.message_frame.format(idx, pos[0], pos[1], pos[2])
+            topic = self.topic_frame.format(idx)
             self.client.publish(topic, message, retain=True)
             if self.opacity:
                 self.client.publish(topic + "/material", 
                 "transparent: true; opacity: {}".format(self.opacity), retain=True)
-            rospy.sleep(self.draw_interval)
+            idx = idx + 1
+            time = time + interval
+
+        offset = time - 1.0
+        points = idx - idx_start
+
+        return offset, points
+
+
+    # def draw_trajectory(self, msg):
+    #     self.start_time = rospy.get_time()
+    #     click_x, click_y, click_z, user = msg.payload.split(',')
+    #     for i in range(self.points):
+    #         pos = [float(click_x),0,float(click_z) + int(i)/5.] # To be changed
+    #         message = self.message_frame.format(i,pos[0],pos[1],pos[2])
+    #         topic = self.topic_frame.format(i)
+    #         self.client.publish(topic, message, retain=True)
+    #         if self.opacity:
+    #             self.client.publish(topic + "/material", 
+    #             "transparent: true; opacity: {}".format(self.opacity), retain=True)
+    #         rospy.sleep(self.draw_interval)
+
+
+    # def sweep_trajectory(self): 
+    #     if self.start_time:
+    #         i = 0
+    #         while (rospy.get_time() - self.start_time) > self.duration * (i/float(self.points)):
+    #             topic = self.topic_frame.format(i)
+    #             self.client.publish(topic, "", retain=True)
+    #             i = i + 1
+
+
+    # def remove_trajectory(self):
+    #     for i in range(self.points):
+    #         message = ""
+    #         topic = self.topic_frame.format(i)
+    #         self.client.publish(topic, message, retain=True)
+    #         self.client.publish(topic + "/material", "", retain=True)
+    #     # evaluate trajectory and update drawing
 
 
     def sweep_trajectory(self): 
-        if self.start_time:
+        if self.start_time!=None and self.point_count > 0:
             i = 0
-            while (rospy.get_time() - self.start_time) > self.duration * (i/float(self.points)):
+            while (rospy.get_time() - self.start_time) > self.duration * (i/float(self.point_count)):
                 topic = self.topic_frame.format(i)
                 self.client.publish(topic, "", retain=True)
                 i = i + 1
 
 
-    def remove_trajectory(self):
-        for i in range(self.points):
+    def remove_trajectory(self, max=None):
+        if max:
+            points = max
+        else:
+            points = self.point_count
+        for i in range(points):
             message = ""
             topic = self.topic_frame.format(i)
             self.client.publish(topic, message, retain=True)
             self.client.publish(topic + "/material", "", retain=True)
         # evaluate trajectory and update drawing
+        self.start_time = None
 
 
     def update(self):
@@ -596,10 +663,65 @@ class TrajectoryArenaClass(RArenaClass):
         if self.start_time!=None and (rospy.get_time() - self.start_time) > self.duration:
             print("Got to Remove")
             self.remove_trajectory()
-            self.start_time=None
+        self.start_time = None
 
 
     def remove(self):
         self.remove_trajectory()
 
-    
+
+###### TRAJECTORY ARENA CLASS ########
+class TrackerArenaClass:
+    def __init__(self, client, scene, name, source, init_pos=[0,0,0], init_quat=[0,0,0,0], active=False, rate=10):
+
+        self.client = client
+        self.scene = scene
+        self.name = name
+        self.source = source
+        self.source_pos = init_pos
+        self.source_quat = init_quat
+        self.camera_pos = init_pos
+        self.camera_quat = init_quat
+        self.active = active
+        self.rate = rate
+        self.last_time = rospy.get_time()
+
+        self.source_topic = "/" + self.source
+
+        self.camera_topic = "/topic/" + self.scene + "/" + self.name
+        #self.camera_message_frame= self.name + "_{}" + "0{}".format(self.id)
+
+        self.client.subscribe(self.camera_topic)
+        self.client.message_callback_add(self.camera_topic, self.camera_callback)
+
+        self.registerCallbacks()
+
+
+    def registerCallbacks(self):
+        # Subscribe to vehicle state update
+        rospy.Subscriber(self.source_topic, PoseStamped, self.source_callback)
+        rospy.loginfo("Subscribed to: {}".format(self.source))
+
+
+    def source_callback(self, pose_msg):
+        # Set new pose
+        self.source_pos = posFromPoseMsg(pose_msg)
+        self.source_quat = quatFromPoseMsg(pose_msg)
+
+
+    def camera_callback(self, client, userdata, msg):
+        # click_x, click_y, click_z, user = msg.payload.split(',')
+        # # Create array with the target position
+        # print( "Arena camera Position ({}): ".format(self.name) + str(click_x) + "," + str(click_y) + "," + str(click_z) )
+        
+        # self.camera_pos = np.array([x,y,z])
+        # self.camera_qat = np.array([q0,q1,q2,q3])
+        print("Camera Moved. Last measured position: {}, {}, {}".format(self.source_pos[0], 
+            self.source_pos[1], self.source_pos[2]))
+
+    def update(self):
+        if self.active and (rospy.get_time() - self.last_time) > (1.0/self.rate):
+            self.publish_correction()
+
+    def publish_correction():
+        print("Got to publish")
