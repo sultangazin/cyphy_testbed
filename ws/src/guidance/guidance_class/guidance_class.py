@@ -32,7 +32,7 @@ from guidance_helper_classes.mission_class import Mission, MissionType, Trajecto
 from guidance_helper_classes.trajectorygenerator_class import TrajectoryGenerator
 
 
-safety_dist = 0.25
+safety_dist = 0.50
 mission_msg = MissionMsg()
 
 class ConstAttitudeTrj:
@@ -256,7 +256,7 @@ class GuidanceClass:
             GenImpTrajectoryAuto, self.handle_genImpTrjAuto)
 
         self.service_vel_auto = rospy.Service('gen_TrajectoryAuto',
-                GenImpTrajectoryAuto, self.handle_genTrjAuto)
+                GenImpTrajectoryAuto, self.handle_genImpTrjDet)
 
         self.service_exe_mission = rospy.Service('exe_Mission',
                 ExeMission, self.handle_exeMission)
@@ -465,6 +465,7 @@ class GuidanceClass:
 
         # Reset mission message for the Arena 
         mission_msg = MissionMsg()
+        self.mission_queue.reset()
 
         tg_p = p 
         tg_prel = tg_p - start_pos
@@ -494,10 +495,9 @@ class GuidanceClass:
         temp = np.copy(start_pos)
         if (obst_int):
             print("Intersecting")
-            goto_vel = 0.3
+            goto_vel = 0.6
             wps = genAvoidWaypoints(start_pos, tg_p, obst_p, safety_dist)
             wps.append(tg_p) # Add the last point
-            self.mission_queue.reset()
             t_start = rospy.get_time()
  
             ##TODO: I must rewrite the Mission class to 
@@ -561,7 +561,7 @@ class GuidanceClass:
             print("Not intersecting")
             if (t2go == 0.0):
                 goto_vel = 0.5
-                T = np.linarg.norm(tg_prel) / goto_vel
+                T = np.linalg.norm(tg_prel) / goto_vel
             else:
                 T = t2go
 
@@ -846,76 +846,216 @@ class GuidanceClass:
         self.Active = True
         return True
 
+
     def handle_genImpTrjDet(self, req):
-        """
-        Generate a impact trajectory just specifying the modulus of the 
-        acceleration, speed and the time to go.
-        """
         global mission_msg
-
-
-        #InitialPosition = [2.131, 0.077, 0.229]
-        #Final Acceleration: [-5.967, -0.473, -6.222]
-
-        ndeg = 5
-        Tz_norm = req.a_norm
-        v_norm = req.v_norm
-
-        # Take the current pose of the vehicle
-        start_pos = posFromOdomMsg(self.current_odometry)
-        start_vel = velFromOdomMsg(self.current_odometry)
-        start_orientation = quatFromOdomMsg(self.current_odometry)
-        start_yaw = quat2yaw(start_orientation)
-
-        #start_vel = np.array([0,0,0])
-        # Take the current target pose
-        tg_pos = posFromPoseMsg(self.current_target)
-        tg_q = quatFromPoseMsg(self.current_target) 
-        tg_yaw = quat2yaw(tg_q)
-
-        rospy.loginfo("\n\n\nOn Target in " + str(req.t2go) + " sec!")
-        rospy.loginfo("Target = [" + str(tg_pos[0]) + " " +
-                str(tg_pos[1]) + " " + str(tg_pos[2]) + "]")
-        rospy.loginfo("Vehicle = [" + str(start_pos[0]) + " " +
-                str(start_pos[1]) + " " + str(start_pos[2]) + "]")
-
-        T = req.t2go
-        DT = req.tbal
-
-        # Compute the velocity and acceleration on the target considering
-        # a Tz_norm acceleration along the Zb
-        (tg_v, tg_a) = computeTerminalNormalVelAcc(tg_q, v_norm, Tz_norm)
-
-        tg_v[2] = -2.0 
-
+        """
+        Generate a tracking trajectory to reach an absolute waypoint 
+        with a given velocity and acceleration.
+        """
+        # Reset mission message for the Arena 
         mission_msg = MissionMsg()
 
-        (tg_pre, tg_vpre, tg_apre) = computeTerminalTrj(
-                tg_pos,
-                tg_v,
-                tg_a,
-                DT) 
-        
-        (mission_element, bz_msg) = self.gen_MissionAuto(ndeg, start_vel, start_pos, tg_pre, tg_vpre, tg_apre, T)
-        
-        t_stop = mission_element.getStopTime() 
-        mission_msg.t_start = bz_msg.t_start 
-        mission_msg.t_end = t_stop
-        mission_msg.duration = mission_msg.t_end - mission_msg.t_start
-        mission_msg.mission.append(bz_msg)
-        mission_msg.header.stamp = rospy.get_rostime()  
+        start_pos = posFromOdomMsg(self.current_odometry)
+        start_vel = velFromOdomMsg(self.current_odometry)
 
-        # Reset the current mission queue
-        self.mission_queue.update(mission_element)
+        tg_pos = posFromPoseMsg(self.current_target)
+        tg_p = tg_pos - np.array([1.0, 0.0, -0.2]) 
+ 
+        tg_prel = tg_p - start_pos
+        tg_v = np.array([1.0, 0.0, 0.0])
+        tg_a = np.zeros((3))
+                 
+        ndeg = 5
+        rospy.loginfo("Start Point = [%.3f, %.3f, %.3f]" % (start_pos[0], start_pos[1], start_pos[2]))
+        rospy.loginfo("End Point = [%.3f, %.3f, %.3f]" % (tg_p[0], tg_p[1], tg_p[2]))
 
-        #mission_element = gen_MissionAtt(tg_q, tg_pre, tg_vpre, tg_pos, tg_v, tg_a, t_stop, 2*DT)   
-        #self.mission_queue.insertItem(mission_element)
-        self.mission_queue.insertItem(Mission())
+        # Check whether there is an intersection with the obstacle.
+        obst_int = False
+
+        self.mission_queue.reset()
+        wps = []
+
+        temp = np.copy(start_pos)
+        t_start = rospy.get_time()
+
+        if (self.current_obst is not None):
+            obst_p = posFromPoseMsg(self.current_obst)
+            print("Obstacle at ")
+            print(obst_p)
+            
+            if (np.linalg.norm(tg_p - obst_p) < safety_dist):
+                print("Going into the Obstacle area!")
+                return False
+
+            (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, safety_dist)
+            print("Distance Vector to trajectory: ", e)
+
+        
+        if (obst_int):
+            print("Intersecting")
+            goto_vel = 0.6
+            wps = genAvoidWaypoints(start_pos, tg_p, obst_p, safety_dist)
+            wps.append(tg_p) # Add the last point
+            t_start = rospy.get_time()
+ 
+            ##TODO: I must rewrite the Mission class to 
+            ## shift the time
+            mission_msg.t_start = t_start
+            for i in range(len(wps)):
+                w = wps[i]
+                delta = w - temp
+                delta_norm = np.linalg.norm(delta)
+                T =  delta_norm / goto_vel
+
+                next_v = tg_v
+                if (i < len(wps) - 1):
+                    if (len(wps) == 3):
+                        # If there are at least 2 corners
+                        # take the speed alogn the edge for both of them
+                        next_d = wps[1] - wps[0]
+                    else:
+                        # If there is only one corner, point directly
+                        # to the final target
+                        next_d = wps[i + 1] - w
+                    next_v = goto_vel * next_d / np.linalg.norm(next_d)
+                    next_v[2] = 0.0
+                
+                (mission_element, bz_msg) = self.gen_MissionFixed(
+                        start_vel,
+                        temp,
+                        w,
+                        next_v,
+                        T,
+                        t_start)
+              
+                temp = w
+                t_start = t_start + T
+                start_vel = next_v
+
+                mission_msg.mission.append(bz_msg)
+             
+                # Add mission element
+                self.mission_queue.insertItem(mission_element)
+
+            ## I am in front of the Target
+            ## Generate the last part...
+            T = 0.7
+            start_pos = tg_p
+            x_coeff = np.array([0, 0.14, 0.28, 0.05, 0.776, 1.0])
+            y_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
+            z_coeff = np.array([0, 0, 0, 0.123, 0.038, -0.2])
+
+            bz_x = bz.Bezier(cntp=x_coeff, s=T)
+            bz_y = bz.Bezier(cntp=y_coeff, s=T)
+            bz_z = bz.Bezier(cntp=z_coeff, s=T)
+            bz_w = bz.Bezier(cntp=np.zeros(6), s=T)
+        
+            trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, 
+                bz_y, 
+                bz_z, 
+                bz_w))
+          
+            # Compute the absolute times for this trajectory
+            t_end = t_start + T
+            
+            mission_item = Mission()
+            mission_item.update(
+                        p = start_pos,
+                        v = next_v, 
+                        tg_p = tg_pos, 
+                        tg_v = np.array([1.6, 0.0, -1.7]), 
+                        tg_a = np.array([-6, 0, 6.2]),
+                        trj_gen = trj_obj,
+                        start_time = t_start,
+                        stop_time = t_end, 
+                        ttype = TrajectoryType.FullTrj) 
+
+            bz_msg = genBZCurveMsg(mission_item, bz_x, bz_y, bz_z)
+            
+            t_stop = mission_item.getStopTime() 
+
+            mission_msg.t_end = t_stop
+            mission_msg.duration = mission_msg.t_end - mission_msg.t_start
+            mission_msg.mission.append(bz_msg)
+            mission_msg.header.stamp = rospy.get_rostime()  
+
+            self.mission_queue.insertItem(mission_item)
+            self.mission_queue.insertItem(Mission())
+
+            self.mission_pub.publish(mission_msg)
+        else:
+            print("Not intersecting")
+            goto_vel = 0.5
+            T = np.linalg.norm(tg_prel) / goto_vel
+            mission_element, bz_msg = self.gen_MissionAuto(ndeg, start_vel, 
+                    start_pos, 
+                    tg_p,
+                    tg_v, 
+                    np.zeros(3, dtype=float), 
+                    T, t_start)
+
+            mission_msg.t_start = t_start
+            self.mission_queue.update(mission_element)
+            mission_msg.mission.append(bz_msg)
+
+            ## Generate the last part...
+            t_start = t_start + T
+            T = 0.7
+            start_pos = tg_p
+
+            x_coeff = np.array([0, 0.14, 0.28, 0.05, 0.776, 1.0])
+            y_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
+            z_coeff = np.array([0, 0, 0, 0.123, 0.038, -0.2])
+
+            bz_x = bz.Bezier(cntp=x_coeff, s=T)
+            bz_y = bz.Bezier(cntp=y_coeff, s=T)
+            bz_z = bz.Bezier(cntp=z_coeff, s=T)
+            bz_w = bz.Bezier(cntp=np.zeros(6), s=T)
+        
+            trj_obj = TrajectoryGenerator(bz_t.BezierCurve(bz_x, 
+                bz_y, 
+                bz_z, 
+                bz_w))
+          
+            # Compute the absolute times for this trajectory
+            t_end = t_start + T
+            
+            mission_item = Mission()
+            mission_item.update(
+                        p = start_pos,
+                        v = np.array([1.0, 0, 0]), 
+                        tg_p = tg_pos, 
+                        tg_v = np.array([1.6, 0.0, -1.7]), 
+                        tg_a = np.array([-6, 0, 6.2]),
+                        trj_gen = trj_obj,
+                        start_time = t_start,
+                        stop_time = t_end, 
+                        ttype = TrajectoryType.FullTrj) 
+
+            bz_msg = genBZCurveMsg(mission_item, bz_x, bz_y, bz_z)
+            
+            t_stop = mission_item.getStopTime() 
+
+            mission_msg.t_end = t_stop
+            mission_msg.duration = mission_msg.t_end - mission_msg.t_start
+            mission_msg.mission.append(bz_msg)
+            mission_msg.header.stamp = rospy.get_rostime()  
+
+            self.mission_queue.insertItem(mission_item)
+
+            mission_msg.mission.append(bz_msg)
+            mission_msg.duration = bz_msg.duration
+            mission_msg.t_end = mission_element.getStopTime()
+
+            self.mission_queue.insertItem(Mission())
 
         self.mission_pub.publish(mission_msg)
 
         self.Active = True
         return True
+
+        
 
     def handle_genImpTrjAuto(self, req):
         """
@@ -1091,6 +1231,8 @@ class GuidanceClass:
 
         return True 
    
+   
+
     def gen_MissionFixed(self, v0, x0, xf, vf, T, t0 = None):
         dp = xf - x0
         InitialX = [0, v0[0], 0]
@@ -1166,8 +1308,6 @@ class GuidanceClass:
             [-y_lim[1], y_lim[1]], 
             [-y_lim[2], y_lim[2]]])
         z_cnstr = np.array([
-            #[min(delta[2], -0,2), max(delta[2], 0)],
-            [-x0[2] + 0.2, z_lim[0]],
             [-z_lim[1], z_lim[1]],
             [-9.90, z_lim[2]]])
         
@@ -1260,10 +1400,10 @@ class GuidanceClass:
             self.gen_takeoff(h, t2go)
 
         if (req.mission_type == "impact"):
-            pass
+            self.handle_genImpTrjDet
 
         if (req.mission_type == "impact_acc"):
-            self.gen_impact()
+            pass 
 
         if (req.mission_type == "flip"):
             t2go = req.tg_time
