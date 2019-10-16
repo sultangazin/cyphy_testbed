@@ -1045,7 +1045,6 @@ class GuidanceClass:
 
             self.mission_queue.insertItem(mission_item)
 
-            mission_msg.mission.append(bz_msg)
             mission_msg.duration = bz_msg.duration
             mission_msg.t_end = mission_element.getStopTime()
 
