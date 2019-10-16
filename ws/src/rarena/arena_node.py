@@ -16,7 +16,7 @@ from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaCl
 floor_offset = 0.7
 realm_y_offset = 0
 
-scene = "test"
+scene = "test2"
 
 entities = []
 
@@ -49,7 +49,7 @@ def issue_command(tg_p):
             if (v.isActive()):
                 try:
                     print("Issuing GOTO command to drone {}".format(k))
-                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + floor_offset], 3.0)
+                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], floor_offset], 3.0)
                 except rospy.ServiceException as exc:
                     print("Service did not process request: " + str(exc))
 
@@ -85,16 +85,6 @@ def intercept_command(p):
 def generate_entities():
     global entities
 
-    nodeA = NodeArenaClass(mqtt_client, scene, 'nodeA', id=0, source="vrpn_client_node",
-      color="#7733AA", scale=[.2,.2,.2], opacity=0.3)
-
-    nodeB = NodeArenaClass(mqtt_client, scene, 'nodeB', id=1, source="vrpn_client_node",
-      color="#7733AA", scale=[.2,.2,.2], opacity=0.3)
-
-    edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=2, source="vrpn_client_node/cf2/pose",
-      start_node=nodeA, end_node=nodeB, color="#7733AA", opacity=None, animate=True,
-      packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
-
     drone1 = DroneArenaClass(mqtt_client, scene, 'cf3', id=3, source="vrpn_client_node", on_click_clb=toggle_active,
       pos=[0,0.05,-0.25], scale=[.1,.05,.1], color="#0000AA", opacity=0.2)
 
@@ -105,38 +95,89 @@ def generate_entities():
     drones['cf2'] = drone2
 
     target = TargetArenaClass(mqtt_client, scene, 'target', id=5, source="vrpn_client_node", on_click_clb=intercept_command,
-      color="#00AA3A", scale=[0.3, 0.05, 0.3], opacity=0.2)
+      color="#00AA00", scale=[0.3, 0.01, 0.3], opacity=0.2)
 
     floor = TargetArenaClass(mqtt_client, scene, 'floor', id=6, on_click_clb=issue_command,
-      color="#222222", pos=[0,realm_y_offset,0], quat=[0,0,0,1], scale=[5,.01,3], opacity=0.2, marker_offset=[0,floor_offset,0])
+      color="#222222", pos=[0,realm_y_offset,0], quat=[0,0,0,1], scale=[3,.02,4], opacity=0.2, marker_offset=[0,floor_offset,0])
 
-    workstation = NodeArenaClass(mqtt_client, scene, 'workstation', id=7,
-      color="#AAAA00", pos=[-2.25,realm_y_offset + 0.25,-1.4], scale=[.5,.5,.2], opacity=0.5)
+    land1 = TargetArenaClass(mqtt_client, scene, 'land1', id=7, source="vrpn_client_node", on_click_clb=land_command,
+      color="#0000AA", scale=[0.3, 0.01, 0.3], opacity=0.5)
 
-    edge2 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=8,
-      start_node=workstation, end_node=drone2, color="#AAAA00", animate=True,
+    land2 = TargetArenaClass(mqtt_client, scene, 'land2', id=8, source="vrpn_client_node", on_click_clb=land_command,
+      color="#AA4400", scale=[0.3, 0.01, 0.3], opacity=0.5)
+
+    nuc = NodeArenaClass(mqtt_client, scene, 'workstation', id=9,
+      color="#AAAA00", pos=[-2.25, realm_y_offset + 1.0, -0.8], scale=[0.1,0.03,0.1], opacity=0.5)
+
+    edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=10,
+      start_node=nuc, end_node=drone1, color="#AAAA00", animate=True,
       packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
 
-    land = TargetArenaClass(mqtt_client, scene, 'land', id=9, source="vrpn_client_node", on_click_clb=land_command,
-      color="#FF22EA", scale=[0.3, 0.05, 0.3], opacity=0.5)
+    edge2 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=11,
+      start_node=nuc, end_node=drone2, color="#AAAA00", animate=True,
+      packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
 
-    trajectory = TrajectoryArenaClass(mqtt_client, scene, 'trajectory', id=10, source="cf2/mission_info",
+    trajectory2 = TrajectoryArenaClass(mqtt_client, scene, 'trajectory2', id=12, source="cf2/mission_info",
       scale=[.02,.02,.02], opacity=0.5, tracked_object="vrpn_client_node/cf2/pose")
+
+    trajectory3 = TrajectoryArenaClass(mqtt_client, scene, 'trajectory3', id=13, source="cf3/mission_info",
+      scale=[.02,.02,.02], opacity=0.5, tracked_object="vrpn_client_node/cf3/pose")
+
+    center = NodeArenaClass(mqtt_client, scene, 'workstation', id=14,
+      color="#AAAAAA", pos=[0.05, realm_y_offset - 0.0, 0.05], scale=[0.3,0.02,0.3], opacity=None)
+
+    
+
+    # Add nodes for cameras
+
+    ot1 = NodeArenaClass(mqtt_client, scene, 'ot1', id=15,
+      color="#AA00AA", pos=[-3.0, realm_y_offset + 2.5, -2.0], scale=[0.15,0.15,0.15], opacity=0.5)
+
+    ot2 = NodeArenaClass(mqtt_client, scene, 'ot2', id=16,
+      color="#AA00AA", pos=[-1.0, realm_y_offset + 2.5, -3.0], scale=[0.15,0.15,0.15], opacity=0.5)
+
+    ot3 = NodeArenaClass(mqtt_client, scene, 'ot3', id=17,
+      color="#AA00AA", pos=[0.0, realm_y_offset + 2.5, -3.0], scale=[0.15,0.15,0.15], opacity=0.5)
+
+    ot4 = NodeArenaClass(mqtt_client, scene, 'ot4', id=18,
+      color="#AA00AA", pos=[2.0, realm_y_offset + 2.5, -3.0], scale=[0.15,0.15,0.15], opacity=0.5)
+
+    ot5 = NodeArenaClass(mqtt_client, scene, 'ot5', id=19,
+      color="#AA00AA", pos=[2.0, realm_y_offset + 2.5, 0.0], scale=[0.15,0.15,0.15], opacity=0.5)
+
+    ot6 = NodeArenaClass(mqtt_client, scene, 'ot6', id=20,
+      color="#AA00AA", pos=[2.0, realm_y_offset + 2.5, 2.5], scale=[0.15,0.15,0.15], opacity=0.5)
+
+    ot7 = NodeArenaClass(mqtt_client, scene, 'ot7', id=21,
+      color="#AA00AA", pos=[-0.5, realm_y_offset + 2.5, 2.5], scale=[0.15,0.15,0.15], opacity=0.5)
+
+    ot8 = NodeArenaClass(mqtt_client, scene, 'ot8', id=22,
+      color="#AA00AA", pos=[-3.0, realm_y_offset + 2.5, 2.5], scale=[0.15,0.15,0.15], opacity=0.5)
+
 
     # Initialize external trackers for evey viewing devices
     # tablet_tracker = TrackerArenaClass(mqtt_client, scene, "tablet", "vrpn_client_node", active=True)
 
-    entities = [nodeA,
-                nodeB,
-                edge1,
-                drone1,
+    entities = [drone1,
                 drone2,
                 target,
                 floor,
-                workstation,
+                land1,
+                land2,
+                nuc,
+                edge1,
                 edge2,
-                land,
-                trajectory#,
+                trajectory2,
+                trajectory3,
+                center,
+                ot1,
+                ot2,
+                ot3,
+                ot4,
+                ot5,
+                ot6,
+                ot7,
+                ot8 #,
                 # tablet_tracker
                 ]
 
