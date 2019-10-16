@@ -250,7 +250,7 @@ class DroneArenaClass(NodeArenaClass):
     def registerServices(self):
         #rospy.wait_for_service("/" + self.name + "/Commander_Node/goTo_srv")
         self.goTo = rospy.ServiceProxy("/" + self.name + "/Commander_Node/goTo_srv", GoTo)
-        self.inTer = rospy.ServiceProxy("/" + self.name + "/gen_ImpTrajectoryAuto", GenImpTrajectoryAuto)
+        self.inTer = rospy.ServiceProxy("/" + self.name + "/gen_TrajectoryAuto", GenImpTrajectoryAuto)
         self.land = rospy.ServiceProxy("/" + self.name + "/Commander_Node/land_srv", Land)
 
 
@@ -726,7 +726,8 @@ class TrackerArenaClass:
 
     def update(self):
         if self.active: #and (rospy.get_time() - self.last_time) > (1.0/self.rate):
-            self.publish_correction()
+            #self.publish_correction()
+            pass
 
 
     def publish_correction(self):
@@ -736,7 +737,7 @@ class TrackerArenaClass:
                                         quat_diff[0], quat_diff[1], quat_diff[2], quat_diff[3])
         self.client.publish(self.rig_message_topic, rig_message, retain=True)
 
-        # print("Published Diff: {},{}".format(pos_diff, quat_diff))
+        print("Published Diff: {},{}".format(pos_diff, quat_diff))
 
     def compute_quat_diff(self, quat_camera, quat_source):
         q1 = np.array([-quat_camera[0], -quat_camera[1], -quat_camera[2], quat_camera[3]]) # get conjugate

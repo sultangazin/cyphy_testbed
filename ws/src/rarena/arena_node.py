@@ -13,7 +13,7 @@ from commander_interface.srv import GoTo
 
 from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaClass, TrajectoryArenaClass, TrackerArenaClass
 
-floor_offset = 0.7
+floor_offset = 0.9
 realm_y_offset = 0
 
 scene = "test2"
@@ -98,7 +98,7 @@ def generate_entities():
       color="#00AA00", scale=[0.3, 0.01, 0.3], opacity=0.2)
 
     floor = TargetArenaClass(mqtt_client, scene, 'floor', id=6, on_click_clb=issue_command,
-      color="#222222", pos=[0,realm_y_offset,0], quat=[0,0,0,1], scale=[3,.02,4], opacity=0.2, marker_offset=[0,floor_offset,0])
+      color="#222222", pos=[0,realm_y_offset,0.5], quat=[0,0,0,1], scale=[2,.02,3], opacity=0.5, marker_offset=[0,floor_offset,0])
 
     land1 = TargetArenaClass(mqtt_client, scene, 'land1', id=7, source="vrpn_client_node", on_click_clb=land_command,
       color="#0000AA", scale=[0.3, 0.01, 0.3], opacity=0.5)
@@ -156,7 +156,7 @@ def generate_entities():
 
 
     # Initialize external trackers for evey viewing devices
-    # tablet_tracker = TrackerArenaClass(mqtt_client, scene, "tablet", "vrpn_client_node", active=True)
+    tablet_tracker = TrackerArenaClass(mqtt_client, scene, "tablet", "vrpn_client_node", active=True)
 
     entities = [drone1,
                 drone2,
@@ -177,8 +177,8 @@ def generate_entities():
                 ot5,
                 ot6,
                 ot7,
-                ot8 #,
-                # tablet_tracker
+                ot8,
+                tablet_tracker
                 ]
 
 
