@@ -943,8 +943,8 @@ class GuidanceClass:
             ## Generate the last part...
             T = 0.8
             start_pos = tg_p
-            y_coeff = -np.array([ 0.   ,  0.256,  0.512,  0.896,  1.344,  1.6])
-            #y_coeff = np.array([0, 0.14, 0.28, 0.05, 0.776, 1.0])
+            y_coeff = -np.array([ 0.0, 0.32, 0.64, 1.064, 1.53, 1.8])
+            #y_coeff = -np.array([ 0.0, 0.256, 0.512, 0.896, 1.344, 1.6])
             x_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
             z_coeff = np.array([0, 0, 0, 0.123, 0.038, -0.2])
 
@@ -1006,9 +1006,8 @@ class GuidanceClass:
             T = 0.8
             start_pos = tg_p
 
-            y_coeff = -np.array([ 0.   ,  0.256,  0.512,  0.896,  1.344,  1.6])
-            #y_coeff = -np.array([0, 0.2, 0.4, 0.405, 0.776, 1])
-            x_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
+            y_coeff = -np.array([ 0.0, 0.32, 0.64, 1.064, 1.53, 1.8])
+            #y_coeff = -np.array([ 0.0, 0.256, 0.512, 0.896, 1.344, 1.6])            x_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
             z_coeff = np.array([0, 0, 0, 0.123, 0.038, -0.2])
 
             bz_x = bz.Bezier(cntp=x_coeff, s=T)
