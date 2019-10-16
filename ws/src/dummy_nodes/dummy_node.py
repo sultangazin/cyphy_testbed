@@ -40,6 +40,20 @@ def genObstaclemsg(p, q):
 
     return pose_msg
 
+def genDronemsg(p, q):
+    pose_msg = PoseStamped()
+
+    pose_msg.pose.position.x = p[0] 
+    pose_msg.pose.position.y = p[1]
+    pose_msg.pose.position.z = p[2]
+
+    pose_msg.pose.orientation.w = q[0]
+    pose_msg.pose.orientation.x = q[1]
+    pose_msg.pose.orientation.y = q[2]
+    pose_msg.pose.orientation.z = q[3]
+
+    return pose_msg
+
 
 if __name__ == "__main__":
     rospy.init_node("Dummy_Node")
@@ -57,8 +71,11 @@ if __name__ == "__main__":
     dummy_obstacle_pub = rospy.Publisher("/nodeB/external_pose", 
             PoseStamped, queue_size=10)
 
+    dummy_drone_pub = rospy.Publisher("/vrpn_client_node/cf2/pose", 
+            PoseStamped, queue_size=10)
+
     msg_vehicle = CustOdometryStamped()
-    msg_vehicle.p.x = 0.0
+    msg_vehicle.p.x = 1.0
     msg_vehicle.p.y = 0.0
     msg_vehicle.p.z = 0.7
     msg_vehicle.q.w = 1.0 
@@ -73,10 +90,13 @@ if __name__ == "__main__":
     obstacle_q = np.array([1,0, 0,0, 0.0, 0.0])
     msg_obstacle = genObstaclemsg(obstacle_p, obstacle_q) 
 
+    msg_drone = genDronemsg([0,1,0],[1,0,0,0])
+
     while (not rospy.is_shutdown()):
         pass
         dummy_codom_pub.publish(msg_vehicle)    
         dummy_target_pub.publish(msg_target)
         dummy_obstacle_pub.publish(msg_obstacle)
+        dummy_drone_pub.publish(msg_drone)
 
         rate.sleep()

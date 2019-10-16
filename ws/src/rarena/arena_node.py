@@ -121,7 +121,10 @@ def generate_entities():
       color="#FF22EA", scale=[0.3, 0.05, 0.3], opacity=0.5)
 
     trajectory = TrajectoryArenaClass(mqtt_client, scene, 'trajectory', id=10, source="cf2/mission_info",
-      scale=[.02,.02,.02], opacity=False)
+      scale=[.02,.02,.02], opacity=0.5, tracked_object="vrpn_client_node/cf2/pose")
+
+    # Initialize external trackers for evey viewing devices
+    # tablet_tracker = TrackerArenaClass(mqtt_client, scene, "tablet", "vrpn_client_node", active=True)
 
     entities = [nodeA,
                 nodeB,
@@ -133,7 +136,8 @@ def generate_entities():
                 workstation,
                 edge2,
                 land,
-                trajectory
+                trajectory#,
+                # tablet_tracker
                 ]
 
 
@@ -158,11 +162,7 @@ def remove_conix_boxes():
     mqtt_client.publish(scene + "/Box-obj","",retain=True)
     mqtt_client.publish(scene + "/fallBox","",retain=True)
     mqtt_client.publish(scene + "/fallBox2","",retain=True)
-
-def init_trackers():
-    # Initialize external trackers for evey viewing devices
-    tracker = TrackerArenaClass(mqtt_client, scene, "camera_2567_X", "vrpn_client_node/cf1/pose")
-
+    
 
 
 def configure_environment():
@@ -179,13 +179,12 @@ if __name__ == '__main__':
     mqtt_client.connect(mqtt_broker)
     remove_conix_boxes()
     generate_entities()
-    init_trackers()
     configure_environment()
 
     mqtt_client.loop_start() #start loop to process received mqtt messages
 
     #rospy.spin()
-    rate = rospy.Rate(10)
+    rate = rospy.Rate(5)
     while not rospy.is_shutdown():
         update_entities()
         rate.sleep()
