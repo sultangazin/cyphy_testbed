@@ -13,7 +13,7 @@
     <arg name="vehicle_frame3" default="cf3" />
     <arg name="target" default="target" />
     <arg name="nodeB" default="nodeB" />
-    <arg name="ip" default="192.168.1.11" />
+    <arg name="ip" default="192.168.145.118" />
     <arg name="port" default="3883" />
 
 <!-- ===================================== -->
@@ -55,10 +55,10 @@
 <!-- ===================================== -->
 <!-- Launch the Arena Node
 
+     -->
 <include file="$(find demo_launchers)/launch/arena.launch">
 </include>
 
-     -->
 <!-- ======================================== -->
 <!-- Launch the controller/guidance componets -->
 <include file="$(find demo_launchers)/launch/commander_launch.launch">
