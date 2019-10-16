@@ -32,7 +32,7 @@ from guidance_helper_classes.mission_class import Mission, MissionType, Trajecto
 from guidance_helper_classes.trajectorygenerator_class import TrajectoryGenerator
 
 
-safety_dist = 0.50
+safety_dist = 0.20
 mission_msg = MissionMsg()
 
 class ConstAttitudeTrj:
@@ -235,10 +235,11 @@ class GuidanceClass:
         # Load the name of the Input Topics
         self.dr_odom_topic_ = rospy.get_param('topics/in_vehicle_odom_topic', 'external_codom')    
         target_name = rospy.get_param('topics/in_tg_pose_topic', "target")
-        obst_name = rospy.get_param('topics/in_obst_pose_topic', "nodeB")
+        obst_name = rospy.get_param('~topics/in_obst_pose_topic', "nodeB")
         self.tg_pose_topic_ = '/' + target_name + '/external_pose'
         self.obs_pose_topic_  = '/' + obst_name + '/external_pose'
         self.bzcurve_topic_ = '/bzcurve'
+        rospy.loginfo("\n Vehicle " + self.target_frame + " | Obstacle name " + obst_name)
 
     def registerCallbacks(self):
         # Subscribe to vehicle state update
@@ -485,7 +486,7 @@ class GuidanceClass:
             print(obst_p)
             
             if (np.linalg.norm(tg_p - obst_p) < safety_dist):
-                print("Going into the Obstacle area!")
+                print("Going into the Obstacle area: Skip request!")
                 return False
 
             (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, safety_dist)
