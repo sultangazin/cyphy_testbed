@@ -860,10 +860,10 @@ class GuidanceClass:
         start_vel = velFromOdomMsg(self.current_odometry)
 
         tg_pos = posFromPoseMsg(self.current_target)
-        tg_p = tg_pos - np.array([1.0, 0.0, -0.2]) 
+        tg_p = tg_pos + np.array([0.0, 1.6, 0.2]) 
  
         tg_prel = tg_p - start_pos
-        tg_v = np.array([1.0, 0.0, 0.0])
+        tg_v = np.array([0.0, -1.5, 0.0])
         tg_a = np.zeros((3))
                  
         ndeg = 5
@@ -940,10 +940,11 @@ class GuidanceClass:
 
             ## I am in front of the Target
             ## Generate the last part...
-            T = 0.7
+            T = 0.8
             start_pos = tg_p
-            x_coeff = np.array([0, 0.14, 0.28, 0.05, 0.776, 1.0])
-            y_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
+            y_coeff = -np.array([ 0.   ,  0.256,  0.512,  0.896,  1.344,  1.6])
+            #y_coeff = np.array([0, 0.14, 0.28, 0.05, 0.776, 1.0])
+            x_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
             z_coeff = np.array([0, 0, 0, 0.123, 0.038, -0.2])
 
             bz_x = bz.Bezier(cntp=x_coeff, s=T)
@@ -964,8 +965,8 @@ class GuidanceClass:
                         p = start_pos,
                         v = next_v, 
                         tg_p = tg_pos, 
-                        tg_v = np.array([1.6, 0.0, -1.7]), 
-                        tg_a = np.array([-6, 0, 6.2]),
+                        tg_v = np.array([0.0, -1.6, -1.7]), 
+                        tg_a = np.array([0.0, 6.0, 6.2]),
                         trj_gen = trj_obj,
                         start_time = t_start,
                         stop_time = t_end, 
@@ -1001,11 +1002,12 @@ class GuidanceClass:
 
             ## Generate the last part...
             t_start = t_start + T
-            T = 0.7
+            T = 0.8
             start_pos = tg_p
 
-            x_coeff = np.array([0, 0.14, 0.28, 0.05, 0.776, 1.0])
-            y_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
+            y_coeff = -np.array([ 0.   ,  0.256,  0.512,  0.896,  1.344,  1.6])
+            #y_coeff = -np.array([0, 0.2, 0.4, 0.405, 0.776, 1])
+            x_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
             z_coeff = np.array([0, 0, 0, 0.123, 0.038, -0.2])
 
             bz_x = bz.Bezier(cntp=x_coeff, s=T)
@@ -1024,10 +1026,10 @@ class GuidanceClass:
             mission_item = Mission()
             mission_item.update(
                         p = start_pos,
-                        v = np.array([1.0, 0, 0]), 
+                        v = np.array([0.0, -1.0, 0]), 
                         tg_p = tg_pos, 
-                        tg_v = np.array([1.6, 0.0, -1.7]), 
-                        tg_a = np.array([-6, 0, 6.2]),
+                        tg_v = np.array([0.0, -1.6, -1.7]), 
+                        tg_a = np.array([0.0, 6.0, -6.2]),
                         trj_gen = trj_obj,
                         start_time = t_start,
                         stop_time = t_end, 
@@ -1035,8 +1037,7 @@ class GuidanceClass:
 
             bz_msg = genBZCurveMsg(mission_item, bz_x, bz_y, bz_z)
             
-            t_stop = mission_item.getStopTime() 
-
+            t_stop = t_end 
             mission_msg.t_end = t_stop
             mission_msg.duration = mission_msg.t_end - mission_msg.t_start
             mission_msg.mission.append(bz_msg)
