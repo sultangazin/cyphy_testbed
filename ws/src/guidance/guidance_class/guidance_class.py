@@ -32,7 +32,7 @@ from guidance_helper_classes.mission_class import Mission, MissionType, Trajecto
 from guidance_helper_classes.trajectorygenerator_class import TrajectoryGenerator
 
 
-safety_dist = 0.20
+safety_dist = 0.15
 mission_msg = MissionMsg()
 
 class ConstAttitudeTrj:
@@ -482,14 +482,18 @@ class GuidanceClass:
 
         if (self.current_obst is not None):
             obst_p = posFromPoseMsg(self.current_obst)
-            print("Obstacle at ")
-            print(obst_p)
-            
-            if (np.linalg.norm(tg_p - obst_p) < safety_dist):
+            print("Obstacle at ", obst_p)
+        
+            dist_from_ep = np.linalg.norm(tg_p[0:2] - obst_p[0:2])
+            print("Distance from obstacle ", dist_from_ep)
+            if (dist_from_ep < safety_dist):
                 print("Going into the Obstacle area: Skip request!")
                 return False
 
             (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, safety_dist)
+            if (abs(np.array(tg_p[0:2])) <  abs(np.array(obst_p[0:2]))).any():
+                obst_int = False
+            
             print("Distance Vector to trajectory: ", e)
 
         wps = []
@@ -882,14 +886,18 @@ class GuidanceClass:
 
         if (self.current_obst is not None):
             obst_p = posFromPoseMsg(self.current_obst)
-            print("Obstacle at ")
-            print(obst_p)
-            
-            if (np.linalg.norm(tg_p - obst_p) < safety_dist):
-                print("Going into the Obstacle area!")
+            print("Obstacle at ", obst_p)
+        
+            dist_from_ep = np.linalg.norm(tg_p[0:2] - obst_p[0:2])
+            print("Distance from obstacle ", dist_from_ep)
+            if (dist_from_ep < safety_dist):
+                print("Going into the Obstacle area: Skip request!")
                 return False
 
             (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, safety_dist)
+            if (abs(np.array(tg_p[0:2])) <  abs(np.array(obst_p[0:2]))).any():
+                obst_int = False
+            
             print("Distance Vector to trajectory: ", e)
 
         
