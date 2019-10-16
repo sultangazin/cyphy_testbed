@@ -69,11 +69,13 @@
 <include file="$(find demo_launchers)/launch/commander_launch.launch">
     <arg name="vehicle_frame" value="$(arg vehicle_frame2)" />
     <arg name="commander_id" value="cm2" />
+    <arg name="obst_frame" default="cf3" />
 </include>
 
 <include file="$(find demo_launchers)/launch/commander_launch.launch">
     <arg name="vehicle_frame" value="$(arg vehicle_frame3)" />
     <arg name="commander_id" value="cm3" />
+    <arg name="obst_frame" default="cf2" />
 </include>
 
 <node pkg="manager" 
