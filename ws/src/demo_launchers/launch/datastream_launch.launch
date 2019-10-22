@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
         <arg name="vehicle_frame" default="cf1" />
-        <arg name="ip" default="192.168.1.198" />
+        <arg name="ip" default="192.168.145.118" />
         <arg name="port" default="3883" />
 <!--
 ============================================================================
@@ -88,11 +88,11 @@ RArena node
         output="screen"> 
 </node>
 
--->
+
 <node pkg="rarena" name="rarena" type="rarena_node.py" 
         output="screen"> 
 </node>
-
+-->
 <!--
 ============================================================================
 Visualization with RVIZ 

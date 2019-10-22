@@ -384,6 +384,10 @@ void StateAggregator::onNewPose(
 
     // Position (directly from the camera)
     ext_position_msg_.header.stamp = msg->header.stamp;
+
+    //std::cout<<"Times " <<ext_position_msg_.header.stamp << std::endl;
+
+
     //ext_position_msg_.header.stamp = current_time;
     ext_position_msg_.point = ext_pose_msg_.pose.position;
 

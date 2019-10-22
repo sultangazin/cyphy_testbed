@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <launch>
+        <!--<arg name="uri" default="radio://0/121/2M/E7E7E7E7E7" />-->
         <arg name="uri" default="radio://0/121/2M/E7E7E7E7E7" />
         <arg name="frame" default="cf1" />
         <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
@@ -76,11 +77,13 @@ Publish the Estimated odometry
 <!--
 ========================================================================
 Monitoring
-<node pkg="rqt_plot"
-    type="rqt_plot" 
-    name="RealTime_Monitor" args="/$(arg frame)/logMotors"/>
 
 -->
+<node pkg="rqt_plot"
+    type="rqt_plot" 
+    name="RealTime_Monitor" args="/$(arg frame)/logDD/values[4]"/>
+
+
 
 <!--
 ============================================================================
