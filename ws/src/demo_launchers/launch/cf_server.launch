@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
     <arg name="uri" default="radio://0/100/2M/E7E7E7E7E7" />
-    <arg name="frame" default="cf1" />
+    <arg name="frame" default="cf2" />
 
     <node pkg="crazyflie_driver" 
         type="crazyflie_server" 
