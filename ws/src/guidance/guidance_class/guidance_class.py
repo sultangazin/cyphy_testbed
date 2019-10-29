@@ -482,14 +482,18 @@ class GuidanceClass:
 
         if (self.current_obst is not None):
             obst_p = posFromPoseMsg(self.current_obst)
-            print("Obstacle at ")
-            print(obst_p)
-            
-            if (np.linalg.norm(tg_p - obst_p) < safety_dist):
+            print("Obstacle at ", obst_p)
+        
+            dist_from_ep = np.linalg.norm(tg_p[0:2] - obst_p[0:2])
+            print("Distance from obstacle ", dist_from_ep)
+            if (dist_from_ep < safety_dist):
                 print("Going into the Obstacle area: Skip request!")
                 return False
 
             (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, safety_dist)
+            if (abs(np.array(tg_p[0:2])) <  abs(np.array(obst_p[0:2]))).any():
+                obst_int = False
+            
             print("Distance Vector to trajectory: ", e)
 
         wps = []
@@ -882,14 +886,18 @@ class GuidanceClass:
 
         if (self.current_obst is not None):
             obst_p = posFromPoseMsg(self.current_obst)
-            print("Obstacle at ")
-            print(obst_p)
-            
-            if (np.linalg.norm(tg_p - obst_p) < safety_dist):
-                print("Going into the Obstacle area!")
+            print("Obstacle at ", obst_p)
+        
+            dist_from_ep = np.linalg.norm(tg_p[0:2] - obst_p[0:2])
+            print("Distance from obstacle ", dist_from_ep)
+            if (dist_from_ep < safety_dist):
+                print("Going into the Obstacle area: Skip request!")
                 return False
 
             (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, safety_dist)
+            if (abs(np.array(tg_p[0:2])) <  abs(np.array(obst_p[0:2]))).any():
+                obst_int = False
+            
             print("Distance Vector to trajectory: ", e)
 
         
@@ -943,7 +951,8 @@ class GuidanceClass:
             ## Generate the last part...
             T = 0.8
             start_pos = tg_p
-            x_coeff = np.array([ 0.0, 0.32, 0.64, 1.064, 1.53, 1.8])
+
+            x_coeff = np.array([ 0.   ,  0.256,  0.512,  0.896,  1.344,  1.6])
             y_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
             z_coeff = np.array([0, 0, 0, 0.123, 0.038, -0.2])
 
@@ -1005,7 +1014,7 @@ class GuidanceClass:
             T = 0.8
             start_pos = tg_p
 
-            x_coeff = np.array([ 0.0, 0.32, 0.64, 1.064, 1.53, 1.8])
+            x_coeff = np.array([ 0.   ,  0.256,  0.512,  0.896,  1.344,  1.6])
             y_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
             z_coeff = np.array([0, 0, 0, 0.123, 0.038, -0.2])
 

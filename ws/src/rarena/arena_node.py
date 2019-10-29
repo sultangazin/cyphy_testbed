@@ -49,7 +49,8 @@ def issue_command(tg_p):
             if (v.isActive()):
                 try:
                     print("Issuing GOTO command to drone {}".format(k))
-                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], floor_offset], 3.0)
+                    y = floor_offset
+                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], y], 3.0)
                 except rospy.ServiceException as exc:
                     print("Service did not process request: " + str(exc))
 
@@ -86,16 +87,16 @@ def generate_entities():
     global entities
 
     drone1 = DroneArenaClass(mqtt_client, scene, 'cf3', id=3, source="vrpn_client_node", on_click_clb=toggle_active,
-      pos=[0,0.05,-0.25], scale=[.1,.05,.1], color="#0000AA", opacity=0.2)
+      pos=[0,0.05,-0.25], scale=[.1,.05,.1], color="#0044AA", opacity=0.4)
 
     drone2 = DroneArenaClass(mqtt_client, scene, 'cf2', id=4, source="vrpn_client_node",  on_click_clb=toggle_active,
-      pos=[0,0.05,0.25], scale=[.1,.05,.1], color="#A36044", opacity=0.2)
+      pos=[0,0.05,0.25], scale=[.1,.05,.1], color="#8844AA", opacity=0.4)
 
     drones['cf3'] = drone1
     drones['cf2'] = drone2
 
     target = TargetArenaClass(mqtt_client, scene, 'target', id=5, source="vrpn_client_node", on_click_clb=intercept_command,
-      color="#00AA00", scale=[0.3, 0.01, 0.3], opacity=0.2)
+      color="#00AA88", scale=[0.3, 0.01, 0.3], opacity=0.4)
 
     floor = TargetArenaClass(mqtt_client, scene, 'floor', id=6, on_click_clb=issue_command,
       color="#222222", pos=[0,realm_y_offset,0.5], quat=[0,0,0,1], scale=[2,.02,3], opacity=0.5, marker_offset=[0,floor_offset,0])
@@ -109,13 +110,13 @@ def generate_entities():
     nuc = NodeArenaClass(mqtt_client, scene, 'workstation', id=9,
       color="#AAAA00", pos=[-2.25, realm_y_offset + 1.0, -0.8], scale=[0.1,0.03,0.1], opacity=0.5)
 
-    edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=10,
-      start_node=nuc, end_node=drone1, color="#AAAA00", animate=True,
-      packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
+    # edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=10,
+    #   start_node=nuc, end_node=drone1, color="#AAAA00", animate=True,
+    #   packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
 
-    edge2 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=11,
-      start_node=nuc, end_node=drone2, color="#AAAA00", animate=True,
-      packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
+    # edge2 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=11,
+    #   start_node=nuc, end_node=drone2, color="#AAAA00", animate=True,
+    #   packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
 
     trajectory2 = TrajectoryArenaClass(mqtt_client, scene, 'trajectory2', id=12, source="cf2/mission_info",
       scale=[.02,.02,.02], opacity=0.5, tracked_object="vrpn_client_node/cf2/pose")
@@ -124,7 +125,7 @@ def generate_entities():
       scale=[.02,.02,.02], opacity=0.5, tracked_object="vrpn_client_node/cf3/pose")
 
     center = NodeArenaClass(mqtt_client, scene, 'workstation', id=14,
-      color="#AAAAAA", pos=[0.05, realm_y_offset - 0.0, 0.05], scale=[0.3,0.02,0.3], opacity=None)
+      color="#AAAAAA", pos=[0.07, realm_y_offset + 0.01, 0.1], scale=[0.3,0.02,0.3], opacity=0.7)
 
     
 
@@ -165,8 +166,8 @@ def generate_entities():
                 land1,
                 land2,
                 nuc,
-                edge1,
-                edge2,
+                # edge1,
+                # edge2,
                 trajectory2,
                 trajectory3,
                 center,
@@ -225,7 +226,7 @@ if __name__ == '__main__':
     mqtt_client.loop_start() #start loop to process received mqtt messages
 
     #rospy.spin()
-    rate = rospy.Rate(5)
+    rate = rospy.Rate(10)
     while not rospy.is_shutdown():
         update_entities()
         rate.sleep()

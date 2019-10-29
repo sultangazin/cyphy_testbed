@@ -3,7 +3,7 @@
     This launcher sets up the nodes to send commands to the vehicle.
 -->
 <launch>
-    <arg name="vehicle_frame" default="cf1" />
+    <arg name="vehicle_frame" default="cf2" />
     <arg name="commander_id" default="cm1" />  
     <arg name="obst_frame" default="cf3" />
 

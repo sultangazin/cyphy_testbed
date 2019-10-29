@@ -186,7 +186,7 @@ class NodeArenaClass(RArenaClass):
 
     def update(self):
         # Update pose
-        if self.visible:
+        if self.visible and self.source:
             self.draw()
 
         # Update text
@@ -568,12 +568,12 @@ class TrajectoryArenaClass(RArenaClass):
         time_offset = 0.0
         init_pos = self.tracked_pos
         
-        rospy.loginfo("Received trajectory! ({0}): Time = {1:f}".format(self.name, self.start_time))
-        rospy.loginfo("Starting position ({}): {}".format(self.name, init_pos))
+        #rospy.loginfo("Received trajectory! ({0}): Time = {1:f}".format(self.name, self.start_time))
+        #rospy.loginfo("Starting position ({}): {}".format(self.name, init_pos))
         print(msg)
 
         for curve in msg.mission:
-            rospy.loginfo("Got Curve ({})".format(self.name))
+            #rospy.loginfo("Got Curve ({})".format(self.name))
             # normed_interval = float(self.point_interval) / curve.duration # Calculate scaled interval
             # normed_offset = float(time_offset) / curve.duration
             normed_offset, points, final_pos = self.draw_curve(curve, .1, self.point_count, 
@@ -583,7 +583,7 @@ class TrajectoryArenaClass(RArenaClass):
             self.point_count = self.point_count + points 
             self.duration = self.duration + curve.duration # Add to the total duration of the trajectory
 
-            rospy.loginfo("Point Count = {}".format(self.point_count))
+            #rospy.loginfo("Point Count = {}".format(self.point_count))
             
     def draw_curve(self, curve, interval, idx_start=0, time_offset=0, init_pos=0):
         
@@ -592,7 +592,7 @@ class TrajectoryArenaClass(RArenaClass):
         c_z = Bezier(curve.coeff_z)
         time = float(time_offset)
         idx = idx_start
-        rospy.loginfo("Drawing curve at time: {}".format(time))
+        #rospy.loginfo("Drawing curve at time: {}".format(time))
 
         # Draw curve with points at specified interval and indices starting from idx_start
         while time <= 1.0:  # Curve assumes a time length of 1.0s
@@ -627,7 +627,7 @@ class TrajectoryArenaClass(RArenaClass):
 
 
     def remove_trajectory(self, max=None):
-        rospy.loginfo("Removing Trajectory ({})".format(self.name))
+        #rospy.loginfo("Removing Trajectory ({})".format(self.name))
         if max:
             points = max
         else:
@@ -644,7 +644,7 @@ class TrajectoryArenaClass(RArenaClass):
     def update(self):
         #self.sweep_trajectory()
         if self.start_time!=None and (rospy.get_time() - self.start_time) > self.duration:
-            print("Got to Remove")
+            #print("Got to Remove")
             self.remove_trajectory()
             self.start_time = None
 
@@ -726,13 +726,13 @@ class TrackerArenaClass:
 
     def update(self):
         if self.active: #and (rospy.get_time() - self.last_time) > (1.0/self.rate):
-            #self.publish_correction()
+            # self.publish_correction()
             pass
 
 
     def publish_correction(self):
         pos_diff = self.source_pos - self.camera_pos
-        quat_diff = self.compute_quat_diff(self.camera_quat, self.source_quat)
+        quat_diff = [0,0,0,1] #self.compute_quat_diff(self.camera_quat, self.source_quat)
         rig_message = self.rig_message_frame.format(pos_diff[0], pos_diff[1], pos_diff[2],
                                         quat_diff[0], quat_diff[1], quat_diff[2], quat_diff[3])
         self.client.publish(self.rig_message_topic, rig_message, retain=True)
@@ -752,5 +752,4 @@ class TrackerArenaClass:
 
 
     def remove(self):
-        #self.client.publish(self.camera_topic + "/click-listener", "", retain=True)
-        pass
+        self.client.publish(self.camera_topic + "/click-listener", "", retain=True)
