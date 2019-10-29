@@ -32,7 +32,7 @@ from guidance_helper_classes.mission_class import Mission, MissionType, Trajecto
 from guidance_helper_classes.trajectorygenerator_class import TrajectoryGenerator
 
 
-safety_dist = 0.15
+safety_dist = 0.20
 mission_msg = MissionMsg()
 
 class ConstAttitudeTrj:
@@ -951,6 +951,7 @@ class GuidanceClass:
             ## Generate the last part...
             T = 0.8
             start_pos = tg_p
+
             y_coeff = -np.array([ 0.   ,  0.256,  0.512,  0.896,  1.344,  1.6])
             #y_coeff = np.array([0, 0.14, 0.28, 0.05, 0.776, 1.0])
             x_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
