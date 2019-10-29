@@ -861,10 +861,10 @@ class GuidanceClass:
         start_vel = velFromOdomMsg(self.current_odometry)
 
         tg_pos = posFromPoseMsg(self.current_target)
-        tg_p = tg_pos + np.array([0.0, 1.6, 0.2]) 
+        tg_p = tg_pos + np.array([-1.6, 0.0, 0.2]) 
  
         tg_prel = tg_p - start_pos
-        tg_v = np.array([0.0, -1.5, 0.0])
+        tg_v = np.array([1.5, 0.0, 0.0])
         tg_a = np.zeros((3))
                  
         ndeg = 5
@@ -943,9 +943,8 @@ class GuidanceClass:
             ## Generate the last part...
             T = 0.8
             start_pos = tg_p
-            y_coeff = -np.array([ 0.0, 0.32, 0.64, 1.064, 1.53, 1.8])
-            #y_coeff = -np.array([ 0.0, 0.256, 0.512, 0.896, 1.344, 1.6])
-            x_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
+            x_coeff = np.array([ 0.0, 0.32, 0.64, 1.064, 1.53, 1.8])
+            y_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
             z_coeff = np.array([0, 0, 0, 0.123, 0.038, -0.2])
 
             bz_x = bz.Bezier(cntp=x_coeff, s=T)
@@ -966,7 +965,7 @@ class GuidanceClass:
                         p = start_pos,
                         v = next_v, 
                         tg_p = tg_pos, 
-                        tg_v = np.array([0.0, -1.6, -1.7]), 
+                        tg_v = np.array([1.6, 0.0, -1.7]), 
                         tg_a = np.array([0.0, 6.0, 6.2]),
                         trj_gen = trj_obj,
                         start_time = t_start,
@@ -1006,8 +1005,8 @@ class GuidanceClass:
             T = 0.8
             start_pos = tg_p
 
-            y_coeff = -np.array([ 0.0, 0.32, 0.64, 1.064, 1.53, 1.8])
-            #y_coeff = -np.array([ 0.0, 0.256, 0.512, 0.896, 1.344, 1.6])            x_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
+            x_coeff = np.array([ 0.0, 0.32, 0.64, 1.064, 1.53, 1.8])
+            y_coeff = np.array([0.0, 0.0, 0.0, 0.0, 0, 0.0])
             z_coeff = np.array([0, 0, 0, 0.123, 0.038, -0.2])
 
             bz_x = bz.Bezier(cntp=x_coeff, s=T)
