@@ -868,7 +868,7 @@ class GuidanceClass:
         tg_p = tg_pos + np.array([-1.6, 0.0, 0.2]) 
  
         tg_prel = tg_p - start_pos
-        tg_v = np.array([1.5, 0.0, 0.0])
+        tg_v = np.array([1.6, 0.0, 0.0])
         tg_a = np.zeros((3))
                  
         ndeg = 5
@@ -975,7 +975,7 @@ class GuidanceClass:
                         v = next_v, 
                         tg_p = tg_pos, 
                         tg_v = np.array([1.6, 0.0, -1.7]), 
-                        tg_a = np.array([0.0, 6.0, 6.2]),
+                        tg_a = np.array([-6.0, 0.0, -6.2]),
                         trj_gen = trj_obj,
                         start_time = t_start,
                         stop_time = t_end, 
@@ -1036,8 +1036,8 @@ class GuidanceClass:
                         p = start_pos,
                         v = np.array([0.0, -1.0, 0]), 
                         tg_p = tg_pos, 
-                        tg_v = np.array([0.0, -1.6, -1.7]), 
-                        tg_a = np.array([0.0, 6.0, -6.2]),
+                        tg_v = np.array([1.6, 0.0, -1.7]), 
+                        tg_a = np.array([-6.0, 0.0, -6.2]),
                         trj_gen = trj_obj,
                         start_time = t_start,
                         stop_time = t_end, 
