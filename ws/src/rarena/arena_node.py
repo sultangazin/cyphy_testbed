@@ -16,7 +16,7 @@ from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaCl
 floor_offset = 0.9
 realm_y_offset = 0
 
-scene = "test2"
+scene = "test"
 
 entities = []
 
