@@ -5,6 +5,7 @@
   <arg name="topics/setpoint_topic" default="setpoint" />
   <arg name="topics/state_topic" default="state" />
   <arg name="topics/control_topic" default="control" />
+  <arg name="topics/ctrl_perf_topic" default="ctrl_perf" />
 
   <!-- Control parameters. -->
   <arg name="stabMode" value="1" /> <!-- 1: Angle 0: Rates -->
@@ -14,13 +15,13 @@
 
   <arg name="kp_xy" value="15.5" />
   <arg name="kd_xy" value="9.2" />
-  <arg name="ki_xy" value="0.0" />
-  <arg name="i_range_xy" value="0.0" />
+  <arg name="ki_xy" value="0.2" />
+  <arg name="i_range_xy" value="0.2" />
 
   <arg name="kp_z" value="18.0" />
-  <arg name="kd_z" value="2.0" />
-  <arg name="ki_z" value="0.2" />
-  <arg name="i_range_z" value="0.1" />
+  <arg name="kd_z" value="8.0" />
+  <arg name="ki_z" value="0.4" />
+  <arg name="i_range_z" value="0.4" />
   
   <arg name="kR_xy" value="180000" />
   <arg name="kw_xy" value="13000" />
@@ -95,5 +96,8 @@
     <param name="topics/setpoint" value="$(arg topics/setpoint_topic)" />
     <param name="topics/state" value="$(arg topics/state_topic)" />
     <param name="topics/control" value="$(arg topics/control_topic)" />
+    <param name="topics/ctrl_perf" value="/$(arg topics/ctrl_perf_topic)" />
+
+
   </node>
 </launch>

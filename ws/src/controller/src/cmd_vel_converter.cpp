@@ -126,7 +126,6 @@ namespace crazyflie_control_merger {
             // Actually the upper bound is set also in the crazyflie_ros, thus 
             // there are multiple points which assure the correct value.
             // Here is just to signal the saturation.
-            ROS_INFO("The requested thrust command is too high: MAX = 60000");
             twist.linear.z = 60000;
         }
       }

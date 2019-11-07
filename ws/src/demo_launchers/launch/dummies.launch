@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- 
+     Launcher for the dummy nodes 
+-->
+<launch>
+    <node pkg="dummy_nodes" 
+        type="dummy_node.py" 
+        name="Dummy_node"> 
+    </node>
+</launch>

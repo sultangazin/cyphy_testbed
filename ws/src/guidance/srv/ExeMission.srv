@@ -1,0 +1,7 @@
+string mission_type
+float32[3] target_p
+float32[3] target_v
+float32[3] target_a
+float32 tg_time
+---
+bool ack

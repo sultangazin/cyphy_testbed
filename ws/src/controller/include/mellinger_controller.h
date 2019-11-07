@@ -51,6 +51,7 @@
 #include <testbed_msgs/ControlStamped.h>
 #include <testbed_msgs/FullStateStamped.h>
 #include <testbed_msgs/CustOdometryStamped.h>
+#include <testbed_msgs/CtrlPerfStamped.h>
 #include <Eigen/Geometry>
 
 #include <ros/ros.h>
@@ -149,6 +150,8 @@ class MellingerController {
   Vector3d pos_, vel_, r_pos_, r_vel_;
   Eigen::Quaterniond quat_;
 
+  std::string setpoint_type_;
+
   double sp_roll_,sp_pitch_,sp_yaw_;
 
   // Logging variables
@@ -170,10 +173,12 @@ class MellingerController {
   ros::Subscriber state_sub_;
   ros::Subscriber setpoint_sub_;
   ros::Publisher control_pub_;
+  ros::Publisher error_pub_;
 
   std::string state_topic_;
   std::string setpoint_topic_;
   std::string control_topic_;
+  std::string ctrl_perf_topic_;
 
   // Initialized flag and name.
   bool received_setpoint_;
