@@ -87,7 +87,7 @@ To run a full example:
 1) Launch the core of the framwork (state aggregator + guidance + arena node)
 ```
 roslaunch demo_launchers demo_core.launch
-`
+```
 This start the core nodes: 
 - vrpn
 - estimators
@@ -95,7 +95,6 @@ This start the core nodes:
 - arena
 - swarm manager
 
-``
 
 2) Launch the radio communication and the control nodes.
 ```
