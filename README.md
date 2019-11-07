@@ -110,4 +110,4 @@ The nodes started with the script are:
 Common problems are related to the communication between nodes.
 1) Check that you are connected to the same network where the VRPN server is.
     Check in the "demo_core.launch" or the "datastream_launch.launch" for the IP address of the VRPN server.
-2) Check that
+2) Check that the name of the drone in the Motive software is the same used with the launch files
