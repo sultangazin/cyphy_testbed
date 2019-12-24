@@ -5,6 +5,10 @@ import rospy
 import os
 import sys
 import time
+import json
+
+from arena_playground.json_arena import *
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../guidance/trjgen')))
 
 from commander_interface.srv import GoTo, Land
@@ -46,6 +50,7 @@ class RArenaClass(object):
         self.name = name
         self.id = id
         self.shape = shape
+        self.basecolor = color
         self.color = color
         self.opacity = opacity
         self.animate = animate
@@ -55,9 +60,14 @@ class RArenaClass(object):
         self.visible = visible
         self.active=active
 
-        self.base_topic = "/topic/" + self.scene + "/"  + self.shape + "_{}".format(self.id) 
-        self.text_topic = "/topic/" + self.scene + "/"  + "text"+ "_{}".format(self.id) 
+        self.plotted = False
 
+        self.node_object_id = self.shape + "_{}".format(self.id)
+        self.text_object_id = "text"+ "_{}".format(self.id)
+
+        self.base_topic = "realm/s/" + self.scene + "/"  + self.node_object_id
+        self.text_topic = "realm/s/" + self.scene + "/"  + self.text_object_id
+        
         self.registerCallbacks()
         self.registerServices()
         self.initArenaObject()
@@ -76,13 +86,25 @@ class RArenaClass(object):
     def on_click_input(self, client, userdata, msg):
         pass
 
+    def remove_sub(self, topic, obj_id):
+        """ 
+        Publish the MQTT message to remove the entity from the scene
+        """
+        #print("Removing: Full Topic = {} | Object ID = {}\n".format(topic, obj_id))
+        # Delete the object
+        del_msg = genDelJsonMsg(obj_id)
+        self.client.publish(topic, json.dumps(del_msg), retain=True)
+
     def remove(self):
-        self.client.publish(self.base_topic, "", retain=True)
+        # Remove the shape and the text
+        self.remove_sub(self.base_topic, self.node_object_id)
+        self.remove_sub(self.text_topic, self.text_object_id)
 
     def __del__(self):
         self.remove()
 
     def set_color(self, color_string):
+        print("[{}]({}) Setting color to {}\n".format(self.__class__.__name__, self.name, color_string))
         self.color = color_string
 
     def start_animation(self):  
@@ -105,10 +127,15 @@ class RArenaClass(object):
 
 ###### NODE ARENA CLASS ####### 
 class NodeArenaClass(RArenaClass):
-    def __init__(self, client, scene, name, id, shape="cube", color="#AAAAAA", opacity=None, animate=False,
-        source=None, listen=True, on_click_clb=None, visible=True, active=False, pos=[0,1,0], quat=[0,0,0,0], 
-        scale=[0.5, 0.5, 0.5], text_offset=[0,0.5,0], text_visible=False, text_quat=[0,3,0,1], 
-        text_scale=[0.08,0.08,0.08]):
+    def __init__(self,
+            client, scene, name, id,
+            shape="cube", color="#AAAAAA",
+            opacity=None, animate=False,
+            source=None, listen=True, on_click_clb=None,
+            visible=True, active=False,
+            pos=[0,1,0], quat=[0,0,0,0], scale=[0.5, 0.5, 0.5],
+            text_offset=[0,0.5,0], text_visible=False,
+            text_quat=[0,3,0,1], text_scale=[0.08,0.08,0.08]):
 
         self.pos = pos
         self.quat = quat
@@ -118,29 +145,27 @@ class NodeArenaClass(RArenaClass):
         self.text_quat = text_quat
         self.text_scale = text_scale
 
-        super(NodeArenaClass, self).__init__(client, scene, name, id, shape=shape, color=color, opacity=opacity,
-        animate=animate, source=source, listen=listen, on_click_clb=on_click_clb, visible=visible, active=active)
+        super(NodeArenaClass, self).__init__(
+                client, scene, name, id,
+                shape=shape, color=color, opacity=opacity,
+                animate=animate, source=source,
+                listen=listen, on_click_clb=on_click_clb,
+                visible=visible, active=active)
 
 
     def initArenaObject(self):
-        #                                                      x  y  z  qx qy qz qw sx sy sz col
-        self.message = self.shape + "_{}".format(self.id)  + ",{},{},{},{},{},{},{},{},{},{},{},on"
-        #                           x  y  z  qx qy qz qw sx sy sz txt
-        self.text_message = "text" + "_{}".format(self.id) + ",{},{},{},{},{},{},{},{},{},{},{},on"
-
         # Redraw object
         self.remove()
         self.draw()
 
         if self.opacity:
-            self.client.publish(self.base_topic + "/material", "transparent: true; opacity: {}".format(self.opacity), retain=True)
+            mess = genTransJsonMsg(self.shape, self.id, self.opacity)
+            self.client.publish(self.base_topic, json.dumps(mess), retain=True)
 
         # Enable click listener for object (allows it to be clickable)
         if self.listen:
-            self.client.publish(self.base_topic + "/click-listener", "enable", retain=True)
-            self.client.subscribe(self.base_topic + "/mousedown")
-            self.client.message_callback_add(self.base_topic + "/mousedown", self.on_click_input)
-
+            self.client.subscribe(self.base_topic)
+            self.client.message_callback_add(self.base_topic, self.on_click_input)
 
     def registerCallbacks(self):
         if self.source:
@@ -150,38 +175,56 @@ class NodeArenaClass(RArenaClass):
             rospy.loginfo("Subscribed to: {}".format(self.pose_topic))
 
 
-    def on_click_input(self, client, userdata, msg):
-        click_x, click_y, click_z, user = msg.payload.split(',')
-
-        if str(msg.topic).find("mousedown") != -1:
-            print("Got click ({}): {} {} {}".format(self.name, click_x, click_y, click_z))
-            pass
+    def on_click_input(self, client, userdata, msg): 
+        pass
             
 
     def draw(self):
-        # Fill mqtt message
-        message = self.message.format(
-            self.pos[0], self.pos[1], self.pos[2],
-            self.quat[0], self.quat[1], self.quat[2], self.quat[3],
-            self.scale[0], self.scale[1], self.scale[2], 
-            self.color)
+        # Fill json mqtt message  
+        if (not self.plotted):
+            self.plotted = True
+            json_message = genJsonMessage(
+                    shape = self.shape,
+                    identifier = self.id,
+                    action = 1,
+                    pos = self.pos,
+                    quat = self.quat,
+                    scale = self.scale,
+                    color = self.color,
+                    interactive=self.listen) 
+        else: 
+            json_message = genJsonMessage(
+                    shape = self.shape,
+                    identifier = self.id,
+                    action = 0,
+                    pos = self.pos,
+                    quat = self.quat,
+                    scale = self.scale,
+                    color = self.color) 
 
         # Draw object
-        self.client.publish(self.base_topic, message, retain=True)
+        self.client.publish(self.base_topic,
+                json.dumps(json_message), retain=True)
     
-    def draw_text(self):
-        message = self.text_message.format(
-            self.pos[0] + self.text_offset[0], self.pos[1] + self.text_offset[1], self.pos[2] + self.text_offset[2],
-            self.text_quat[0], self.text_quat[1], self.text_quat[2], self.text_quat[3],
-            self.text_scale[0], self.text_scale[1], self.text_scale[2], 
-            self.name)
-        
-        self.client.publish(self.text_topic, message, retain=True)
+    def draw_text(self): 
+        text_pos = np.array(self.pos) + np.array(self.text_offset)
+        json_message = genJsonMessage(
+                shape = "text",
+                identifier = self.id,
+                action = 1,
+                pos = text_pos,
+                quat = self.text_quat,
+                scale = [0.5,0.5,0.5],
+                color = self.color,
+                text = self.name) 
+        # Draw text
+        self.client.publish(self.text_topic, 
+                json.dumps(json_message),
+                retain=True)
 
     def trigger_animation(self):
-        tg_scene_string = self.base_topic + "/animation"
-        cmd_string = "property: color; to: #FF0000; loop:true; dur: 500;"
-        self.client.publish(tg_scene_string, cmd_string, retain=True)
+        mess = animationJsonMsg(self.shape, self.id);
+        self.client.publish(self.base_topic, json.dumps(mess), retain=True)
 
 
     def update(self):
@@ -196,18 +239,10 @@ class NodeArenaClass(RArenaClass):
         # Update animation
         if self.animate:
             self.trigger_animation()
-
+ 
 
     def remove(self):
-        self.client.publish(self.base_topic, "", retain=True)
-        self.client.publish(self.base_topic + "/click-listener", "", retain=True)
-        self.client.publish(self.base_topic + "/animation", "", retain=True)
-        self.client.publish(self.base_topic + "/material", "", retain=True)
-
-        self.client.publish(self.text_topic, "", retain=True)
-        self.client.publish(self.text_topic + "/click-listener", "", retain=True)
-        self.client.publish(self.text_topic + "/animation", "", retain=True)
-        self.client.publish(self.text_topic + "/material", "", retain=True)
+        super(NodeArenaClass, self).remove()
 
 
     def pose_callback(self, pose_msg):
@@ -221,7 +256,7 @@ class NodeArenaClass(RArenaClass):
 
 
     def hide_text(self):
-        self.client.publish(self.text_topic, "", retain=True)
+        self.remove_sub(self.text_topic, self.text_object_id)
         self.text_visible=False
 
 
@@ -230,21 +265,36 @@ class NodeArenaClass(RArenaClass):
 
 
     def hide_object(self):
-        self.client.publish(self.text_topic, "", retain=True)
+        self.remove_sub(self.base_topic, self.node_object_id)
         self.visible=False
 
 
 
 ###### DRONE ARENA CLASS ########
 class DroneArenaClass(NodeArenaClass):
-    def __init__(self, client, scene, name, id, shape="sphere", color="#AAAAAA", animate=False, source=None, 
-        listen=True, on_click_clb=None, visible=True, active=False, pos=[0,1,0], quat=[0,0,0,0], scale=[0.5, 0.5, 0.5], 
-        opacity=None, text_offset=[0,0.5,0], text_visible=False, text_quat=[0,3,0,1], text_scale=[0.08,0.08,0.08]):
+    def __init__(self,
+            client,
+            scene, name, id,
+            shape="sphere", color="#AAAAAA",
+            animate=False,
+            source=None,
+            listen=True,
+            on_click_clb=None,
+            visible=True,
+            active=False,
+            pos=[0,1,0], quat=[0,0,0,0], scale=[0.5, 0.5, 0.5],
+            opacity=None,
+            text_offset=[0,0.5,0], text_visible=False,
+            text_quat=[0,3,0,1], text_scale=[0.08,0.08,0.08]):
 
-        super(DroneArenaClass, self).__init__(client, scene, name, id, shape=shape, color=color, opacity=opacity, 
-            animate=animate, source=source, listen=listen, on_click_clb=on_click_clb, visible=visible, pos=pos, 
-            quat=quat, scale=scale, text_offset=text_offset, text_visible=text_visible, text_quat=text_quat, 
-            text_scale=text_scale)
+        super(DroneArenaClass, self).__init__(client,
+                scene, name, id,
+                shape=shape, color=color, opacity=opacity,
+                animate=animate, source=source,
+                listen=listen, on_click_clb=on_click_clb,
+                visible=visible, pos=pos, quat=quat, scale=scale,
+                text_offset=text_offset, text_visible=text_visible,
+                text_quat=text_quat, text_scale=text_scale)
 
         
     def registerServices(self):
@@ -255,7 +305,17 @@ class DroneArenaClass(NodeArenaClass):
 
 
     def on_click_input(self, client, userdata, msg):
-        #click_x, click_y, click_z, user = msg.payload.split(',')
+        """
+        Event handler on the DroneClass
+        """
+        (sanity, click_x, click_y, click_z, user) = parseEventJsonMsg(msg);
+
+        if (not sanity):
+            return
+
+        print("{}[{}] | Got click: {} {} {}".format(self.__class__.__name__,
+            self.name, click_x, click_y, click_z))
+
         if (self.on_click is not None):
             self.on_click(self.name) 
         else:
@@ -264,8 +324,7 @@ class DroneArenaClass(NodeArenaClass):
 
     def deactivate(self):
         self.active = False
-        super(DroneArenaClass, self).set_color('#000022')
-        self.color = "#000022"
+        super(DroneArenaClass, self).set_color(self.basecolor)
         print("Drone {} Deselected\n".format(self.name))
 
 
@@ -300,34 +359,34 @@ class TargetArenaClass(NodeArenaClass):
 
 
     def initArenaObject(self):
-        #                                                      x  y  z  qx qy qz qw sx sy sz col
-        self.message = self.shape + "_{}".format(self.id)  + ",{},{},{},{},{},{},{},{},{},{},{},on"
-        self.text_message = "text" + "_{}".format(self.id) + ",{},{},{},{},{},{},{},{},{},{},{},on"
-        self.marker_message = "sphere_00{}".format(self.id)  + ",{},{},{},0,0,0,0,{},{},{},{},{}"
+        #   x  y  z  qx qy qz qw sx sy sz col
+        #self.marker_message = "sphere_00{}".format(self.id)  + ",{},{},{},0,0,0,0,{},{},{},{},{}"
 
-        self.marker_topic = "/topic/" + self.scene + "/"  + "sphere_00{}".format(self.id)
-
+        self.marker_id = "00{}".format(self.id)
+        self.marker_topic = "realm/s/" + self.scene + "/"  + "sphere" + "_" + self.marker_id
         # Redraw object
         self.remove()
         self.draw()
         self.draw_marker(status="off")
 
         if self.opacity:
-            self.client.publish(self.base_topic + "/material", 
-                "transparent: true; opacity: {}".format(self.opacity), retain=True)
+            mess = genTransJsonMsg(self.shape, self.id, self.opacity)
+            self.client.publish(self.base_topic, json.dumps(mess), retain=True)
+            self.client.publish(self.marker_topic, json.dumps(mess), retain=True)
 
-            self.client.publish(self.marker_topic + "/material", 
-                "transparent: true; opacity: {}".format(self.opacity), retain=True)
-
+            
         # Enable click listener for object (allows it to be clickable)
         if self.listen:
-            self.client.publish(self.base_topic + "/click-listener", "enable", retain=True)
-            self.client.subscribe(self.base_topic + "/mousedown")
-            self.client.message_callback_add(self.base_topic + "/mousedown", self.on_click_input)
+            self.client.subscribe(self.base_topic)
+            self.client.message_callback_add(self.base_topic, self.on_click_input)
 
             
     def on_click_input(self, client, userdata, msg):
-        click_x, click_y, click_z, user = msg.payload.split(',')
+        (sanity, click_x, click_y, click_z, user) = parseEventJsonMsg(msg);
+
+        if (not sanity):
+            return
+
         # Create array with the target position
         print( "Target Position ({}): ".format(self.name) + str(click_x) + "," + str(click_y) + "," + str(click_z) )
         
@@ -342,12 +401,22 @@ class TargetArenaClass(NodeArenaClass):
         self.last_time = rospy.get_time()
 
 
-    def draw_marker(self, pos=[0,0,0],status="on"):
-        mqtt_string = self.marker_message.format(pos[0], pos[1], pos[2], 
-            self.marker_scale[0], self.marker_scale[1], self.marker_scale[2], self.marker_color, status)
+    def draw_marker(self, pos=[0,0,0], status="on"):
+        # I suppose that marker is a text object
+        if (status == "on"):
+            json_message = genJsonMessage(
+                    shape = "sphere", identifier = self.marker_id,
+                    action = 1,
+                    pos = pos,
+                    quat = self.quat,
+                    scale = self.marker_scale,
+                    color = self.marker_color) 
+            print(json_message)
+        else:
+            json_message = genDelJsonMsg("sphere_" + self.marker_id)
 
         # Draw object
-        self.client.publish(self.marker_topic, mqtt_string, retain=True)
+        self.client.publish(self.marker_topic, json.dumps(json_message), retain=True)
 
 
     def update(self):
@@ -359,21 +428,7 @@ class TargetArenaClass(NodeArenaClass):
 
 
     def remove(self):
-        self.client.publish(self.base_topic, "", retain=True)
-        self.client.publish(self.base_topic + "/click-listener", "", retain=True)
-        self.client.publish(self.base_topic + "/animation", "", retain=True)
-        self.client.publish(self.base_topic + "/material", "", retain=True)
-
-        self.client.publish(self.text_topic, "", retain=True)
-        self.client.publish(self.text_topic + "/click-listener", "", retain=True)
-        self.client.publish(self.text_topic + "/animation", "", retain=True)
-        self.client.publish(self.text_topic + "/material", "", retain=True)
-
-        self.client.publish(self.marker_topic, "", retain=True)
-        self.client.publish(self.marker_topic + "/click-listener", "", retain=True)
-        self.client.publish(self.marker_topic + "/animation", "", retain=True)
-        self.client.publish(self.marker_topic + "/material", "", retain=True)
-
+        super(TargetArenaClass, self).remove() 
 
 
 
@@ -415,8 +470,10 @@ class EdgeArenaClass(RArenaClass):
         self.draw()
 
         if self.opacity:
-            self.client.publish(self.packet_base_topic + "/material", 
-            "transparent: true; opacity: {}".format(self.opacity), retain=True)
+            mess = genTransJsonMsg(self.shape, self.id, self.opacity)
+            self.client.publish(self.packet_base_topic, json.dumps(mess), retain=True)
+            #self.client.publish(self.packet_base_topic + "/material", 
+            #"transparent: true; opacity: {}".format(self.opacity), retain=True)
 
 
     def registerCallbacks(self):
@@ -429,7 +486,7 @@ class EdgeArenaClass(RArenaClass):
 
     def topic_callback(self, msg):
         #If enough time has passed, trigger single packet animationg
-        if rospy.get_time() > (self.last_time + self.packet_interval/1000.0) and self.animate:
+        if rospy.get_time() > (self.last_time + self.packet_interval/1000.0) and self.animate: 
             mqtt_topic = "/topic/" + self.scene + "/"  + "sphere_00{}".format(self.id) + "/animation"
             message = "property: position; from: {} {} {}; to: {} {} {}; dur:{};".format(
                 self.start_node.pos[0],self.start_node.pos[1],self.start_node.pos[2],
@@ -452,7 +509,6 @@ class EdgeArenaClass(RArenaClass):
             vstring = "on"
         else:
             vstring = "off"
-
 
         mqtt_string = self.message.format(
             self.start_node.pos[0], self.start_node.pos[1], self.start_node.pos[2],
@@ -536,10 +592,9 @@ class TrajectoryArenaClass(RArenaClass):
 
 
     def initArenaObject(self):
-        self.topic_frame = "/topic/" + self.scene + "/" + self.shape + "_{}" + "0{}".format(self.id)
-        self.message_frame = self.shape + "_{}" + "0{}".format(self.id) + ",{},{},{}" + ",0,0,0,0,{},{},{}".format(self.scale[0],
-            self.scale[1],self.scale[2]) + ",{},on".format(self.color)
-
+        self.trj_id = "{}"+"0{}".format(self.id) 
+        self.obj_id = self.shape + "_" + self.trj_id
+        self.topic_frame = "realm/s/" + self.scene + "/" + self.shape + "_{}" + "0{}".format(self.id)
         self.registerCallbacks()
         self.remove_trajectory(100)
 
@@ -600,12 +655,19 @@ class TrajectoryArenaClass(RArenaClass):
             pos = [c_x.eval(time)[0] + init_pos[0], 
                    c_z.eval(time)[0] + init_pos[1],
                    -c_y.eval(time)[0] + init_pos[2]]
-            message = self.message_frame.format(idx, pos[0], pos[1], pos[2])
             topic = self.topic_frame.format(idx)
-            self.client.publish(topic, message, retain=True)
+
+            json_message = genJsonMessage(
+                    shape = self.shape,
+                    identifier = self.trj_id.format(idx),
+                    action = 1,
+                    pos = pos, scale = self.scale, color=self.color)  
+            self.client.publish(topic, json.dumps(json_message), retain=False)
+
             if self.opacity:
-                self.client.publish(topic + "/material", 
-                "transparent: true; opacity: {}".format(self.opacity), retain=True)
+                mess = genTransJsonMsg(self.shape, self.trj_id.format(idx), self.opacity)
+                self.client.publish(topic, json.dumps(mess), retain=False)
+                
             idx = idx + 1
             time = time + interval
 
@@ -622,7 +684,8 @@ class TrajectoryArenaClass(RArenaClass):
             i = 0
             while (rospy.get_time() - self.start_time) > self.duration * (i/float(self.point_count)):
                 topic = self.topic_frame.format(i)
-                self.client.publish(topic, "", retain=True)
+                json_message = genDelJsonMsg(self.obj_id.format(i))
+                self.client.publish(topic, json.dumps(json_message), retain=False)
                 i = i + 1
 
 
@@ -633,16 +696,16 @@ class TrajectoryArenaClass(RArenaClass):
         else:
             points = self.point_count
         for i in range(points):
-            message = ""
             topic = self.topic_frame.format(i)
-            self.client.publish(topic, message, retain=True)
-            self.client.publish(topic + "/material", "", retain=True)
+            json_message = genDelJsonMsg(self.obj_id.format(i))
+            self.client.publish(topic, json.dumps(json_message), retain=False)
+
         # evaluate trajectory and update drawing
         self.start_time = None
 
 
     def update(self):
-        #self.sweep_trajectory()
+        self.sweep_trajectory()
         if self.start_time!=None and (rospy.get_time() - self.start_time) > self.duration:
             #print("Got to Remove")
             self.remove_trajectory()
@@ -653,13 +716,13 @@ class TrajectoryArenaClass(RArenaClass):
         self.remove_trajectory()
 
 
-###### TRAJECTORY ARENA CLASS ########
+###### TRACKER ARENA CLASS ########
 class TrackerArenaClass:
     def __init__(self, client, scene, name, source, active=True, rate=10):
-
         self.client = client
         self.scene = scene
         self.name = name
+        self.camera_id = "camera_" + self.name + "_" + self.name
         self.source = source
         self.source_pos = np.array([0,0,0], dtype=float)
         self.source_quat = np.array([0,0,0,0], dtype=float)
@@ -669,20 +732,13 @@ class TrackerArenaClass:
         self.rate = rate
         self.last_time = rospy.get_time()
         self.diff = np.array([0,0,0], dtype=float)
+        self.got_initial_pos = False
 
         self.source_topic = "/" + self.source + "/" + self.name + "/pose"
+        self.camera_topic = "realm/s/" + self.scene + "/" + self.camera_id
 
-        self.camera_topic = "/topic/vio/camera_" + self.name + "_" + self.name
-
-        self.rig_message_topic= "/topic/" + self.scene + "/camera_" + self.name + "_" + self.name + "/rig"
-        self.rig_message_frame = "{}, {}, {}, {}, {}, {}, {}"
-
-        #self.client.publish(self.camera_topic + "/click-listener", "enable", retain=True)
         self.client.subscribe(self.camera_topic)
         self.client.message_callback_add(self.camera_topic, self.camera_callback)
-
-        # self.client.subscribe(self.rig_topic)
-        # self.client.message_callback_add(self.rig_topic, self.rig_callback)
 
         self.registerCallbacks()
 
@@ -697,47 +753,46 @@ class TrackerArenaClass:
         # Set new pose
         self.source_pos = posFromPoseMsg(pose_msg)
         self.source_quat = quatFromPoseMsg(pose_msg)
+        #print("vrpn camera update: pos = {}".format(self.source_pos))
 
 
     def camera_callback(self, client, userdata, msg):
-        #print( "Arena camera update ({}): {}".format(self.name, msg.payload) )
-        data = msg.payload.split(',')
+        #print( "arena camera update ({}): {}".format(self.name, msg) )
+        (flag, pos, quat) = parseCameraJsonMsg(msg)
         
-        self.camera_pos[0] = float(data[1])
-        self.camera_pos[1] = float(data[2])
-        self.camera_pos[2] = float(data[3])
-
-        self.camera_quat[0] = float(data[4])
-        self.camera_quat[1] = float(data[5])
-        self.camera_quat[2] = float(data[6])
-        self.camera_quat[3] = float(data[7])
-
-        #print(self.camera_pos, self.camera_quat)
-
-
-    def rig_callback(self, client, userdata, msg):
-        #print( "Arena rig update ({}): {}".format(self.name, msg.payload) )
-        data = msg.payload.split(',')
-
-        self.rig_pos[0] = float(data[1])
-        self.rig_pos[1] = float(data[2])
-        self.rig_pos[2] = float(data[3])
+        if (flag and not self.got_initial_pos):
+            self.camera_pos = pos 
+            self.camera_quat = quat 
+            self.got_initial_pos = True
+            print("Camera position = ", self.camera_pos)
+        else:
+            #print("Not a camera message!")
+            return
+            pass
 
 
     def update(self):
-        if self.active: #and (rospy.get_time() - self.last_time) > (1.0/self.rate):
-            # self.publish_correction()
+        dt_last = (rospy.get_time() - self.last_time) 
+        if (self.active and dt_last > (1.0/self.rate)):
+            self.publish_correction()
             pass
 
 
     def publish_correction(self):
+        # Compute the difference between the real position and the
+        # initial position in the Aframe.
         pos_diff = self.source_pos - self.camera_pos
-        quat_diff = [0,0,0,1] #self.compute_quat_diff(self.camera_quat, self.source_quat)
-        rig_message = self.rig_message_frame.format(pos_diff[0], pos_diff[1], pos_diff[2],
-                                        quat_diff[0], quat_diff[1], quat_diff[2], quat_diff[3])
-        self.client.publish(self.rig_message_topic, rig_message, retain=True)
+
+        quat_diff = [0,0,0,1] 
+        #quat_diff = self.compute_quat_diff(self.camera_quat, self.source_quat)
+        json_message = genCameraJsonMsg(self.camera_id, pos_diff, quat_diff)
+
+        self.client.publish("realm/s/" + self.scene, json.dumps(json_message), retain=False)
 
         print("Published Diff: {},{}".format(pos_diff, quat_diff))
+        print("Camera Position = {}".format(self.camera_pos))
+        print("Source Position = {}".format(self.source_pos))
+
 
     def compute_quat_diff(self, quat_camera, quat_source):
         q1 = np.array([-quat_camera[0], -quat_camera[1], -quat_camera[2], quat_camera[3]]) # get conjugate
@@ -751,5 +806,15 @@ class TrackerArenaClass:
         return qdiff/np.linalg.norm(qdiff)
 
 
+    def remove_sub(self, topic, obj_id):
+        """ 
+        Publish the MQTT message to remove the entity from the scene
+        """
+        # Delete the object
+        del_msg = genDelJsonMsg(obj_id)
+        self.client.publish(topic, json.dumps(del_msg), retain=True)
+
     def remove(self):
-        self.client.publish(self.camera_topic + "/click-listener", "", retain=True)
+        pass
+        #remove_sub(self.camera_topic, 
+        #self.client.publish(self.camera_topic + "/click-listener", "", retain=True)
