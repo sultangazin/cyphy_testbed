@@ -19,14 +19,16 @@ This package contains the controllers to command the drone offboard.
 3. **crazyflie_ros**
 This is the package providing the services to communicate with the *Crazyflie* drone.
 4. **demo_launchers**
-This packages contains the *ROS* launch files for starting the system components.
-Currently, there are
-    1. "cf\_server.launch": Starts the nodes to communicate with the *Crazyflie*.
-    2. "commander_launch": Starts the Commander node and the Guidance node.
-    3. "controller_launch": Start the remote Controller node.
-    4. "vrpn_lauch": Starts the acquisition of data from the input sources, such as *Optitrack*. The launch file starts also an instance of *rViz* to visualize the vehicle/trajectory/estimation in a virtual environment.
-    5. "demo_core": Start the datastream, the commander and arena parts of the framework.
-    6. "ext_control": Starts the offboard controller node.
+This packages contains the *ROS* launch files to simplify the instantiation of the system components.
+Currently, the main launchers are
+    1. "cf\_bridge": Send a request to add a *Crazyflie* to the system and configure the vehicle. This requieres the presence of a crazyflie radio server active to take the request and start a communication thread.
+    2. "radio_server": Start a node that provide services to add *Crazyflie*s to the system. It spawns a thread for each connected *Crazyflie*.
+    3. "commander_launch": Starts the Commander node and the Guidance node.
+    4. "controller_launch": Start the remote Controller node.
+    5. "estimator_launch": Start the estimator node that aggregates the information provided by the MOCAP to estimate the pose of the vehicle.
+    6. "vrpn_lauch": Starts the acquisition of data from the input sources, such as *Optitrack*. The launch file starts also an instance of *rViz* to visualize the vehicle/trajectory/estimation in a virtual environment.
+    7. "demo_core": Start the datastream, the commander and arena parts of the framework.
+    8. "ext_control": Starts the offboard controller node.
 5. **guidance**
 This package provides the guidance for the drone, that is, given a command and the current status of the drone, it generates the references to achieve the task. 
 6. **monitors**
@@ -72,7 +74,7 @@ This start the core nodes:
 
 These commands should start the rViz visualization tool and the basic nodes. 
 
-If the Optitrack is connected to the machine and its VRPN server is streaming rigid body data (connection parameters should be configured in the "datastream_launch.launch file) it should be possible to visualize the drone frame moving in the rViz environment.
+If the Optitrack is connected to the machine and its VRPN server is streaming rigid body data (connection parameters should be configured in the "vrpn_launch.launch file) it should be possible to visualize the drone frame moving in the rViz environment.
 
 It is possible to test the commander calling the ros service to request a goto movement.
 The argument for the service is a tuple of float32, representing the position [x, y, z], and a float32 representing the duration of the requested movement. 
@@ -96,7 +98,12 @@ This start the core nodes:
 - swarm manager
 
 
-2) Launch the radio communication and the control nodes.
+2) Start the radio server to manage the communication with the *Crazyflie*:
+```
+roslaunch demo_launchers radio_server.launch
+```
+
+3) Launch the radio communication and the control nodes.
 ```
 roslaunch demo_launchers controller_launch.launch vehicle_frame:=cf2 uri:=radio://0/100/2M/E7E7E7E7E7
 ```
