@@ -15,33 +15,43 @@ def parseEventJsonMsg(msg):
     if (jsonMsg["type"]!="mousedown"):
         return (False, 0, 0, 0, "");
 
-    click_x=jsonMsg["data"]["position"]["x"]
-    click_y=jsonMsg["data"]["position"]["y"]
-    click_z=jsonMsg["data"]["position"]["z"]
-    user = jsonMsg["data"]["source"]
+    click_x=jsonMsg['data']["position"]["x"]
+    click_y=jsonMsg['data']["position"]["y"]
+    click_z=jsonMsg['data']["position"]["z"]
+    user = jsonMsg['data']["source"]
     
     return(True, click_x, click_y, click_z, user)
 
 def parseCameraJsonMsg(msg):
-    jsonMsg=json.loads(msg.payload)
+    jsonMsg = json.loads(msg.payload)
+
     pos = np.zeros(3);
     quat = np.zeros(4);
     quat[0] = 1.0;
 
-    if ( (jsonMsg["type"] == "object") and 
-            (jsonMsg["data"]["object_type"] == "camera")
-        ): 
-        pos[0] = float(jsonMsg["data"]["position"]["x"])
-        pos[1] = float(jsonMsg["data"]["position"]["y"])
-        pos[2] = float(jsonMsg["data"]["position"]["z"])
+    try:
+        msg_type = jsonMsg['type']
+        obj_type = jsonMsg['data']['object_type']
 
-        quat[0] = float(jsonMsg["data"]["rotation"]["w"])
-        quat[1] = float(jsonMsg["data"]["rotation"]["x"])
-        quat[2] = float(jsonMsg["data"]["rotation"]["y"])
-        quat[3] = float(jsonMsg["data"]["rotation"]["z"])
-        return(True, pos, quat)
-    else:
-        return (False, pos, quat);
+        if ( (msg_type == "object") and (obj_type == "camera") ): 
+            pos[0] = float(jsonMsg['data']["position"]["x"])
+            pos[1] = float(jsonMsg['data']["position"]["y"])
+            pos[2] = float(jsonMsg['data']["position"]["z"])
+
+            quat[0] = float(jsonMsg['data']["rotation"]["w"])
+            quat[1] = float(jsonMsg['data']["rotation"]["x"])
+            quat[2] = float(jsonMsg['data']["rotation"]["y"])
+            quat[3] = float(jsonMsg['data']["rotation"]["z"])
+            return(True, pos, quat)
+    
+    except:
+        print("Not camera message:")
+        print(jsonMsg)
+        print(" ")
+
+    # If you reach here return False
+    return (False, pos, quat)
+
 
 def genListenerJsonMsg(shape, identifier, active):
     """

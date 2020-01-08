@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import json
+import math
 
 from arena_playground.json_arena import *
 
@@ -35,6 +36,65 @@ def quatFromPoseMsg(pose_msg):
                      pose_msg.pose.orientation.z,
                      pose_msg.pose.orientation.w])
     return quat 
+
+# Convert from quaternion to euler angles
+def ToEulerAngles(q):
+    # roll (x-axis rotation)
+    sinr_cosp = 2.0 * (q[0] * q[1] + q[2] * q[3]);
+    cosr_cosp = 1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]);
+    roll = math.atan2(sinr_cosp, cosr_cosp);
+
+    # pitch (y-axis rotation)
+    sinp = 2.0 * (q[0] * q[2] - q[3] * q[1]);
+
+    pitch = math.asin(sinp);
+
+    # yaw (z-axis rotation)
+    siny_cosp = 2.0 * (q[0] * q[3] + q[1] * q[2]);
+    cosy_cosp = 1.0 - 2.0 * (q[2] * q[2] + q[3] * q[3]);
+
+    yaw = math.atan2(siny_cosp, cosy_cosp);
+
+    return np.array([roll, pitch, yaw])
+
+def Rx(a):
+    # Roll Matrix
+    R = np.eye(3)
+    R[1][1] = math.cos(a)
+    R[1][2] = -math.sin(a)
+    R[2][1] = math.sin(a)
+    R[2][2] = math.cos(a)
+    return R
+    
+def Ry(a):
+    # Pitch Matrix
+    R = np.eye(3)
+    R[0][0] = math.cos(a)
+    R[0][2] = math.sin(a)
+    R[2][0] = -math.sin(a)
+    R[2][2] = math.cos(a)
+    return R
+
+def Rz(a):
+    # Yaw Matrix
+    R = np.eye(3)
+    R[0][0] = math.cos(a)
+    R[0][1] = -math.sin(a)
+    R[1][0] = math.sin(a)
+    R[1][1] = math.cos(a)
+    return R
+
+
+
+def quat2Rot(q):
+    # Quaternion to Rotation matrix
+    R = np.zeros((3,3))
+    eul = ToEulerAngles(q)
+
+    # Yaw * Pitch * Roll (Robotic convention)
+    R = np.matmul(np.matmul(Rz(eul[2]), Ry(eul[1])), Rx(eul[0]))
+    return R
+
 
 
 ################# ROS ARENA CLASS #####################
@@ -758,13 +818,16 @@ class TrackerArenaClass:
 
     def camera_callback(self, client, userdata, msg):
         #print( "arena camera update ({}): {}".format(self.name, msg) )
+        # I can receive either RIG message either CAMERA messages.
         (flag, pos, quat) = parseCameraJsonMsg(msg)
         
-        if (flag and not self.got_initial_pos):
+        self.camera_quat = quat 
+        #print(quat)
+        if (flag and (not self.got_initial_pos) and np.linalg.norm(pos) > 0.0):
+            print("New Camera position = ", pos)
             self.camera_pos = pos 
-            self.camera_quat = quat 
+            self.camera_pos = np.array([0, 0, 0])
             self.got_initial_pos = True
-            print("Camera position = ", self.camera_pos)
         else:
             #print("Not a camera message!")
             return
@@ -782,16 +845,26 @@ class TrackerArenaClass:
         # Compute the difference between the real position and the
         # initial position in the Aframe.
         pos_diff = self.source_pos - self.camera_pos
+        #pos_diff = np.zeros(3)
 
         quat_diff = [0,0,0,1] 
         #quat_diff = self.compute_quat_diff(self.camera_quat, self.source_quat)
-        json_message = genCameraJsonMsg(self.camera_id, pos_diff, quat_diff)
+        quat_diff = self.source_quat
 
-        self.client.publish("realm/s/" + self.scene, json.dumps(json_message), retain=False)
+        RotM = quat2Rot(quat_diff)
+        delta = self.camera_pos
+        pos_diff  = pos_diff - np.matmul(RotM, delta)
 
-        print("Published Diff: {},{}".format(pos_diff, quat_diff))
-        print("Camera Position = {}".format(self.camera_pos))
-        print("Source Position = {}".format(self.source_pos))
+        json_message = genCameraJsonMsg(
+                self.camera_id,
+                pos_diff,
+                quat_diff)
+
+        #self.client.publish("realm/s/" + self.scene, json.dumps(json_message), retain=False)
+
+        #print("Published Diff: {},{}".format(pos_diff, quat_diff))
+        #print("Camera Position = {}".format(self.camera_pos))
+        #print("Source Position = {}".format(self.source_pos))
 
 
     def compute_quat_diff(self, quat_camera, quat_source):
