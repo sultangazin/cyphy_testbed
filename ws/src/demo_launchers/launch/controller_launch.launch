@@ -10,9 +10,9 @@
 
     <!--
     ===================================================
-    CF Server Node
+    CF Bridge 
     -->
-    <include file="$(find demo_launchers)/launch/cf_server.launch">
+    <include file="$(find demo_launchers)/launch/cf_bridge.launch">
         <arg name="uri" value="$(arg uri)" />
         <arg name="frame" value="$(arg vehicle_frame)" />
     </include>
