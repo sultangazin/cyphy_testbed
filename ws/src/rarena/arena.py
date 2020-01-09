@@ -822,11 +822,11 @@ class TrackerArenaClass:
         (flag, pos, quat) = parseCameraJsonMsg(msg)
         
         self.camera_quat = quat 
-        #print(quat)
-        if (flag and (not self.got_initial_pos) and np.linalg.norm(pos) > 0.0):
-            print("New Camera position = ", pos)
+        print("[{}] Camera position = {} \n".format(self.name, pos))
+        #if (flag and (not self.got_initial_pos) and pos.any()):
+        if (flag and pos.any()):
+            print("[{}] Initial Offset = {}\n".format(self.name, pos))
             self.camera_pos = pos 
-            self.camera_pos = np.array([0, 0, 0])
             self.got_initial_pos = True
         else:
             #print("Not a camera message!")
@@ -844,23 +844,26 @@ class TrackerArenaClass:
     def publish_correction(self):
         # Compute the difference between the real position and the
         # initial position in the Aframe.
-        pos_diff = self.source_pos - self.camera_pos
-        #pos_diff = np.zeros(3)
+        pos_diff = self.source_pos
 
         quat_diff = [0,0,0,1] 
-        #quat_diff = self.compute_quat_diff(self.camera_quat, self.source_quat)
-        quat_diff = self.source_quat
 
-        RotM = quat2Rot(quat_diff)
-        delta = self.camera_pos
-        pos_diff  = pos_diff - np.matmul(RotM, delta)
+        if (self.name == "tablet"):
+            quat_diff = self.source_quat
+            pos_diff = pos_diff - self.camera_pos
+
+        if (self.name == "phone"):
+            pos_diff = pos_diff - self.camera_pos
 
         json_message = genCameraJsonMsg(
                 self.camera_id,
                 pos_diff,
                 quat_diff)
 
-        #self.client.publish("realm/s/" + self.scene, json.dumps(json_message), retain=False)
+        if (self.got_initial_pos):
+            self.client.publish("realm/s/" + self.scene,
+                    json.dumps(json_message),
+                    retain=False)
 
         #print("Published Diff: {},{}".format(pos_diff, quat_diff))
         #print("Camera Position = {}".format(self.camera_pos))
@@ -889,5 +892,5 @@ class TrackerArenaClass:
 
     def remove(self):
         pass
-        #remove_sub(self.camera_topic, 
-        #self.client.publish(self.camera_topic + "/click-listener", "", retain=True)
+        self.remove_sub(self.camera_topic, self.camera_id)
+

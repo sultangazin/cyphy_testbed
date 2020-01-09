@@ -132,9 +132,9 @@ def generate_entities():
             id=6,
             on_click_clb=issue_command,
             color="#222222",
-            pos=[0,realm_y_offset,0.5],
+            pos=[0.0,realm_y_offset,0.5],
             quat=[0,0,0,1],
-            scale=[2,.02,3],
+            scale=[4.5,.02,3],
             opacity=0.5,
             marker_offset=[0,floor_offset,0])
 
@@ -219,6 +219,8 @@ def generate_entities():
     # Initialize external trackers for evey viewing devices
     tablet_tracker = TrackerArenaClass(mqtt_client, scene, "tablet", "vrpn_client_node", active=True)
 
+    phone_tracker = TrackerArenaClass(mqtt_client, scene, "phone", "vrpn_client_node", active=True)
+
     entities = [drone1,
                 drone2,
                 target,
@@ -239,7 +241,8 @@ def generate_entities():
                 ot6,
                 ot7,
                 ot8,
-                tablet_tracker
+                tablet_tracker,
+                phone_tracker
                 ]
 
 
