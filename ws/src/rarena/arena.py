@@ -685,7 +685,7 @@ class TrajectoryArenaClass(RArenaClass):
         
         #rospy.loginfo("Received trajectory! ({0}): Time = {1:f}".format(self.name, self.start_time))
         #rospy.loginfo("Starting position ({}): {}".format(self.name, init_pos))
-        print(msg)
+        #print(msg)
 
         for curve in msg.mission:
             #rospy.loginfo("Got Curve ({})".format(self.name))
@@ -742,7 +742,7 @@ class TrajectoryArenaClass(RArenaClass):
     def sweep_trajectory(self): 
         if self.start_time!=None and self.point_count > 0:
             i = 0
-            while (rospy.get_time() - self.start_time) > self.duration * (i/float(self.point_count)):
+            while (self.point_count > 0 and ((rospy.get_time() - self.start_time) > self.duration * (i/float(self.point_count)))):
                 topic = self.topic_frame.format(i)
                 json_message = genDelJsonMsg(self.obj_id.format(i))
                 self.client.publish(topic, json.dumps(json_message), retain=False)
