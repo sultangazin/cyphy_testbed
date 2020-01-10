@@ -8,7 +8,7 @@
 -->
 
 <launch>
-    <arg name="rs_name" default="1" /> 
+    <arg name="rs_name" default="RS1" /> 
 
      <node pkg="crazyflie_driver" 
         type="crazyflie_server" 
@@ -16,6 +16,7 @@
         respawn="true"
         respawn_delay="3"
         output="screen">
+        <param name="name" value="RS1"/>
     </node>
 
 </launch>

@@ -2,6 +2,7 @@
 <launch>
     <arg name="uri" default="radio://0/100/2M/E7E7E7E7E7" />
     <arg name="frame" default="cf2" />
+    <arg name="server" default="RS1" />
     
     <group ns="$(arg frame)">
 
@@ -11,6 +12,7 @@
             output="screen">
             <param name="uri" value="$(arg uri)" />
             <param name="tf_prefix" value="$(arg frame)" />
+            <param name="server" value="$(arg server)" />
             <param name="enable_logging" value="True" />
             <param name="enable_logging_imu" value="False" />
             <param name="enable_logging_temperature" value="False" />
