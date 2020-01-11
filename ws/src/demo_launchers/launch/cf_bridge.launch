@@ -81,6 +81,6 @@ Bag recording
 - /ghost_trajectory: This is the requested trajectory pose (simulated)
 -->
 
-<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/$(arg frame)_crazyflie /$(arg frame)/pose /$(arg frame)/logEstAttRPY /$(arg frame)/rssi"/>
+<node pkg="rosbag" name="record_$(arg frame)" type="record" args="-O /tmp/$(arg frame)_crazyflie /$(arg frame)/pose /$(arg frame)/logEstAttRPY /$(arg frame)/rssi"/>
 
 </launch>
