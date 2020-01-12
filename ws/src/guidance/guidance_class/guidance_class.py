@@ -482,19 +482,45 @@ class GuidanceClass:
 
         if (self.current_obst is not None):
             obst_p = posFromPoseMsg(self.current_obst)
-            print("Obstacle at ", obst_p)
-        
-            dist_from_ep = np.linalg.norm(tg_p[0:2] - obst_p[0:2])
-            print("Distance from obstacle ", dist_from_ep)
-            if (dist_from_ep < safety_dist):
+            print("Obstacle at ", obst_p)  
+
+            # Extracting the planar distance
+            obst_p_xy = obst_p[0:2]
+            tg_p_xy = tg_p[0:2]
+            start_pos_xy = start_pos[0:2]
+
+            # 1) Check if I am going near the obstacle
+            # Distance between "end point" and "obstacle"
+            dist_ep = np.linalg.norm(tg_p_xy - obst_p_xy)
+            print("Distance from obstacle ", dist_ep)            
+            if (dist_ep < safety_dist):
                 print("Going into the Obstacle area: Skip request!")
                 return False
 
-            (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, safety_dist)
-            if (abs(np.array(tg_p[0:2])) <  abs(np.array(obst_p[0:2]))).any():
-                obst_int = False
+            # Distance between "start point" and "obstacle"
+            vo = obst_p_xy - start_pos_xy
+            dist_so = np.linalg.norm(vo)  
+            no = np.zeros(2)
+            if (dist_so > 0.001):
+                no = vo / dist_so
+
+            # Distance between "start point" and "end point"
+            ve = tg_p_xy - start_pos_xy
+            dist_et = np.linalg.norm(ve)
+            ne = np.zeros(2)
+            if (dist_et > 0.001):
+                ne = ve / dist_et
             
-            print("Distance Vector to trajectory: ", e)
+            # 2) Check if I am stopping in radius less then the distance
+            #    from the obstacle.
+            if (dist_et < dist_so or ne.dot(ve) < 0):
+                obst_int = False
+            else: 
+                (obst_int, e) = evalObstacleInt(start_pos,
+                        tg_p,
+                        obst_p,
+                        safety_dist)
+                print("Distance Vector to trajectory: ", e)
 
         wps = []
         temp = np.copy(start_pos)
@@ -886,19 +912,45 @@ class GuidanceClass:
 
         if (self.current_obst is not None):
             obst_p = posFromPoseMsg(self.current_obst)
-            print("Obstacle at ", obst_p)
-        
-            dist_from_ep = np.linalg.norm(tg_p[0:2] - obst_p[0:2])
-            print("Distance from obstacle ", dist_from_ep)
-            if (dist_from_ep < safety_dist):
+            print("Obstacle at ", obst_p)  
+
+            # Extracting the planar distance
+            obst_p_xy = obst_p[0:2]
+            tg_p_xy = tg_p[0:2]
+            start_pos_xy = start_pos[0:2]
+
+            # 1) Check if I am going near the obstacle
+            # Distance between "end point" and "obstacle"
+            dist_ep = np.linalg.norm(tg_p_xy - obst_p_xy)
+            print("Distance from obstacle ", dist_ep)            
+            if (dist_ep < safety_dist):
                 print("Going into the Obstacle area: Skip request!")
                 return False
 
-            (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, safety_dist)
-            if (abs(np.array(tg_p[0:2])) <  abs(np.array(obst_p[0:2]))).any():
-                obst_int = False
+            # Distance between "start point" and "obstacle"
+            vo = obst_p_xy - start_pos_xy
+            dist_so = np.linalg.norm(vo)  
+            no = np.zeros(2)
+            if (dist_so > 0.001):
+                no = vo / dist_so
+
+            # Distance between "start point" and "end point"
+            ve = tg_p_xy - start_pos_xy
+            dist_et = np.linalg.norm(ve)
+            ne = np.zeros(2)
+            if (dist_et > 0.001):
+                ne = ve / dist_et
             
-            print("Distance Vector to trajectory: ", e)
+            # 2) Check if I am stopping in radius less then the distance
+            #    from the obstacle.
+            if (dist_et < dist_so or ne.dot(ve) < 0):
+                obst_int = False
+            else: 
+                (obst_int, e) = evalObstacleInt(start_pos,
+                        tg_p,
+                        obst_p,
+                        safety_dist)
+                print("Distance Vector to trajectory: ", e)
 
         
         if (obst_int):
