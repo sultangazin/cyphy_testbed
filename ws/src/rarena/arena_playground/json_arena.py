@@ -85,13 +85,18 @@ def genTransJsonMsg(shape, identifier, opacity):
 
     return json_message
 
-def animationJsonMsg():
+def animationJsonMsg(shape, identifier, prop_, from_, to_, dur_):
     json_message = {
-            "object_id": shape + "_{}".format(identifier),
+            "object_id": shape + "{}".format(identifier),
             "action": "update",
             "type": "object",
             "data": {
-                "animation": { "property": "color", "to": "#FF0000", "loop": "true", "dur": 500}
+                "animation": { 
+                    "property": prop_,
+                    "from":from_,
+                    "to": to_,
+                    "loop": "true",
+                    "dur": dur_}
                 }
             }
     return json_message
@@ -121,6 +126,20 @@ def genCameraJsonMsg(camera_id, pos, quat):
                         }
                     }
                 }
+    return json_message
+
+def genJsonLineMessage(id_, s, e, color="#AAAAAA"):
+    json_message = {
+            "object_id" : "line" + "_{}".format(id_),
+            "action": "create",
+            "data": {
+                "object_type":
+                "line",
+                "start": {"x": s[0], "y": s[1], "z": s[2]},
+                "end": {"x": e[0], "y": e[1], "z": e[2]}, 
+                "color": color
+                }
+            }
     return json_message
 
 def genJsonMessage(shape, identifier, action, pos=[0,0,0], quat=[1,0,0,0], scale=[1,1,1],

@@ -150,7 +150,6 @@ class RArenaClass(object):
         """ 
         Publish the MQTT message to remove the entity from the scene
         """
-        #print("Removing: Full Topic = {} | Object ID = {}\n".format(topic, obj_id))
         # Delete the object
         del_msg = genDelJsonMsg(obj_id)
         self.client.publish(topic, json.dumps(del_msg), retain=True)
@@ -172,7 +171,6 @@ class RArenaClass(object):
 
     def stop_animation(self):
         self.animate = False
-        self.client.publish(self.base_topic + "/animation", "", retain=True)
 
     def deactivate(self):
         self.active = False
@@ -284,7 +282,7 @@ class NodeArenaClass(RArenaClass):
 
     def trigger_animation(self):
         mess = animationJsonMsg(self.shape, self.id);
-        self.client.publish(self.base_topic, json.dumps(mess), retain=True)
+        #self.client.publish(self.base_topic, json.dumps(mess), retain=True)
 
 
     def update(self):
@@ -410,7 +408,7 @@ class TargetArenaClass(NodeArenaClass):
         self.marker_offset = marker_offset
         self.timeout = timeout
 
-        self.last_time=None    # Time since last click event
+        self.last_time = None    # Time since last click event
 
         super(TargetArenaClass, self).__init__(client, scene, name, id, shape=shape, color=color, opacity=opacity, 
             animate=animate, source=source, listen=listen, on_click_clb=on_click_clb, visible=visible, pos=pos, 
@@ -419,9 +417,6 @@ class TargetArenaClass(NodeArenaClass):
 
 
     def initArenaObject(self):
-        #   x  y  z  qx qy qz qw sx sy sz col
-        #self.marker_message = "sphere_00{}".format(self.id)  + ",{},{},{},0,0,0,0,{},{},{},{},{}"
-
         self.marker_id = "00{}".format(self.id)
         self.marker_topic = "realm/s/" + self.scene + "/"  + "sphere" + "_" + self.marker_id
         # Redraw object
@@ -448,7 +443,7 @@ class TargetArenaClass(NodeArenaClass):
             return
 
         # Create array with the target position
-        print( "Target Position ({}): ".format(self.name) + str(click_x) + "," + str(click_y) + "," + str(click_z) )
+        print("Target Position ({}): ".format(self.name) + str(click_x) + "," + str(click_y) + "," + str(click_z))
         
         self.draw_marker([float(click_x) + self.marker_offset[0],
                           float(click_y) + self.marker_offset[1],
@@ -471,7 +466,6 @@ class TargetArenaClass(NodeArenaClass):
                     quat = self.quat,
                     scale = self.marker_scale,
                     color = self.marker_color) 
-            print(json_message)
         else:
             json_message = genDelJsonMsg("sphere_" + self.marker_id)
 
@@ -494,15 +488,17 @@ class TargetArenaClass(NodeArenaClass):
 
 ###### EDGE ARENA CLASS #######
 class EdgeArenaClass(RArenaClass):
-    def __init__(self, client, scene, name, id, color="#AAAAAA", opacity=None, animate=False,
-        source=None, listen=True, on_click_clb=None, visible=True, start_node=None, end_node=None, 
-        packet_interval=1000, packet_duration=200, packet_scale=[0.05,0.05,0.05], active=True):
+    def __init__(self, client, scene, name, id, 
+            color="#AAAAAA", opacity=None, animate=False,
+            source=None, listen=True, on_click_clb=None, visible=True,
+            start_node=None, end_node=None,
+            packet_interval=1000, packet_duration=200,
+            packet_scale=[0.05,0.05,0.05], active=True):
 
         self.packet_interval = packet_interval
         self.packet_duration = packet_duration
         self.packet_scale = packet_scale
         self.active = active
-
 
         self.last_time = rospy.get_time()
 
@@ -512,48 +508,77 @@ class EdgeArenaClass(RArenaClass):
         else:
             rospy.loginfo("Error: Must supply start and end nodes to edge constructor")
         # Note: Should probably shut down here.
-        super(EdgeArenaClass, self).__init__(client, scene, name, id, shape="line", color=color, opacity=opacity,
-            animate=animate, source=source, listen=listen, on_click_clb=on_click_clb, visible=visible, active=active)
+        super(EdgeArenaClass, self).__init__(client, scene, name, id,
+                shape="line", color=color, opacity=opacity,
+                animate=animate, source=source, listen=listen,
+                on_click_clb=on_click_clb, visible=visible, active=active)
 
         print("Created Arena Edge Object")
 
 
     def initArenaObject(self):
-        self.packet_base_topic = "/topic/" + self.scene + "/"  + "sphere_00{}".format(self.id)
-        #                                       x  y  z  x  y  z          col
-        self.message = "line_{}".format(self.id) + ",{},{},{},{},{},{},0,0,0,0,{},{}"
-        #                                                    x  y  z  qx qy qz qw sx sy sz col
-        self.packet_message = "sphere_00{}".format(self.id)  + ",{},{},{},0,0,0,0,{},{},{},{},on"
+        base_scene = "realm/s/" + self.scene + "/"
+        self.pkt_id = "00{}".format(self.id)
+        self.sphere_id =  "sphere" + "_" + self.pkt_id
 
+        self.packet_base_topic = base_scene + self.sphere_id
+        self.line_base_topic = base_scene + "line_{}".format(self.id)
+        
         # Redraw objects
         self.remove()
         self.draw()
+        
+        mess = genJsonMessage(
+                    shape = "sphere",
+                    identifier = self.pkt_id,
+                    action = 1,
+                    pos = self.start_node.pos,
+                    quat = [0,0,0,1],
+                    scale = self.packet_scale,
+                    color = self.color) 
+        
+        self.client.publish(self.packet_base_topic,
+                json.dumps(mess), retain=False)
 
         if self.opacity:
             mess = genTransJsonMsg(self.shape, self.id, self.opacity)
-            self.client.publish(self.packet_base_topic, json.dumps(mess), retain=True)
-            #self.client.publish(self.packet_base_topic + "/material", 
-            #"transparent: true; opacity: {}".format(self.opacity), retain=True)
+            self.client.publish(
+                    self.line_base_topic,
+                    json.dumps(mess),
+                    retain=True)
 
 
     def registerCallbacks(self):
         if self.source:
             topic = "/" + self.source
             # Subscribe to vehicle state update
-            print("Subscribing to: {}".format(topic))
+            print("[{}] Subscribing to: {}".format(self.name, topic))
             rospy.Subscriber(topic, PoseStamped, self.topic_callback)
 
 
     def topic_callback(self, msg):
         #If enough time has passed, trigger single packet animationg
-        if rospy.get_time() > (self.last_time + self.packet_interval/1000.0) and self.animate: 
-            mqtt_topic = "/topic/" + self.scene + "/"  + "sphere_00{}".format(self.id) + "/animation"
-            message = "property: position; from: {} {} {}; to: {} {} {}; dur:{};".format(
-                self.start_node.pos[0],self.start_node.pos[1],self.start_node.pos[2],
-                self.end_node.pos[0],self.end_node.pos[1],self.end_node.pos[2],
-                self.packet_duration)
+        T_next = self.last_time + self.packet_interval/1000.0
+        if (rospy.get_time() > T_next and self.animate): 
+            mess = animationJsonMsg(
+                    "sphere_00",
+                    self.id,
+                    "position",
+                    "{} {} {}".format(
+                        self.start_node.pos[0],
+                        self.start_node.pos[1],
+                        self.start_node.pos[2]),
+                    "{} {} {}".format(
+                        self.end_node.pos[0],
+                        self.end_node.pos[1],
+                        self.end_node.pos[2]),
+                    self.packet_duration)
 
-            self.client.publish(mqtt_topic, message, retain=True)
+            self.client.publish(
+                    self.packet_base_topic,
+                    json.dumps(mess),
+                    retain=True)
+
             self.last_time = rospy.get_time() #reset time
 
         
@@ -570,22 +595,18 @@ class EdgeArenaClass(RArenaClass):
         else:
             vstring = "off"
 
-        mqtt_string = self.message.format(
-            self.start_node.pos[0], self.start_node.pos[1], self.start_node.pos[2],
-            self.end_node.pos[0], self.end_node.pos[1], self.end_node.pos[2],
-            color, vstring)
+        # Plot the line
+        mess = genJsonLineMessage(self.id, 
+                self.start_node.pos,
+                self.end_node.pos,
+               color)
 
         # Draw object
-        self.client.publish(self.base_topic, mqtt_string, retain=True)
+        self.client.publish(self.line_base_topic,
+                json.dumps(mess), retain=True)
 
-        # Fill packet message
-        packet_string = self.packet_message.format(
-            self.start_node.pos[0], self.start_node.pos[1], self.start_node.pos[2], 
-            self.packet_scale[0], self.packet_scale[1], self.packet_scale[2], self.color)
+        self.topic_callback("")
 
-        # Update packet start position
-        self.client.publish(self.packet_base_topic, packet_string, retain=True)
-            
 
     def update(self):
         # Update pose
@@ -593,15 +614,9 @@ class EdgeArenaClass(RArenaClass):
 
 
     def remove(self):
-        self.client.publish(self.base_topic, "", retain=True)
-        self.client.publish(self.base_topic + "/click-listener", "", retain=True)
-        self.client.publish(self.base_topic + "/animation", "", retain=True)
-        self.client.publish(self.base_topic + "/material", "", retain=True)
-
-        self.client.publish(self.packet_base_topic, "", retain=True)
-        self.client.publish(self.packet_base_topic + "/click-listener", "", retain=True)
-        self.client.publish(self.packet_base_topic + "/animation", "", retain=True)
-        self.client.publish(self.packet_base_topic + "/material", "", retain=True)
+        super(EdgeArenaClass, self).remove()
+        #self.remove_sub(self.line_base_topic, self.id)
+        self.remove_sub(self.packet_base_topic, self.sphere_id)
 
 
     def start_animation(self):  
@@ -610,8 +625,6 @@ class EdgeArenaClass(RArenaClass):
     
     def stop_animation(self):
         self.animate = False
-        self.client.publish(self.base_topic + "/animation", "", retain=True)
-        self.client.publish(self.packet_base_topic + "/animation", "", retain=True)
 
 
     def activate(self):

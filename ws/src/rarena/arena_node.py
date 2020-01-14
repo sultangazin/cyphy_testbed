@@ -170,13 +170,13 @@ def generate_entities():
             scale=[0.1,0.03,0.1],
             opacity=0.5)
 
-    # edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=10,
-    #   start_node=nuc, end_node=drone1, color="#AAAA00", animate=True,
-    #   packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
+    edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=10,
+       start_node=nuc, end_node=drone1, color="#AAAA00", animate=True,
+       packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
 
-    # edge2 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=11,
-    #   start_node=nuc, end_node=drone2, color="#AAAA00", animate=True,
-    #   packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
+    edge2 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=11,
+       start_node=nuc, end_node=drone2, color="#AAAA00", animate=True,
+       packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
 
     trajectory2 = TrajectoryArenaClass(mqtt_client, scene, 'trajectory2', id=12, source="cf2/mission_info",
       scale=[.02,.02,.02], opacity=0.5, tracked_object="vrpn_client_node/cf2/pose")
@@ -228,8 +228,8 @@ def generate_entities():
                 land1,
                 land2,
                 nuc,
-                # edge1,
-                # edge2,
+                edge1,
+                edge2,
                 trajectory2,
                 trajectory3,
                 center,
