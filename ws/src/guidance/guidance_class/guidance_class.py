@@ -513,7 +513,7 @@ class GuidanceClass:
             
             # 2) Check if I am stopping in radius less then the distance
             #    from the obstacle.
-            if (dist_et < dist_so or ne.dot(ve) < 0):
+            if (dist_et < dist_so or ne.dot(no) <= 0):
                 obst_int = False
             else: 
                 (obst_int, e) = evalObstacleInt(start_pos,
@@ -942,8 +942,8 @@ class GuidanceClass:
                 ne = ve / dist_et
             
             # 2) Check if I am stopping in radius less then the distance
-            #    from the obstacle.
-            if (dist_et < dist_so or ne.dot(ve) < 0):
+            #    from the obstacle. 
+            if (dist_et < dist_so or ne.dot(no) <= 0):
                 obst_int = False
             else: 
                 (obst_int, e) = evalObstacleInt(start_pos,

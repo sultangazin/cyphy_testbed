@@ -810,7 +810,7 @@ class TrackerArenaClass:
 
 
     def source_callback(self, pose_msg):
-        # Set new pose
+        # Update the position of the Motive Tracker 
         self.source_pos = posFromPoseMsg(pose_msg)
         self.source_quat = quatFromPoseMsg(pose_msg)
         #print("vrpn camera update: pos = {}".format(self.source_pos))
@@ -822,10 +822,10 @@ class TrackerArenaClass:
         (flag, pos, quat) = parseCameraJsonMsg(msg)
         
         self.camera_quat = quat 
-        print("[{}] Camera position = {} \n".format(self.name, pos))
+        #print("[{}] Camera position = {} \n".format(self.name, pos))
         #if (flag and (not self.got_initial_pos) and pos.any()):
         if (flag and pos.any()):
-            print("[{}] Initial Offset = {}\n".format(self.name, pos))
+            #print("[{}] Initial Offset = {}\n".format(self.name, pos))
             self.camera_pos = pos 
             self.got_initial_pos = True
         else:
@@ -846,13 +846,14 @@ class TrackerArenaClass:
         # initial position in the Aframe.
         pos_diff = self.source_pos
 
-        quat_diff = [0,0,0,1] 
-
         if (self.name == "tablet"):
-            quat_diff = self.source_quat
-            pos_diff = pos_diff - self.camera_pos
+            quat_diff = [0,0,0,1] 
+            pos_diff = np.array([0, -1.0, 0]) 
+            #quat_diff = self.source_quat
+            #pos_diff = pos_diff - self.camera_pos
 
-        if (self.name == "phone"):
+        if (self.name == "phone"):    
+            quat_diff = [0,0,0,1] 
             pos_diff = pos_diff - self.camera_pos
 
         json_message = genCameraJsonMsg(
