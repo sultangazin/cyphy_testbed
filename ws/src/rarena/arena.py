@@ -152,7 +152,7 @@ class RArenaClass(object):
         """
         # Delete the object
         del_msg = genDelJsonMsg(obj_id)
-        self.client.publish(topic, json.dumps(del_msg), retain=True)
+        self.client.publish(topic, json.dumps(del_msg), retain=False)
 
     def remove(self):
         # Remove the shape and the text
@@ -902,7 +902,7 @@ class TrackerArenaClass:
         """
         # Delete the object
         del_msg = genDelJsonMsg(obj_id)
-        self.client.publish(topic, json.dumps(del_msg), retain=True)
+        self.client.publish(topic, json.dumps(del_msg), retain=False)
 
     def remove(self):
         pass
