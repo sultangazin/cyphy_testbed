@@ -6,7 +6,7 @@
 <launch>
     <arg name="vehicle_frame" default="cf2" /> 
     <arg name="uri" default="radio://0/100/2M/E7E7E7E7E7" /> 
-
+    <arg name="server" default="RS1" />
 
     <!--
     ===================================================
@@ -15,6 +15,7 @@
     <include file="$(find demo_launchers)/launch/cf_bridge.launch">
         <arg name="uri" value="$(arg uri)" />
         <arg name="frame" value="$(arg vehicle_frame)" />
+        <arg name="server" value="$(arg server)" />
     </include>
 
 

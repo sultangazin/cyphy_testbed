@@ -16,7 +16,7 @@
         respawn="true"
         respawn_delay="3"
         output="screen">
-        <param name="name" value="RS1"/>
+        <param name="rs_name" value="$(arg rs_name)"/>
     </node>
 
 </launch>
