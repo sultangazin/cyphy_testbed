@@ -153,8 +153,6 @@ class RArenaClass(object):
         # Delete the object
         del_msg = genDelJsonMsg(obj_id)
         self.client.publish(topic, json.dumps(del_msg), retain=False)
-        print(del_msg)
-        print(topic)
 
 
     def remove(self):
@@ -504,7 +502,8 @@ class TargetArenaClass(NodeArenaClass):
 ###### EDGE ARENA CLASS #######
 class EdgeArenaClass(RArenaClass):
     def __init__(self, client, scene, name, id, 
-            color="#AAAAAA", opacity=None, animate=False,
+            color="#AAAAAA", data_color="#AA0000",
+            opacity=None, animate=False,
             source=None, listen=True, on_click_clb=None, visible=True,
             start_node=None, end_node=None,
             packet_interval=1000, packet_duration=200,
@@ -513,6 +512,7 @@ class EdgeArenaClass(RArenaClass):
         self.packet_interval = packet_interval
         self.packet_duration = packet_duration
         self.packet_scale = packet_scale
+        self.data_color = data_color
         self.active = active
         self.direction = 1.0;
 
@@ -553,7 +553,7 @@ class EdgeArenaClass(RArenaClass):
                     pos = self.start_node.pos,
                     quat = [0,0,0,1],
                     scale = self.packet_scale,
-                    color = self.color) 
+                    color = self.data_color) 
         
         self.client.publish(self.packet_base_topic,
                 json.dumps(mess), retain=False)
@@ -632,15 +632,14 @@ class EdgeArenaClass(RArenaClass):
 
             self.topic_callback("")
         else:
-            print("[{}] not visible".format(self.name))
+            self.remove_sub(self.line_base_topic, self.line_id)
             vstring = "off"
 
 
 
     def update(self):
         # Update pose
-        if (self.visible):
-            self.draw()
+        self.draw()
 
 
     def remove(self):
@@ -671,6 +670,7 @@ class EdgeArenaClass(RArenaClass):
 
     def hide(self):
         print("[{}] Hiding...".format(self.name))
+        #self.remove() 
         self.visible = False
 
 
@@ -889,10 +889,9 @@ class TrackerArenaClass:
         # Compute the difference between the real position and the
         # initial position in the Aframe.
         pos_diff = self.source_pos
-
+        quat_diff = [0,0,0,1] 
         if (self.name == "tablet"):
-            quat_diff = [0,0,0,1] 
-            pos_diff = np.array([0, -1.0, 0]) 
+            pos_diff = np.array([0, -1.21, 0]) 
             #quat_diff = self.source_quat
             #pos_diff = pos_diff - self.camera_pos
 
@@ -911,7 +910,7 @@ class TrackerArenaClass:
                     retain=False)
 
         #print("Published Diff: {},{}".format(pos_diff, quat_diff))
-        #print("Camera Position = {}".format(self.camera_pos))
+        print("Camera Position = {}".format(self.camera_pos))
         #print("Source Position = {}".format(self.source_pos))
 
 

@@ -46,7 +46,7 @@ def toggle_active(name):
 flag = True
 def toggle_network():
     global flag
-    edges["n0n1"].invertFlow();
+    #edges["n0n1"].invertFlow();
     if (flag):
         edges["d0n1"].show();
         edges["d1n1"].show();
@@ -231,28 +231,32 @@ def generate_entities():
     # control nodes.
     # drone0 -> nuc0
     edge_d0n0 = EdgeArenaClass(mqtt_client, scene, 'edge3', id=id_cnt,
-       start_node=drone1, end_node=nuc0, color="#00AA00", animate=True,
-       packet_interval=1000, packet_duration=500, packet_scale=[.02,.02,.02])
+       start_node=drone1, end_node=nuc0, color="#00AA00", 
+       data_color="#0000FF", animate=True, packet_interval=1000,
+       packet_duration=500, packet_scale=[.02,.02,.02])
     id_cnt = id_cnt + 1;
     edges["d0n0"] = edge_d0n0
    # drone0 -> nuc1
     edge_d0n1 = EdgeArenaClass(mqtt_client, scene, 'edge4', id=id_cnt,
-       start_node=drone1, end_node=nuc1, color="#00AA00", animate=True,
-       packet_interval=1000, packet_duration=500, packet_scale=[.02,.02,.02])
+       start_node=drone1, end_node=nuc1, color="#00AA00",
+       data_color="#0000FF", animate=True, packet_interval=1000,
+       packet_duration=500, packet_scale=[.02,.02,.02])
     id_cnt = id_cnt + 1;
     edges["d0n1"] = edge_d0n1
 
     # drone1 -> nuc0
     edge_d1n0 = EdgeArenaClass(mqtt_client, scene, 'edge5', id=id_cnt,
-       start_node=drone2, end_node=nuc0, color="#00AA00", animate=True,
-       packet_interval=1000, packet_duration=500, packet_scale=[.02,.02,.02])
+       start_node=drone2, end_node=nuc0, color="#00AA00", 
+       data_color="#0000FF", animate=True, packet_interval=1000,
+       packet_duration=500, packet_scale=[.02,.02,.02])
     id_cnt = id_cnt + 1;
     edges["d1n0"] = edge_d1n0
 
    # drone1 -> nuc1
     edge_d1n1 = EdgeArenaClass(mqtt_client, scene, 'edge6', id=id_cnt,
        start_node=drone2, end_node=nuc1, color="#00AA00", animate=True,
-       packet_interval=1000, packet_duration=500, packet_scale=[.02,.02,.02])
+       data_color="#0000FF", packet_interval=1000, packet_duration=500,
+       packet_scale=[.02,.02,.02])
     id_cnt = id_cnt + 1;
     edges["d1n1"] = edge_d1n1
 
@@ -260,11 +264,11 @@ def generate_entities():
 
     # Inter Control Nodes
     # nuc0 -> nuc1
-    edge_n0n1 = EdgeArenaClass(mqtt_client, scene, 'edge7', id=id_cnt,
-       start_node=nuc0, end_node=nuc1, color="#00AA00", animate=True,
-       packet_interval=1000, packet_duration=500, packet_scale=[.02,.02,.02])
-    id_cnt = id_cnt + 1;
-    edges["n0n1"] = edge_n0n1
+#    edge_n0n1 = EdgeArenaClass(mqtt_client, scene, 'edge7', id=id_cnt,
+#       start_node=nuc0, end_node=nuc1, color="#00AA00", animate=True,
+#       packet_interval=1000, packet_duration=500, packet_scale=[.02,.02,.02])
+#    id_cnt = id_cnt + 1;
+#    edges["n0n1"] = edge_n0n1
 
 
     # Trajectories nodes
@@ -317,7 +321,7 @@ def generate_entities():
 
 
     # Initialize external trackers for evey viewing devices
-#    nodeA_trk = TrackerArenaClass(mqtt_client, scene, "nodeA", "vrpn_client_node", active=True)
+    tablet_trk = TrackerArenaClass(mqtt_client, scene, "tablet", "vrpn_client_node", active=True)
 #    nodeB_trk = TrackerArenaClass(mqtt_client, scene, "nodeB", "vrpn_client_node", active=True)
 
     entities = [drone1,
@@ -334,7 +338,7 @@ def generate_entities():
                 edge_d0n1,
                 edge_d1n0,
                 edge_d1n1,
-                edge_n0n1,
+#                edge_n0n1,
                 trajectory2,
                 trajectory3,
 #                center,
@@ -346,7 +350,7 @@ def generate_entities():
                 ot6,
                 ot7,
                 ot8,
-#                nodeA_trk,
+                tablet_trk,
 #                nodeB_trk
                 ]
 
