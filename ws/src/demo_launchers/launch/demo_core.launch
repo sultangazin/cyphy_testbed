@@ -54,9 +54,9 @@
 
 <!-- ===================================== -->
 <!-- Launch the Arena Node
--->
 <include file="$(find demo_launchers)/launch/arena.launch">
 </include>
+-->
 
 <!-- ======================================== -->
 <!-- Launch the controller/guidance componets -->
