@@ -95,7 +95,7 @@ def animationJsonMsg(shape, identifier, prop_, from_, to_, dur_):
                     "property": prop_,
                     "from":from_,
                     "to": to_,
-                    "loop": "true",
+                    "loop": "false",
                     "dur": dur_}
                 }
             }
