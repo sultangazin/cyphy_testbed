@@ -160,32 +160,46 @@ def generate_entities():
             scale=[0.3, 0.01, 0.3],
             opacity=0.5)
 
-    nuc = NodeArenaClass(
+    nuc0 = NodeArenaClass(
             mqtt_client,
             scene,
-            'workstation',
-            id=9,
+            'nodeA',
+            id=99,
             color="#AAAA00",
-            pos=[-2.25, realm_y_offset + 1.0, -0.8],
             scale=[0.1,0.03,0.1],
-            opacity=0.5)
+            opacity=0.5,
+            source="vrpn_client_node")
+
+    nuc1 = NodeArenaClass(
+            mqtt_client,
+            scene,
+            'nodeB',
+            id=98,
+            color="#AAAA00",
+            scale=[0.1,0.03,0.1],
+            opacity=0.5,
+            source="vrpn_client_node")
 
     edge1 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=10,
-       start_node=nuc, end_node=drone1, color="#AAAA00", animate=True,
+       start_node=nuc0, end_node=drone1, color="#AAAA00", animate=True,
        packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
 
     edge2 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=11,
-       start_node=nuc, end_node=drone2, color="#AAAA00", animate=True,
+       start_node=nuc1, end_node=drone2, color="#AAAA00", animate=True,
        packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
 
-    trajectory2 = TrajectoryArenaClass(mqtt_client, scene, 'trajectory2', id=12, source="cf2/mission_info",
+    edge3 = EdgeArenaClass(mqtt_client, scene, 'edge3', id=12,
+       start_node=nuc0, end_node=nuc1, color="#00AA00", animate=True,
+       packet_interval=1000, packet_duration=200, packet_scale=[.02,.02,.02])
+
+    trajectory2 = TrajectoryArenaClass(mqtt_client, scene, 'trajectory2', id=13, source="cf2/mission_info",
       scale=[.02,.02,.02], opacity=0.5, tracked_object="vrpn_client_node/cf2/pose")
 
-    trajectory3 = TrajectoryArenaClass(mqtt_client, scene, 'trajectory3', id=13, source="cf3/mission_info",
+    trajectory3 = TrajectoryArenaClass(mqtt_client, scene, 'trajectory3', id=14, source="cf3/mission_info",
       scale=[.02,.02,.02], opacity=0.5, tracked_object="vrpn_client_node/cf3/pose")
 
-    center = NodeArenaClass(mqtt_client, scene, 'workstation', id=14,
-      color="#AAAAAA", pos=[0.07, realm_y_offset + 0.01, 0.1], scale=[0.3,0.02,0.3], opacity=0.7)
+#    center = NodeArenaClass(mqtt_client, scene, 'workstation', id=14,
+#      color="#AAAAAA", pos=[0.07, realm_y_offset + 0.01, 0.1], scale=[0.3,0.02,0.3], opacity=0.7)
 
     
 
@@ -217,9 +231,8 @@ def generate_entities():
 
 
     # Initialize external trackers for evey viewing devices
-    tablet_tracker = TrackerArenaClass(mqtt_client, scene, "tablet", "vrpn_client_node", active=True)
-
-    phone_tracker = TrackerArenaClass(mqtt_client, scene, "phone", "vrpn_client_node", active=True)
+#    nodeA_trk = TrackerArenaClass(mqtt_client, scene, "nodeA", "vrpn_client_node", active=True)
+#    nodeB_trk = TrackerArenaClass(mqtt_client, scene, "nodeB", "vrpn_client_node", active=True)
 
     entities = [drone1,
                 drone2,
@@ -227,12 +240,14 @@ def generate_entities():
                 floor,
                 land1,
                 land2,
-                nuc,
+                nuc0,
+                nuc1,
                 edge1,
                 edge2,
+                edge3,
                 trajectory2,
                 trajectory3,
-                center,
+#                center,
                 ot1,
                 ot2,
                 ot3,
@@ -241,8 +256,8 @@ def generate_entities():
                 ot6,
                 ot7,
                 ot8,
-                tablet_tracker,
-                phone_tracker
+#                nodeA_trk,
+#                nodeB_trk
                 ]
 
 
