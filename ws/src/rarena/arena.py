@@ -234,6 +234,9 @@ class NodeArenaClass(RArenaClass):
 
 
     def on_click_input(self, client, userdata, msg): 
+        (sanity, click_x, click_y, click_z, user) = parseEventJsonMsg(msg);
+        if (sanity):
+           self.on_click()
         pass
             
 
@@ -291,11 +294,11 @@ class NodeArenaClass(RArenaClass):
             self.draw()
 
         # Update text
-        if self.text_visible:
+        if self.text_visible and self.visible:
             self.draw_text()
         
         # Update animation
-        if self.animate:
+        if self.animate and self.visible:
             self.trigger_animation()
  
 
@@ -325,6 +328,15 @@ class NodeArenaClass(RArenaClass):
     def hide_object(self):
         self.remove_sub(self.base_topic, self.node_object_id)
         self.visible=False
+
+    def toggle_object(self):
+        if (self.visible):
+            self.remove_sub(self.base_topic, self.node_object_id)
+            self.visible=False
+        else:
+            self.visible=True
+            self.draw()
+
 
 
 
@@ -499,6 +511,7 @@ class EdgeArenaClass(RArenaClass):
         self.packet_duration = packet_duration
         self.packet_scale = packet_scale
         self.active = active
+        self.direction = 1.0;
 
         self.last_time = rospy.get_time()
 
@@ -560,18 +573,24 @@ class EdgeArenaClass(RArenaClass):
         #If enough time has passed, trigger single packet animationg
         T_next = self.last_time + self.packet_interval/1000.0
         if (rospy.get_time() > T_next and self.animate): 
+
+            source = "{} {} {}".format(self.start_node.pos[0],
+                    self.start_node.pos[1],self.start_node.pos[2])
+            dest = "{} {} {}".format(self.end_node.pos[0],
+                    self.end_node.pos[1],self.end_node.pos[2])
+
+            # Just in case, inver the flow
+            if (self.direction < 0):
+                temp = source
+                source = dest
+                dest = temp
+
             mess = animationJsonMsg(
                     "sphere_00",
                     self.id,
                     "position",
-                    "{} {} {}".format(
-                        self.start_node.pos[0],
-                        self.start_node.pos[1],
-                        self.start_node.pos[2]),
-                    "{} {} {}".format(
-                        self.end_node.pos[0],
-                        self.end_node.pos[1],
-                        self.end_node.pos[2]),
+                    source,
+                    dest,
                     self.packet_duration)
 
             self.client.publish(
@@ -580,7 +599,10 @@ class EdgeArenaClass(RArenaClass):
                     retain=True)
 
             self.last_time = rospy.get_time() #reset time
-
+    
+    def invertFlow(self):
+        print("Inverting flow")
+        self.direction = -1.0 * self.direction
         
     def draw(self):
         if self.active:
@@ -592,25 +614,27 @@ class EdgeArenaClass(RArenaClass):
 
         if self.visible:
             vstring = "on"
-        else:
-            vstring = "off"
-
-        # Plot the line
-        mess = genJsonLineMessage(self.id, 
+            # Plot the line
+            mess = genJsonLineMessage(self.id, 
                 self.start_node.pos,
                 self.end_node.pos,
                color)
 
-        # Draw object
-        self.client.publish(self.line_base_topic,
-                json.dumps(mess), retain=True)
+            # Draw object
+            self.client.publish(self.line_base_topic,
+                    json.dumps(mess), retain=True)
 
-        self.topic_callback("")
+            self.topic_callback("")
+        else:
+            super(EdgeArenaClass).hide_object()
+            vstring = "off"
+
 
 
     def update(self):
         # Update pose
-        self.draw()
+        if (self.visible):
+            self.draw()
 
 
     def remove(self):
