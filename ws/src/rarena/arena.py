@@ -153,6 +153,9 @@ class RArenaClass(object):
         # Delete the object
         del_msg = genDelJsonMsg(obj_id)
         self.client.publish(topic, json.dumps(del_msg), retain=False)
+        print(del_msg)
+        print(topic)
+
 
     def remove(self):
         # Remove the shape and the text
@@ -533,6 +536,7 @@ class EdgeArenaClass(RArenaClass):
         base_scene = "realm/s/" + self.scene + "/"
         self.pkt_id = "00{}".format(self.id)
         self.sphere_id =  "sphere" + "_" + self.pkt_id
+        self.line_id = "line" + "_{}".format(self.id)
 
         self.packet_base_topic = base_scene + self.sphere_id
         self.line_base_topic = base_scene + "line_{}".format(self.id)
@@ -541,6 +545,7 @@ class EdgeArenaClass(RArenaClass):
         self.remove()
         self.draw()
         
+        # Create the sphere object (it should be created for the animation)
         mess = genJsonMessage(
                     shape = "sphere",
                     identifier = self.pkt_id,
@@ -564,9 +569,10 @@ class EdgeArenaClass(RArenaClass):
     def registerCallbacks(self):
         if self.source:
             topic = "/" + self.source
+            # Temporary disabled
             # Subscribe to vehicle state update
-            print("[{}] Subscribing to: {}".format(self.name, topic))
-            rospy.Subscriber(topic, PoseStamped, self.topic_callback)
+            #print("[{}] Subscribing to: {}".format(self.name, topic))
+            #rospy.Subscriber(topic, PoseStamped, self.topic_callback)
 
 
     def topic_callback(self, msg):
@@ -586,8 +592,8 @@ class EdgeArenaClass(RArenaClass):
                 dest = temp
 
             mess = animationJsonMsg(
-                    "sphere_00",
-                    self.id,
+                    "sphere",
+                    self.pkt_id,
                     "position",
                     source,
                     dest,
@@ -598,19 +604,19 @@ class EdgeArenaClass(RArenaClass):
                     json.dumps(mess),
                     retain=True)
 
-            self.last_time = rospy.get_time() #reset time
-    
+            self.last_time = rospy.get_time()
+   
+
     def invertFlow(self):
         print("Inverting flow")
         self.direction = -1.0 * self.direction
-        
+
+
     def draw(self):
         if self.active:
             color = self.color
-            # self.visible = "on"
         else:
             color = "#FFFFFF"
-            # self.visible = "off"
 
         if self.visible:
             vstring = "on"
@@ -626,7 +632,7 @@ class EdgeArenaClass(RArenaClass):
 
             self.topic_callback("")
         else:
-            super(EdgeArenaClass).hide_object()
+            print("[{}] not visible".format(self.name))
             vstring = "off"
 
 
@@ -639,7 +645,7 @@ class EdgeArenaClass(RArenaClass):
 
     def remove(self):
         super(EdgeArenaClass, self).remove()
-        #self.remove_sub(self.line_base_topic, self.id)
+        self.remove_sub(self.line_base_topic, self.line_id)
         self.remove_sub(self.packet_base_topic, self.sphere_id)
 
 
@@ -664,6 +670,7 @@ class EdgeArenaClass(RArenaClass):
 
 
     def hide(self):
+        print("[{}] Hiding...".format(self.name))
         self.visible = False
 
 

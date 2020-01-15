@@ -87,7 +87,7 @@ def genTransJsonMsg(shape, identifier, opacity):
 
 def animationJsonMsg(shape, identifier, prop_, from_, to_, dur_):
     json_message = {
-            "object_id": shape + "{}".format(identifier),
+            "object_id": shape + "_{}".format(identifier),
             "action": "update",
             "type": "object",
             "data": {
