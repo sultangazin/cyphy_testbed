@@ -4,7 +4,7 @@
 -->
 
 <launch>
-    <arg name="vehicle_frame" default="cf2" /> 
+    <arg name="vehicle_frame" default="cf3" /> 
     <arg name="uri" default="radio://0/100/2M/E7E7E7E7E7" /> 
 
 
