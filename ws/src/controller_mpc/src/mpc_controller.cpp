@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include "mellinger_controller.h"
+#include "mpc_controller.h"
 #include <math.h>
 #include "math3d.h"
 #include <stdio.h>
@@ -7,10 +7,10 @@
 
 #define GRAVITY_MAGNITUDE (9.81f)
 
-namespace controller {
+namespace controller_mpc {
 
     // Initialize.
-    bool MellingerController::Initialize(const ros::NodeHandle& n) {
+    bool MPCController::Initialize(const ros::NodeHandle& n) {
         name_ = ros::names::append(n.getNamespace(), "controller");
 
         if (!LoadParameters(n)) {
@@ -44,7 +44,7 @@ namespace controller {
     }
 
     // Load parameters. This may be overridden by derived classes.
-    bool MellingerController::LoadParameters(const ros::NodeHandle& n) {
+    bool MPCController::LoadParameters(const ros::NodeHandle& n) {
         ros::NodeHandle nl(n);
 
         // Controller Parameters
@@ -98,21 +98,21 @@ namespace controller {
     }
 
     // Register callbacks.
-    bool MellingerController::RegisterCallbacks(const ros::NodeHandle& n) {
+    bool MPCController::RegisterCallbacks(const ros::NodeHandle& n) {
         ros::NodeHandle nl(n);
 
         // Subscribers.
         state_sub_ = nl.subscribe(
-                state_topic_.c_str(), 1, &MellingerController::StateCallback, this);
+                state_topic_.c_str(), 1, &MPCController::StateCallback, this);
 
         setpoint_sub_ = nl.subscribe(
-                setpoint_topic_.c_str(), 1, &MellingerController::SetpointCallback, this);
+                setpoint_topic_.c_str(), 1, &MPCController::SetpointCallback, this);
 
         return true;
     }
 
     // Reset variables
-    void MellingerController::Reset(void)
+    void MPCController::Reset(void)
     {
         sp_pos_ = Vector3d::Zero();
         sp_vel_ = Vector3d::Zero();
@@ -143,7 +143,7 @@ namespace controller {
     }
 
     // Process an incoming setpoint point change.
-    void MellingerController::SetpointCallback(
+    void MPCController::SetpointCallback(
             const testbed_msgs::ControlSetpoint::ConstPtr& msg) {
 
         setpoint_type_ = msg->setpoint_type; 
@@ -173,7 +173,7 @@ namespace controller {
     }
 
     // Process an incoming state measurement.
-    void MellingerController::StateCallback(
+    void MPCController::StateCallback(
             const testbed_msgs::CustOdometryStamped::ConstPtr& msg) {
         // Catch no setpoint.
         if (!received_setpoint_)

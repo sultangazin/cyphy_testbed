@@ -59,13 +59,13 @@
 #include <math.h>
 #include <fstream>
 
-namespace controller {
+namespace controller_mpc {
 
 enum class ControlMode {
   ANGLES, RATES, NUM_MODES
 };
   
-class MellingerController {
+class MPCController {
   public:
   // MellingerController() {}
 
@@ -75,7 +75,7 @@ class MellingerController {
   // Compute control given the current state.
   Vector3d Control(const VectorXd& x) const;
   
-  MellingerController()
+  MPCController()
     : received_setpoint_(false),
       last_state_time_(-1.0),
       initialized_(false) {}
