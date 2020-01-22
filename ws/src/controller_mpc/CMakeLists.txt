@@ -32,18 +32,18 @@ add_executable(mpc_controller_node
 	exec/mpc_controller_node.cpp 
 	src/mpc_controller.cpp
 )
-add_executable(cmd_vel_converter_node 
-	exec/cmd_vel_converter_node.cpp 
-	src/cmd_vel_converter.cpp
-)
+#add_executable(cmd_vel_converter_node 
+#	exec/cmd_vel_converter_node.cpp 
+#	src/cmd_vel_converter.cpp
+#)
 
 add_dependencies(mpc_controller_node
 	${catkin_EXPORTED_TARGETS}
 	)
 
-add_dependencies(cmd_vel_converter_node 
-	${catkin_EXPORTED_TARGETS}
-	)
+#add_dependencies(cmd_vel_converter_node 
+#	${catkin_EXPORTED_TARGETS}
+#	)
 
 target_link_libraries(
 	mpc_controller_node
@@ -52,8 +52,8 @@ target_link_libraries(
 )
 
 
-target_link_libraries(
-	cmd_vel_converter_node
-	Eigen3::Eigen 
-	${catkin_LIBRARIES}
-)
+#target_link_libraries(
+#	cmd_vel_converter_node
+#	Eigen3::Eigen 
+#	${catkin_LIBRARIES}
+#)

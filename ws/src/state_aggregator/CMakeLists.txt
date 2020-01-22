@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(state_aggregator)
+add_compile_options(-std=c++11)
 
 # Find required packages
 find_package(
@@ -22,6 +23,8 @@ include_directories(
 	include/
 	${catkin_INCLUDE_DIRS} # Found in "find_package"
 	)
+
+#include_directories(${/usr/local/include/eigen3/Eigen})
 
 # Declare the executable to be build and the associated source
 add_executable(state_aggregator 

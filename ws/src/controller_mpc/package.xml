@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-	<name>mpc_controller</name>
+	<name>controller_mpc</name>
 	<version>0.0.0</version>
 	<description>MPC controller package</description>
 
