@@ -891,7 +891,7 @@ class TrackerArenaClass:
         pos_diff = self.source_pos
         quat_diff = [0,0,0,1] 
         if (self.name == "tablet"):
-            pos_diff = np.array([0, -1.21, 0]) 
+            pos_diff = np.array([0, -1.03, 0]) 
             #quat_diff = self.source_quat
             #pos_diff = pos_diff - self.camera_pos
 

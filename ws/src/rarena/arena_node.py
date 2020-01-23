@@ -170,7 +170,7 @@ def generate_entities():
             id=id_cnt,
             source="vrpn_client_node",
             on_click_clb=land_command,
-            color="#0000AA",
+            color="#AA4400",
             scale=[0.3, 0.01, 0.3],
             opacity=0.5) 
     id_cnt = id_cnt + 1;
@@ -182,7 +182,7 @@ def generate_entities():
             id=id_cnt,
             source="vrpn_client_node",
             on_click_clb=land_command,
-            color="#AA4400",
+            color="#0000AA",
             scale=[0.3, 0.01, 0.3],
             opacity=0.5)
     id_cnt = id_cnt + 1;
@@ -216,14 +216,14 @@ def generate_entities():
     # the drones.
     # nuc0 -> drone0
     edge_n0d0 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=id_cnt,
-       start_node=nuc0, end_node=drone1, color="#AAAA00", animate=True,
-       packet_interval=1000, packet_duration=500, packet_scale=[.02,.02,.02])
+       start_node=nuc0, end_node=drone1, color="#AAAAAA", data_color="#FFFF00", 
+       animate=True, packet_interval=500, packet_duration=500, packet_scale=[.02,.02,.02])
     id_cnt = id_cnt + 1;
     edges["n0d0"] = edge_n0d0
    # nuc1 -> drone1
     edge_n1d1 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=id_cnt,
-       start_node=nuc1, end_node=drone2, color="#AAAA00", animate=True,
-       packet_interval=1000, packet_duration=500, packet_scale=[.02,.02,.02])
+       start_node=nuc1, end_node=drone2, color="#AAAAAA", data_color="#FFFF00", 
+       animate=True, packet_interval=500, packet_duration=500, packet_scale=[.02,.02,.02])
     id_cnt = id_cnt + 1;
 
     # Sensor Edges
@@ -231,31 +231,31 @@ def generate_entities():
     # control nodes.
     # drone0 -> nuc0
     edge_d0n0 = EdgeArenaClass(mqtt_client, scene, 'edge3', id=id_cnt,
-       start_node=drone1, end_node=nuc0, color="#00AA00", 
-       data_color="#0000FF", animate=True, packet_interval=1000,
-       packet_duration=500, packet_scale=[.02,.02,.02])
+       start_node=drone1, end_node=nuc0, color="#FF7FFF", 
+       data_color="#FF7FFF", animate=True, packet_interval=500,
+       packet_duration=450, packet_scale=[.02,.02,.02])
     id_cnt = id_cnt + 1;
     edges["d0n0"] = edge_d0n0
    # drone0 -> nuc1
     edge_d0n1 = EdgeArenaClass(mqtt_client, scene, 'edge4', id=id_cnt,
-       start_node=drone1, end_node=nuc1, color="#00AA00",
-       data_color="#0000FF", animate=True, packet_interval=1000,
-       packet_duration=500, packet_scale=[.02,.02,.02])
+       start_node=drone1, end_node=nuc1, color="#FF7FFF",
+       data_color="#FF7FFF", animate=True, packet_interval=500,
+       packet_duration=450, packet_scale=[.02,.02,.02])
     id_cnt = id_cnt + 1;
     edges["d0n1"] = edge_d0n1
 
     # drone1 -> nuc0
     edge_d1n0 = EdgeArenaClass(mqtt_client, scene, 'edge5', id=id_cnt,
-       start_node=drone2, end_node=nuc0, color="#00AA00", 
-       data_color="#0000FF", animate=True, packet_interval=1000,
-       packet_duration=500, packet_scale=[.02,.02,.02])
+       start_node=drone2, end_node=nuc0, color="#FF7FFF", 
+       data_color="#FF7FFF", animate=True, packet_interval=500,
+       packet_duration=450, packet_scale=[.02,.02,.02])
     id_cnt = id_cnt + 1;
     edges["d1n0"] = edge_d1n0
 
    # drone1 -> nuc1
     edge_d1n1 = EdgeArenaClass(mqtt_client, scene, 'edge6', id=id_cnt,
-       start_node=drone2, end_node=nuc1, color="#00AA00", animate=True,
-       data_color="#0000FF", packet_interval=1000, packet_duration=500,
+       start_node=drone2, end_node=nuc1, color="#FF7FFF", animate=True,
+       data_color="#FF7FFF", packet_interval=500, packet_duration=450,
        packet_scale=[.02,.02,.02])
     id_cnt = id_cnt + 1;
     edges["d1n1"] = edge_d1n1
@@ -288,37 +288,50 @@ def generate_entities():
     # Add nodes for cameras
 
     ot1 = NodeArenaClass(mqtt_client, scene, 'ot1', id=id_cnt,
-      color="#AA00AA", pos=[-3.0, realm_y_offset + 2.5, -2.0], scale=[0.15,0.15,0.15], opacity=0.5)
+      color="#AA00AA", pos=[2.464, realm_y_offset + 2.591, -1.5], scale=[0.15,0.15,0.15], opacity=0.5)
     id_cnt = id_cnt + 1;
 
     ot2 = NodeArenaClass(mqtt_client, scene, 'ot2', id=id_cnt,
-      color="#AA00AA", pos=[-1.0, realm_y_offset + 2.5, -3.0], scale=[0.15,0.15,0.15], opacity=0.5)
+      color="#AA00AA", pos=[2.464, realm_y_offset + 2.591, -0.5], scale=[0.15,0.15,0.15], opacity=0.5)
     id_cnt = id_cnt + 1;
 
     ot3 = NodeArenaClass(mqtt_client, scene, 'ot3', id=id_cnt,
-      color="#AA00AA", pos=[0.0, realm_y_offset + 2.5, -3.0], scale=[0.15,0.15,0.15], opacity=0.5)
+      color="#AA00AA", pos=[2.464, realm_y_offset + 2.591, 0.5], scale=[0.15,0.15,0.15], opacity=0.5)
     id_cnt = id_cnt + 1;
 
     ot4 = NodeArenaClass(mqtt_client, scene, 'ot4', id=id_cnt,
-      color="#AA00AA", pos=[2.0, realm_y_offset + 2.5, -3.0], scale=[0.15,0.15,0.15], opacity=0.5)
+      color="#AA00AA", pos=[2.464, realm_y_offset + 2.591, 2.0], scale=[0.15,0.15,0.15], opacity=0.5)
     id_cnt = id_cnt + 1;
 
+    # =========
     ot5 = NodeArenaClass(mqtt_client, scene, 'ot5', id=id_cnt,
-      color="#AA00AA", pos=[2.0, realm_y_offset + 2.5, 0.0], scale=[0.15,0.15,0.15], opacity=0.5)
+      color="#AA00AA", pos=[1.0, realm_y_offset + 2.591, 2.54], scale=[0.15,0.15,0.15], opacity=0.5)
     id_cnt = id_cnt + 1;
 
     ot6 = NodeArenaClass(mqtt_client, scene, 'ot6', id=id_cnt,
-      color="#AA00AA", pos=[2.0, realm_y_offset + 2.5, 2.5], scale=[0.15,0.15,0.15], opacity=0.5)
+      color="#AA00AA", pos=[0.0, realm_y_offset + 2.591, 2.54], scale=[0.15,0.15,0.15], opacity=0.5)
     id_cnt = id_cnt + 1;
 
     ot7 = NodeArenaClass(mqtt_client, scene, 'ot7', id=id_cnt,
-      color="#AA00AA", pos=[-0.5, realm_y_offset + 2.5, 2.5], scale=[0.15,0.15,0.15], opacity=0.5)
+      color="#AA00AA", pos=[-1.0, realm_y_offset + 2.591, 2.54], scale=[0.15,0.15,0.15], opacity=0.5)
     id_cnt = id_cnt + 1;
 
+    # =========
     ot8 = NodeArenaClass(mqtt_client, scene, 'ot8', id=id_cnt,
-      color="#AA00AA", pos=[-3.0, realm_y_offset + 2.5, 2.5], scale=[0.15,0.15,0.15], opacity=0.5)
+      color="#AA00AA", pos=[-2.54, realm_y_offset + 2.591, -1.5], scale=[0.15,0.15,0.15], opacity=0.5)
     id_cnt = id_cnt + 1;
 
+    ot9 = NodeArenaClass(mqtt_client, scene, 'ot9', id=id_cnt,
+      color="#AA00AA", pos=[-2.54, realm_y_offset + 2.591, -0.5], scale=[0.15,0.15,0.15], opacity=0.5)
+    id_cnt = id_cnt + 1;
+
+    ot10 = NodeArenaClass(mqtt_client, scene, 'ot10', id=id_cnt,
+      color="#AA00AA", pos=[-2.54, realm_y_offset + 2.591, 0.5], scale=[0.15,0.15,0.15], opacity=0.5)
+    id_cnt = id_cnt + 1;
+
+    ot11 = NodeArenaClass(mqtt_client, scene, 'ot11', id=id_cnt,
+      color="#AA00AA", pos=[-2.54, realm_y_offset + 2.591, 1.5], scale=[0.15,0.15,0.15], opacity=0.5)
+    id_cnt = id_cnt + 1;
 
     # Initialize external trackers for evey viewing devices
     tablet_trk = TrackerArenaClass(mqtt_client, scene, "tablet", "vrpn_client_node", active=True)
@@ -350,6 +363,9 @@ def generate_entities():
                 ot6,
                 ot7,
                 ot8,
+                ot9,
+                ot10,
+                ot11,
                 tablet_trk,
 #                nodeB_trk
                 ]
