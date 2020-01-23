@@ -910,7 +910,7 @@ class TrackerArenaClass:
                     retain=False)
 
         #print("Published Diff: {},{}".format(pos_diff, quat_diff))
-        print("Camera Position = {}".format(self.camera_pos))
+        #print("Camera Position = {}".format(self.camera_pos))
         #print("Source Position = {}".format(self.source_pos))
 
 
