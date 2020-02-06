@@ -75,10 +75,33 @@ class MPCController {
   // Compute control given the current state.
   Vector3d Control(const VectorXd& x) const;
   
-  MPCController()
-    : received_setpoint_(false),
-      last_state_time_(-1.0),
-      initialized_(false) {}
+  MPCController():
+    received_setpoint_(false),
+    last_state_time_(-1.0),
+    initialized_(false),
+    mpc_wrapper_(MpcWrapper<double>()),
+    timing_feedback_(1e-3),
+    timing_preparation_(1e-3),
+    est_state_((Eigen::Matrix<double, kStateSize, 1>() <<
+                                                0, 0, 0, 1, 0, 0, 0, 0, 0, 0).finished()),
+    reference_states_(Eigen::Matrix<double, kStateSize, kSamples + 1>::Zero()),
+    reference_inputs_(Eigen::Matrix<double, kInputSize, kSamples + 1>::Zero()),
+    predicted_states_(Eigen::Matrix<double, kSateSize, kSamples + 1>::Zero()),
+    predicted_inputs_(Eigen::Matrix<double, kInputSize, kSamples>::Zero()),
+    point_of_interest_(Eigen::Matrix<double, 3, 1>::Zero()),
+    
+    changed_(false),
+    print_info_(false),
+    state_cost_exponential_(0.0),
+    input_cost_exponential_(0.0),
+    max_bodyrate_xy_(0.0),
+    max_bodyrate_z_(0.0),
+    min_thrust_(0.0),
+    max_thrust_(0.0),
+    p_B_C_(Eigen::Matrix<T, 3, 1>::Zero()),
+    q_B_C_(Eigen::Quaternion<T>(1.0, 0.0, 0.0, 0.0)),
+    Q_(Eigen::Matrix<T, kCostSize, kCostSize>::Zero()),
+    R_(Eigen::Matrix<T, kInputSize, kInputSize>::Zero()) {}
 
   // Load parameters and register callbacks. These may/must be overridden
   // by derived classes.
@@ -86,6 +109,13 @@ class MPCController {
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
   void Reset(void);
+
+  // TODO: change quadrotor_common
+  quadrotor_common::ControlCommand run(
+        const quadrotor_common::QuadStateEstimate& state_estimate,
+        const quadrotor_common::Trajectory& reference_trajectory)
+
+  bool setNewParams(void);
 
   // Process an incoming setpoint point.
   void SetpointCallback(
@@ -97,53 +127,30 @@ class MPCController {
 
   ControlMode ctrl_mode_;
 
-  double g_vehicleMass; // TODO: should be CF global for other modules
-  double massThrust;
+  // MPC Parameters
+  bool changed_;
+  bool print_info_;
+  bool solve_from_scratch_;
+  std::thread preparation_thread_;
 
-  // XY Position PID
-  double kp_xy;       // P
-  double kd_xy;       // D
-  double ki_xy;      // I
-  double i_range_xy;
+  double state_cost_exponential_;
+  double input_cost_exponential_;
 
-  // Z Position
-  double kp_z;       // P
-  double kd_z;        // D
-  double ki_z;       // I
-  double i_range_z;
+  double max_bodyrate_xy_;
+  double max_bodyrate_z_;
+  double min_thrust_;
+  double max_thrust_;
 
-  // Attitude
-  double kR_xy; // P
-  double kw_xy; // D
-  double ki_m_xy; // I
-  double i_range_m_xy;
+  Eigen::Matrix<double, 3, 1> p_B_C_;
+  Eigen::Quaternion<double> q_B_C_;
 
-  // Yaw
-  double kR_z; // P
-  double kw_z; // D
-  double ki_m_z; // I
-  double i_range_m_z;
-
-  // roll and pitch angular velocity
-  double kd_omega_rp; // D  
-
-  // Gain for the rate controller
-  double kpq_rates_; // Gain for roll/pitch
-  double kr_rates_; // Gain for yaw
-
-  // Helper variables
-  double i_error_x;
-  double i_error_y;
-  double i_error_z;
+  Eigen::Matrix<double, kCostSize, kCostSize> Q_;
+  Eigen::Matrix<double, kInputSize, kInputSize> R_;
 
   double prev_omega_roll;
   double prev_omega_pitch;
   double prev_setpoint_omega_roll;
   double prev_setpoint_omega_pitch;
-
-  double i_error_m_x;
-  double i_error_m_y;
-  double i_error_m_z;
 
   Vector3d sp_pos_, sp_vel_, sp_acc_, sp_r_pos_, sp_r_vel_, sp_r_acc_;
   Vector3d sp_brates_;

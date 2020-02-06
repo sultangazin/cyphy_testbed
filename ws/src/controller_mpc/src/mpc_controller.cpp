@@ -11,7 +11,7 @@ namespace controller_mpc {
 
     // Initialize.
     bool MPCController::Initialize(const ros::NodeHandle& n) {
-        name_ = ros::names::append(n.getNamespace(), "controller");
+        name_ = ros::names::append(n.getNamespace(), "controller_mpc");
 
         if (!LoadParameters(n)) {
             ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
@@ -39,6 +39,12 @@ namespace controller_mpc {
 
         Reset();
 
+        setNewParams();
+
+        solve_from_scratch_ = true;
+
+        preparation_thread_ = std::thread(&MpcWrapper<double>::prepare, mpc_wrapper_);
+
         initialized_ = true;
         return true;
     }
@@ -47,42 +53,90 @@ namespace controller_mpc {
     bool MPCController::LoadParameters(const ros::NodeHandle& n) {
         ros::NodeHandle nl(n);
 
-        // Controller Parameters
-        if (!nl.getParam("g_vehicleMass", g_vehicleMass)) return false;
-        if (!nl.getParam("massThrust", massThrust)) return false;
+        // Read state costs
+        double Q_pos_xy, Q_pos_z, Q_attitude, Q_velocity, Q_perception;
+        if (!nl.getParam("Q_pos_xy", Q_pos_xy)) return false;
+        if (!nl.getParam("Q_pos_z", Q_pos_z)) return false;
+        if (!nl.getParam("Q_attitude", Q_attitude)) return false;
+        if (!nl.getParam("Q_velocity", Q_velocity)) return false;
+        if (!nl.getParam("Q_perception", Q_perception)) return false;
 
-        if (!nl.getParam("kp_xy", kp_xy)) return false;
-        if (!nl.getParam("kd_xy", kd_xy)) return false;
-        if (!nl.getParam("ki_xy", ki_xy)) return false;
-        if (!nl.getParam("i_range_xy", i_range_xy)) return false;
+        // Check whether all state costs are positive.
+        if(Q_pos_xy     <= 0.0 ||
+            Q_pos_z      <= 0.0 ||
+            Q_attitude   <= 0.0 ||
+            Q_velocity   <= 0.0 ||
+            Q_perception < 0.0)      // Perception cost can be zero to deactivate.
+        {
+            ROS_ERROR("MPC: State cost Q has negative enries!");
+            return false;
+        }
 
-        if (!nl.getParam("kp_z", kp_z)) return false;
-        if (!nl.getParam("kd_z", kd_z)) return false;
-        if (!nl.getParam("ki_z", ki_z)) return false;
-        if (!nl.getParam("i_range_z", i_range_z)) return false;
+        // Read input costs.
+        double R_thrust, R_pitchroll, R_yaw;
+        if (!nl.getParam("R_thrust", R_thrust)) return false;
+        if (!nl.getParam("R_pitchroll", R_pitchroll)) return false;
+        if (!nl.getParam("R_yaw", R_yaw)) return false;
 
-        if (!nl.getParam("kR_xy", kR_xy)) return false;
-        if (!nl.getParam("kw_xy", kw_xy)) return false;
-        if (!nl.getParam("ki_m_xy", ki_m_xy)) return false;
-        if (!nl.getParam("i_range_m_xy", i_range_m_xy)) return false;
+        // Check whether all input costs are positive.
+        if(R_thrust  <= 0.0 ||
+            R_pitchroll <= 0.0 ||
+            R_yaw       <= 0.0)
+        {
+            ROS_ERROR("MPC: Input cost R has negative enries!");
+            return false;
+        }
 
-        if (!nl.getParam("kR_z", kR_z)) return false;
-        if (!nl.getParam("kw_z", kw_z)) return false;
-        if (!nl.getParam("ki_m_z", ki_m_z)) return false;
-        if (!nl.getParam("i_range_m_z", i_range_m_z)) return false;
+        // Set state and input cost matrices.
+        Q_ = (Eigen::Matrix<T, kCostSize, 1>() <<
+            Q_pos_xy, Q_pos_xy, Q_pos_z,
+            Q_attitude, Q_attitude, Q_attitude, Q_attitude,
+            Q_velocity, Q_velocity, Q_velocity,
+            Q_perception, Q_perception).finished().asDiagonal();
+        R_ = (Eigen::Matrix<T, kInputSize, 1>() <<
+            R_thrust, R_pitchroll, R_pitchroll, R_yaw).finished().asDiagonal();
 
-        if (!nl.getParam("kd_omega_rp", kd_omega_rp)) return false;
+        // Read cost scaling values
+        if (!nl.getParam("state_cost_exponential", state_cost_exponential_)) return false;
+        if (!nl.getParam("input_cost_exponential", input_cost_exponential_)) return false;
 
-        if (!nl.getParam("kpq_rates", kpq_rates_)) return false;
-        if (!nl.getParam("kr_rates", kr_rates_)) return false;
+        // Read input limits.
+        if (!nl.getParam("max_bodyrate_xy", input_cost_exponential_)) return false;
+        if (!nl.getParam("max_bodyrate_z", input_cost_exponential_)) return false;
+        if (!nl.getParam("min_thrust", min_thrust_)) return false;
+        if (!nl.getParam("max_thrust", max_thrust_)) return false;
 
-        if (!nl.getParam("i_error_x", i_error_x)) return false;
-        if (!nl.getParam("i_error_y", i_error_y)) return false;
-        if (!nl.getParam("i_error_z", i_error_z)) return false;
+         // Check whether all input limits are positive.
+        if(max_bodyrate_xy_ <= 0.0 ||
+            max_bodyrate_z_  <= 0.0 ||
+            min_thrust_      <= 0.0 ||
+            max_thrust_      <= 0.0)
+        {
+            ROS_ERROR("MPC: All limits must be positive non-zero values!");
+            return false;
+        }
 
-        if (!nl.getParam("i_error_m_x", i_error_m_x)) return false;
-        if (!nl.getParam("i_error_m_y", i_error_m_y)) return false;
-        if (!nl.getParam("i_error_m_z", i_error_m_z)) return false;
+        // Optional parameters
+        std::vector<double> p_B_C(3), q_B_C(4);
+        if(!nl.getParam("p_B_C", p_B_C))
+        {
+            ROS_WARN("MPC: Camera extrinsic translation is not set.");
+        }
+        else
+        {
+            p_B_C_ = Eigen::Matrix<double, 3, 1>(p_B_C[0], p_B_C[1], p_B_C[2]);
+        }
+        if(!nl.getParam("q_B_C", q_B_C))
+        {
+            ROS_WARN("MPC: Camera extrinsic rotation is not set.");
+        }
+        else
+        {
+            q_B_C_ = Eigen::Quaternion<double>(q_B_C[0], q_B_C[1], q_B_C[2], q_B_C[3]);
+        }
+
+        if (!nl.getParam("print_info", print_info_)) return false;
+        if(print_info_) ROS_INFO("MPC: Informative printing enabled.");        
 
         // Topics.
         if (!nl.getParam("topics/state", state_topic_)) return false;
@@ -111,7 +165,7 @@ namespace controller_mpc {
         return true;
     }
 
-    // Reset variables
+    // Reset variables.
     void MPCController::Reset(void)
     {
         sp_pos_ = Vector3d::Zero();
@@ -132,14 +186,154 @@ namespace controller_mpc {
         quat_.vec() = Vector3d::Zero();
         quat_.w() = 0;
 
-        i_error_x = 0;
-        i_error_y = 0;
-        i_error_z = 0;
-        i_error_m_x = 0;
-        i_error_m_y = 0;
-        i_error_m_z = 0;
-
         received_setpoint_ = false;
+    }
+
+    // Passes the cost matrices to mpc_wrapper.
+    bool MPCController::setNewParams() {
+        mpc_wrapper_.setCosts(Q_,R_);
+        mpc_wrapper_.setLimits(
+            min_thrust_, max_thrust_,
+            max_bodyrate_xy_, max_bodyrate_z_);
+        // TODO: remove camera stuff
+        mpc_wrapper_.setCameraParameters(p_B_C_, q_B_C_);
+        changed_ = false;
+        return true;
+    }
+
+    // Convert from class variables to Eigen format.
+    bool MPCController::setStateEstimate(){
+        est_state_(kPosX) = pos_(0);
+        est_state_(kPosY) = pos_(1);
+        est_state_(kPosZ) = pos_(2);
+        est_state_(kOriW) = quat_.w();
+        est_state_(kOriX) = quat_.x();
+        est_state_(kOriY) = quat_.y();
+        est_state_(kOriZ) = quat_.z();
+        est_state_(kVelX) = vel_(0);
+        est_state_(kVelY) = vel_(1);
+        est_state_(kVelZ) = vel_(2);
+
+        const bool quaternion_norm_ok = abs(est_state_.segment(kOriW, 4).norm() - 1.0) < 0.1;
+        
+        return quaternion_norm_ok;
+    }
+
+    // Convert to Eigen format. 
+    bool MPCController::setReference(
+        const testbed_msgs::TrajectoryMPC::ConstPtr& reference_trajectory) {
+        reference_states_.setZero();
+        reference_inputs_.setZero();
+
+        const double dt = mpc_wrapper_.getTimestep();
+        Eigen::Matrix<double, 3, 1> acceleration;
+        const Eigen::Matrix<double, 3, 1> gravity(0.0, 0.0, -9.81);
+        Eigen::Quaternion<double> q_heading;
+        Eigen::Quaternion<double> q_orientation;
+        bool quaternion_norm_ok(true);
+        if (reference_trajectory->points.size() == 1) {
+            q_heading = Eigen::Quaternion<double>(Eigen::AngleAxis<double>(
+                reference_trajectory->points.front().heading,
+                Eigen::Matrix<double, 3, 1>::UnitZ()));
+
+            // TODO: Alim thinks it's important.. what a nerd. 
+            q_orientation = reference_trajectory->points.front().orientation.template cast<double>() * q_heading;
+            reference_states_ = (Eigen::Matrix<double, kStateSize, 1>()
+                << reference_trajectory->points.front().position.template cast<double>(),
+                q_orientation.w(),
+                q_orientation.x(),
+                q_orientation.y(),
+                q_orientation.z(),
+                reference_trajectory->points.front().velocity.template cast<double>()
+            ).finished().replicate(1, kSamples + 1);
+
+            acceleration << reference_trajectory->points.front().acceleration.template cast<double>() - gravity;
+            reference_inputs_ = (Eigen::Matrix<T, kInputSize, 1>() << acceleration.norm(),
+                reference_trajectory->points.front().bodyrates.template cast<double>()
+            ).finished().replicate(1, kSamples + 1);
+        } else {
+            auto iterator(reference_trajectory->points.begin());
+            ros::Duration t_start = reference_trajectory->points.begin()->time_from_start;
+            auto last_element = reference_trajectory->points.end();
+            last_element = std::prev(last_element);
+
+            for (int i = 0; i < kSamples + 1; i++) {
+            while ((iterator->time_from_start - t_start).toSec() <= i * dt &&
+                    iterator != last_element) {
+                iterator++;
+            }
+
+            q_heading = Eigen::Quaternion<double>(Eigen::AngleAxis<double>(
+                iterator->heading, Eigen::Matrix<double, 3, 1>::UnitZ()));
+            q_orientation = q_heading * iterator->orientation.template cast<double>();
+            reference_states_.col(i) << iterator->position.template cast<double>(),
+                q_orientation.w(),
+                q_orientation.x(),
+                q_orientation.y(),
+                q_orientation.z(),
+                iterator->velocity.template cast<double>();
+            if (reference_states_.col(i).segment(kOriW, 4).dot(
+                est_state_.segment(kOriW, 4)) < 0.0)
+                reference_states_.block(kOriW, i, 4, 1) =
+                    -reference_states_.block(kOriW, i, 4, 1);
+            acceleration << iterator->acceleration.template cast<double>() - gravity;
+            reference_inputs_.col(i) << acceleration.norm(),
+                iterator->bodyrates.template cast<double>();
+            quaternion_norm_ok &= abs(est_state_.segment(kOriW, 4).norm() - 1.0) < 0.1;
+            }
+        }
+        return quaternion_norm_ok;
+    }
+
+    // TODO:
+    testbed_msgs::ControlStamped MPCController::run(
+        const testbed_msgs::CustOdometryStamped::ConstPtr& state_estimate,
+        const testbed_msgs::TrajectoryMPC::ConstPtr& reference_trajectory) {
+        ros::Time call_time = ros::Time::now();
+        const clock_t start = clock();
+        if (changed_) {
+            setNewParams();
+        }
+
+        preparation_thread_.join();
+
+        // Convert everything into Eigen format.
+        setStateEstimate();
+        setReference(reference_trajectory);
+
+        static const bool do_preparation_step(false);
+
+        // Get the feedback from MPC.
+        mpc_wrapper_.setTrajectory(reference_states_, reference_inputs_);
+        if (solve_from_scratch_) {
+            ROS_INFO("Solving MPC with hover as initial guess.");
+            mpc_wrapper_.solve(est_state_);
+            solve_from_scratch_ = false;
+        } else {
+            mpc_wrapper_.update(est_state_, do_preparation_step);
+        }
+        // TODO: CONTINUE..
+        mpc_wrapper_.getStates(predicted_states_);
+        mpc_wrapper_.getInputs(predicted_inputs_);
+
+        // Publish the predicted trajectory.
+        publishPrediction(predicted_states_, predicted_inputs_, call_time);
+
+        // Start a thread to prepare for the next execution.
+        preparation_thread_ = std::thread(&MPCController<T>::preparationThread, this);
+
+        // Timing
+        const clock_t end = clock();
+        timing_feedback_ = 0.9 * timing_feedback_ +
+                            0.1 * double(end - start) / CLOCKS_PER_SEC;
+        if (params_.print_info_)
+            ROS_INFO_THROTTLE(1.0, "MPC Timing: Latency: %1.1f ms  |  Total: %1.1f ms",
+                            timing_feedback_ * 1000, (timing_feedback_ + timing_preparation_) * 1000);
+
+        // Return the input control command.
+        return updateControlCommand(predicted_states_.col(0),
+                                    predicted_inputs_.col(0),
+                                    call_time);
     }
 
     // Process an incoming setpoint point change.
