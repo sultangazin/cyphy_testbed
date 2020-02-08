@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+<!--
+    Global Launch File to start the system.
+    The following nodes will be started:
+     - VRPN Client Node
+     - Estimator Nodes for the drones
+     - Arena Node
+     - Commander + Guidance Nodes
+-->
+<launch>
+    <arg name="vehicle_frame2" default="cf2" />
+    <arg name="target" default="target" />
+    <arg name="nodeB" default="nodeB" />
+    <arg name="ip" default="192.168.1.198" /> <arg name="port" default="3883" />
+
+<!-- ===================================== -->
+<!-- Launch the data aquisition component 
+     Source of raw pose data: VRPN Server 
+     -->
+<include file="$(find demo_launchers)/launch/vrpn_launch.launch">
+    <arg name="ip" value="$(arg ip)" />
+    <arg name="port" value="$(arg port)" />
+</include>
+
+
+<!-- ===================================== -->
+<!-- Launch the estimator of the object state from
+     the VRPN raw data.
+     -->
+<include file="$(find demo_launchers)/launch/estimator_launch.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame2)" />
+</include>
+
+
+<!-- ===================================== -->
+<!-- Launch the Arena Node
+<include file="$(find demo_launchers)/launch/arena.launch">
+</include>
+-->
+
+
+<include file="$(find demo_launchers)/launch/commander_launch.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame2)" />
+    <arg name="commander_id" value="cm2" />
+    <arg name="obst_frame" value="cf3" />
+</include>
+
+<node pkg="manager" 
+    name="swarm_manager" 
+    type="manager_node.py"
+    respawn="true"
+    respawn_delay="3"
+    output="screen">
+</node>
+
+<node pkg="dummy_nodes"
+        type="dummy_anchors"
+        name="Dummy_Anchors"
+        output="screen">
+        <param name="topics/input_feed_topic" value="/vrpn_client_node/cf2/pose" type='str'/>
+        <param name="topics/output_out_topic" value="/yanwen" type='str'/>
+        <param name="anchors_file" value="anchors.yaml" /> 
+</node>
+
+<node pkg="mn_detector"
+    name="mn_detector"
+    type="mn_detector"
+    output="screen">
+    <param name="topics/input_control_topic" value="/cf2/control" />
+    <param name="topics/input_sensors" value="/yanwen" type='str'/>
+</node>
+
+<!--
+<node pkg="rviz" 
+        type="rviz" 
+        name="rviz" 
+        args="-d $(find state_aggregator)/launch/cyphy_rviz.rviz" > 
+</node>
+-->
+<node pkg="rosbag" name="record_MalNodDet_perf" type="record" args="-O /tmp/malicious_node_detection_perf /mnd_perf"/>
+
+</launch>

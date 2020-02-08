@@ -3,8 +3,17 @@
      Launcher for the dummy nodes 
 -->
 <launch>
+    <!--
     <node pkg="dummy_nodes" 
         type="dummy_node.py" 
         name="Dummy_node"> 
+    </node>
+    -->
+    <node pkg="dummy_nodes"
+        type="dummy_anchors"
+        name="Dummy_Anchors"
+        output="screen">
+        <param name="topics/input_feed_topic" value="/vrpn_client_node/cf2/pose" type='str'/>
+        <param name="topics/output_out_topic" value="/yanwen" type='str'/>
     </node>
 </launch>
