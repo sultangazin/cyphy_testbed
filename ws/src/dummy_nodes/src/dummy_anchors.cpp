@@ -1,5 +1,6 @@
 #include "dummy_anchors/dummy_anchors.hpp"
-#include <testbed_msgs/AnchorMeas.h>
+//#include <testbed_msgs/AnchorMeas.h>
+#include <crazyflie_driver/AnchorMeas.h>
 #include <yaml-cpp/yaml.h>
 #include <string>
 #include <fstream>
@@ -29,7 +30,7 @@ bool DummyAnchors::Initialize(const ros::NodeHandle& n) {
         ROS_INFO("%s: Correcly registered callbacks!\n", name_.c_str());
     }
 
-    sensor_output_pub_ = nl.advertise<testbed_msgs::AnchorMeas>(
+    sensor_output_pub_ = nl.advertise<crazyflie_driver::AnchorMeas>(
             sensor_output_topic_.c_str(), 5);
 
     initialized_ = true;
@@ -52,7 +53,7 @@ bool DummyAnchors::LoadParameters(const ros::NodeHandle& n) {
     ROS_INFO("%s: Input feed topic = %s", name_.c_str(), input_feed_topic_.c_str());
     ROS_INFO("%s: Ouput output topic = %s", name_.c_str(), sensor_output_topic_.c_str());
 
-  
+
     YAML::Node config = YAML::LoadFile(ros::package::getPath("dummy_nodes") + '/' + config_file);
 
     numberOfAnchors = config["NumOfAnchors"].as<int>();
@@ -95,21 +96,45 @@ bool DummyAnchors::RegisterCallbacks(const ros::NodeHandle& n) {
 void DummyAnchors::onFeedCallback(
         const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg) {
 
-    testbed_msgs::AnchorMeas output_msg;
+    ros::Time current_time = ros::Time::now();
+
     Eigen::Vector3f vehicle_p;
 
-    ros::Time current_time = ros::Time::now();
     // Fetch the position information from the pose message
     vehicle_p(0) = msg->pose.position.x;
     vehicle_p(1) = msg->pose.position.y;
     vehicle_p(2) = msg->pose.position.z;
 
-    
+
+    /*
+    // The testbed anchor meas contains a single vector with all the anchors
+    // distances.
+    testbed_msgs::AnchorMeas output_msg;
     output_msg.header.stamp = current_time;
+
     for (int i = 0; i < numberOfAnchors; i++) {
-        float anchors_meas = (vehicle_p - anchors[i]).norm();  
-        output_msg.meas.push_back(anchors_meas);
+    float anchors_meas = (vehicle_p - anchors[i]).norm();  
+    output_msg.meas.push_back(anchors_meas);
     }
 
     sensor_output_pub_.publish(output_msg);
+    */
+
+    // The crazyflie_driver message contains only the information about a 
+    // single anchor.
+     
+    for (int i = 0; i < numberOfAnchors; i++) {
+        crazyflie_driver::AnchorMeas output_msg;
+
+        float anchors_meas = (vehicle_p - anchors[i]).norm();  
+
+        output_msg.dist = anchors_meas;
+        output_msg.id = i;
+
+        output_msg.x_anchor = anchors[i](0);
+        output_msg.y_anchor = anchors[i](1);
+        output_msg.z_anchor = anchors[i](2);
+
+        sensor_output_pub_.publish(output_msg);
+    }
 }

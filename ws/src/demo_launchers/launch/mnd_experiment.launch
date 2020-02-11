@@ -58,7 +58,7 @@
         name="Dummy_Anchors"
         output="screen">
         <param name="topics/input_feed_topic" value="/vrpn_client_node/cf2/pose" type='str'/>
-        <param name="topics/output_out_topic" value="/yanwen" type='str'/>
+        <param name="topics/output_out_topic" value="/cf2/external_distance" type='str'/>
         <param name="anchors_file" value="anchors.yaml" /> 
 </node>
 

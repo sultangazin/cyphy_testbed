@@ -7,6 +7,7 @@ find_package(catkin REQUIRED
     roscpp
     roslib
     testbed_msgs
+    crazyflie_driver
     )
 
 find_package(Eigen3 REQUIRED NO_MODULE)
@@ -20,6 +21,7 @@ catkin_package(
     roslib
     testbed_msgs
     message_runtime
+    crazyflie_driver
     )
 
 include_directories(
