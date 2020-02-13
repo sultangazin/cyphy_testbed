@@ -26,7 +26,14 @@ bool MNDetector::Initialize(const ros::NodeHandle& n) {
     mndetector_perf_pub_ = nl.advertise<testbed_msgs::MNDetectorPerf>(
             mnd_perf_topic_.c_str(), 5);
 
+    for (int i = 0; i < 8; i++) {
+        anchors_[i] = 0.0;
+    }
     
+    for (int i = 0; i < 3; i++) {
+        rpy_deg_[i] = 0.0;
+    }
+
     initialized_ = true;
 
     return true;
@@ -65,15 +72,30 @@ bool MNDetector::RegisterCallbacks(const ros::NodeHandle& n) {
         &MNDetector::ControlCallback,
         this);
 
+    attitude_topic_sub_ = nl.subscribe(
+            "/cf2/external_pose_rpy",
+            2,
+            &MNDetector::AttitudeCallback,
+            this);
+
     return true;
 }
 
 void MNDetector::SensorsCallback(const testbed_msgs::AnchorMeas::ConstPtr& msg) {
     int _id = 0;
+    // Fetch the current simulated anchor measurements
     for (auto it = msg->meas.begin(); it != msg->meas.end(); it++) {
         //std::cout << "Anchor[" << _id << "] = " << *it << std::endl;
         anchors_[_id++] = *it;
     }
+}
+
+void MNDetector::AttitudeCallback(const geometry_msgs::Vector3Stamped::ConstPtr& msg) {
+    // Take the attitude of the vehicle that can be used to compute the linear 
+    // acceleration on the plane.
+    rpy_deg_[0] = msg->vector.x;
+    rpy_deg_[1] = msg->vector.y;
+    rpy_deg_[2] = msg->vector.z;
 }
 
 void MNDetector::ControlCallback(
@@ -89,6 +111,12 @@ void MNDetector::ControlCallback(
     for (int i = 0; i < 8; i++) {
         perf_msg.meas.push_back(anchors_[i]);
     }
+
+
+    for (int i = 0; i < 3; i++) {
+        perf_msg.rpy[i] = rpy_deg_[i];
+    }
+
 
     mndetector_perf_pub_.publish(perf_msg);
 }
