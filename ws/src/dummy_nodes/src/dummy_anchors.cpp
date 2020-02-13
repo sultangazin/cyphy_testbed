@@ -128,7 +128,7 @@ void DummyAnchors::onFeedCallback(
 
     // The crazyflie_driver message contains only the information about a 
     // single anchor.
-    for (int i = 0; i < numberOfAnchors; i++) {
+    for (unsigned char i = 0; i < numberOfAnchors; i++) {
         crazyflie_driver::AnchorMeas output_msg;
 
         float anchors_meas = (vehicle_p - anchors[i]).norm();  
@@ -136,7 +136,7 @@ void DummyAnchors::onFeedCallback(
         //    anchors_meas = anchors_meas + 2.9;
 
         output_msg.dist = anchors_meas;
-        output_msg.id = (unsigned char)i;
+        output_msg.id = i;
 
         output_msg.x_anchor = (float)anchors[i](0);
         output_msg.y_anchor = (float)anchors[i](1);
