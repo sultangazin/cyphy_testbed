@@ -16,8 +16,8 @@
         <arg name="uri" value="$(arg uri)" />
         <arg name="frame" value="$(arg vehicle_frame)" />
         <arg name="server" value="$(arg server)" />
-        <arg name="provide_position" value="False" />
-        <arg name="provide_distance" value="True" />
+        <arg name="provide_position" value="True" />
+        <arg name="provide_distance" value="False" />
     </include>
 
 
