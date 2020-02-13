@@ -21,7 +21,7 @@
             <param name="enable_logging_pressure" value="False" />
             <param name="enable_logging_battery" value="False" />
             <param name="enable_logging_packets" value="False" />
-            <param name="enable_logging_pose" value="False" /> 
+            <param name="enable_logging_pose" value="True" /> 
             <param name="enable_provide_position" value="$(arg provide_position)" />
             <param name="enable_provide_distance" value="$(arg provide_distance" />
             <rosparam>
