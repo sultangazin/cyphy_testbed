@@ -228,7 +228,7 @@ class NodeArenaClass(RArenaClass):
 
     def registerCallbacks(self):
         if self.source:
-            self.pose_topic = "/" + self.source + "/" + self.name + "/pose" 
+            self.pose_topic = "/" + self.source + "/pose" 
             # Subscribe to vehicle state update
             rospy.Subscriber(self.pose_topic, PoseStamped, self.pose_callback)
             rospy.loginfo("Subscribed to: {}".format(self.pose_topic))
@@ -237,20 +237,38 @@ class NodeArenaClass(RArenaClass):
     def on_click_input(self, client, userdata, msg): 
         (sanity, click_x, click_y, click_z, user) = parseEventJsonMsg(msg);
         if (sanity):
-           self.on_click()
-        pass
+            self.set_color("#FF0000")
+            self.draw()
+
+            if (self.on_click):
+                self.on_click()
             
 
     def draw(self):
+        
+        position = np.copy(self.pos)
+        quaternion = self.quat 
+
+        # There is an active source for the pose
+        if (self.source):
+            if ("vrpn" in self.source):
+                pass
+            else:
+                temp = position[1] 
+                position[1] = position[2]
+                position[2] = -temp
+
         # Fill json mqtt message  
+        
         if (not self.plotted):
             self.plotted = True
+            
             json_message = genJsonMessage(
                     shape = self.shape,
                     identifier = self.id,
                     action = 1,
-                    pos = self.pos,
-                    quat = self.quat,
+                    pos = position,
+                    quat = quaternion,
                     scale = self.scale,
                     color = self.color,
                     interactive=self.listen) 
@@ -259,8 +277,8 @@ class NodeArenaClass(RArenaClass):
                     shape = self.shape,
                     identifier = self.id,
                     action = 0,
-                    pos = self.pos,
-                    quat = self.quat,
+                    pos = position,
+                    quat = quaternion,
                     scale = self.scale,
                     color = self.color) 
 
@@ -546,11 +564,21 @@ class EdgeArenaClass(RArenaClass):
         self.draw()
         
         # Create the sphere object (it should be created for the animation)
+        position = np.copy(self.start_node.pos)  
+    
+        if (self.start_node.source):
+            if ("vrpn" in self.start_node.source):
+                pass
+            else:
+                temp = position[1]
+                position[1] = position[2]
+                position[2] = -temp
+
         mess = genJsonMessage(
                     shape = "sphere",
                     identifier = self.pkt_id,
                     action = 1,
-                    pos = self.start_node.pos,
+                    pos = position,
                     quat = [0,0,0,1],
                     scale = self.packet_scale,
                     color = self.data_color) 
@@ -576,14 +604,33 @@ class EdgeArenaClass(RArenaClass):
 
 
     def topic_callback(self, msg):
+        position_start = np.copy(self.start_node.pos)  
+        position_end = np.copy(self.end_node.pos)
+
+        if (self.start_node.source):
+            if ("vrpn" in self.start_node.source):
+                pass
+            else:
+                temp = position_start[1]
+                position_start[1] = position_start[2]
+                position_start[2] = -temp
+
+        if (self.end_node.source):
+            if ("vrpn" in self.end_node.source):
+                pass
+            else:
+                temp = position_end[1]
+                position_end[1] = position_end[2]
+                position_end[2] = -temp
+
         #If enough time has passed, trigger single packet animationg
         T_next = self.last_time + self.packet_interval/1000.0
         if (rospy.get_time() > T_next and self.animate): 
 
-            source = "{} {} {}".format(self.start_node.pos[0],
-                    self.start_node.pos[1],self.start_node.pos[2])
-            dest = "{} {} {}".format(self.end_node.pos[0],
-                    self.end_node.pos[1],self.end_node.pos[2])
+            source = "{} {} {}".format(position_start[0],
+                    position_start[1], position_start[2])
+            dest = "{} {} {}".format(position_end[0],
+                    position_end[1], position_end[2])
 
             # Just in case, inver the flow
             if (self.direction < 0):
@@ -619,11 +666,30 @@ class EdgeArenaClass(RArenaClass):
             color = "#FFFFFF"
 
         if self.visible:
+            position_start = np.copy(self.start_node.pos)
+            position_end = np.copy(self.end_node.pos)
+            
+            if (self.start_node.source):
+                if ("vrpn" in self.start_node.source):
+                    pass
+                else:
+                    temp = position_start[1]
+                    position_start[1] = position_start[2]
+                    position_start[2] = -temp
+
+            if (self.end_node.source):
+                if ("vrpn" in self.end_node.source):
+                    pass
+                else:
+                    temp = position_end[1]
+                    position_end[1] = position_end[2]
+                    position_end[2] = -temp
+
             vstring = "on"
             # Plot the line
             mess = genJsonLineMessage(self.id, 
-                self.start_node.pos,
-                self.end_node.pos,
+                position_start,
+                position_end,
                color)
 
             # Draw object
