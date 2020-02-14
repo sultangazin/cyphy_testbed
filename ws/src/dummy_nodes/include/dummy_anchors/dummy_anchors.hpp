@@ -17,6 +17,9 @@ class DummyAnchors {
 
     private:
         bool initialized_;
+        bool enable_distortion_;
+
+        int malicious_node_;
 
         std::string name_;
         std::string input_feed_topic_;

@@ -37,6 +37,9 @@ bool DummyAnchors::Initialize(const ros::NodeHandle& n) {
             sensor_all_output_topic_.c_str(), 2);
 
     initialized_ = true;
+    enable_distortion_ = false;
+
+    malicious_node_ = 0;
 
     return true;
 }
@@ -54,10 +57,15 @@ bool DummyAnchors::LoadParameters(const ros::NodeHandle& n) {
     nl.param<std::string>("topics/output_all_out_topic",
             sensor_all_output_topic_, "");
 
+    nl.param<bool>("enable_distortion", enable_distortion_, false);
+
+    nl.param<int>("malicious_node", malicious_node_, 0);
+
     nl.param<std::string>("anchors_file", config_file, "anchors.yaml");
 
     ROS_INFO("%s: Input feed topic = %s", name_.c_str(), input_feed_topic_.c_str());
     ROS_INFO("%s: Ouput output topic = %s", name_.c_str(), sensor_output_topic_.c_str());
+    ROS_INFO("%s: Enable Distortion = %d", name_.c_str(), enable_distortion_);
 
 
     YAML::Node config = YAML::LoadFile(ros::package::getPath("dummy_nodes") + '/' + config_file);
@@ -102,6 +110,7 @@ bool DummyAnchors::RegisterCallbacks(const ros::NodeHandle& n) {
 void DummyAnchors::onFeedCallback(
         const boost::shared_ptr<testbed_msgs::CustOdometryStamped const>& msg) {
 
+    ros::NodeHandle nl("~");
     ros::Time current_time = ros::Time::now();
 
     Eigen::Vector3f vehicle_p;
@@ -132,8 +141,13 @@ void DummyAnchors::onFeedCallback(
         crazyflie_driver::AnchorMeas output_msg;
 
         float anchors_meas = (vehicle_p - anchors[i]).norm();  
-        //if (i == 0 || i == 1)
-        //    anchors_meas = anchors_meas + 2.9;
+
+        nl.getParam("enable_distortion", enable_distortion_);
+        if (enable_distortion_) {
+            nl.getParam("malicious_node", malicious_node_);
+            if (i == malicious_node_)
+                anchors_meas = anchors_meas + 0.6;
+        }
 
         output_msg.dist = anchors_meas;
         output_msg.id = i;
