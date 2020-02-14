@@ -33,7 +33,8 @@
 
 
 <!-- ===================================== -->
-<!-- Launch the Arena Node
+<!-- Launch the Arena Node -->
+<!--
 <include file="$(find demo_launchers)/launch/arena.launch">
 </include>
 -->
@@ -60,6 +61,8 @@
         <param name="topics/input_feed_topic" value="/cf2/external_codom" type='str'/>
         <param name="topics/output_out_topic" value="/cf2/external_distance" type='str'/>
         <param name="topics/output_all_out_topic" value="/cf2/simulated_anchors" type='str'/>
+        <param name="enable_distortion" value="false" type='bool' />
+        <param name="malicious_node" value="0" type='int' />
         <param name="anchors_file" value="anchors.yaml" /> 
 </node>
 
