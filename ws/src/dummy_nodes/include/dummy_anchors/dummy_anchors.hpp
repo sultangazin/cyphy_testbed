@@ -20,6 +20,7 @@ class DummyAnchors {
         bool enable_distortion_;
 
         int malicious_node_;
+        float distortion_value_; 
 
         std::string name_;
         std::string input_feed_topic_;

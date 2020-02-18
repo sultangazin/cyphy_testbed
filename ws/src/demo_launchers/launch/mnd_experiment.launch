@@ -63,6 +63,7 @@
         <param name="topics/output_all_out_topic" value="/cf2/simulated_anchors" type='str'/>
         <param name="enable_distortion" value="false" type='bool' />
         <param name="malicious_node" value="0" type='int' />
+        <param name="distortion_value" value="0.1" type="double" />
         <param name="anchors_file" value="anchors.yaml" /> 
 </node>
 
@@ -86,6 +87,14 @@
         type="rviz" 
         name="rviz" 
         args="-d $(find state_aggregator)/launch/cyphy_rviz.rviz" > 
+</node>
+-->
+
+<!--
+<node pkg="rqt_plot"
+        type="rqt_plot" 
+        name="$(arg vehicle_frame2)_MND_residual" 
+        args="/$(arg vehicle_frame2)/logMND">
 </node>
 -->
 <node pkg="rosbag" name="record_MalNodDet_perf" type="record" args="-O /tmp/mal_node_detection_perf /cf2/mnd_perf "/>

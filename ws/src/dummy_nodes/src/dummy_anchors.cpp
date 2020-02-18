@@ -40,6 +40,7 @@ bool DummyAnchors::Initialize(const ros::NodeHandle& n) {
     enable_distortion_ = false;
 
     malicious_node_ = 0;
+    distortion_value_ = 0.1;
 
     return true;
 }
@@ -61,12 +62,14 @@ bool DummyAnchors::LoadParameters(const ros::NodeHandle& n) {
 
     nl.param<int>("malicious_node", malicious_node_, 0);
 
+    nl.param<float>("distortion_value", distortion_value_, 0.1);
+
     nl.param<std::string>("anchors_file", config_file, "anchors.yaml");
 
     ROS_INFO("%s: Input feed topic = %s", name_.c_str(), input_feed_topic_.c_str());
     ROS_INFO("%s: Ouput output topic = %s", name_.c_str(), sensor_output_topic_.c_str());
     ROS_INFO("%s: Enable Distortion = %d", name_.c_str(), enable_distortion_);
-
+    ROS_INFO("%s: Distortion Value = %3.2f", name_.c_str(), distortion_value_);
 
     YAML::Node config = YAML::LoadFile(ros::package::getPath("dummy_nodes") + '/' + config_file);
 
@@ -145,8 +148,9 @@ void DummyAnchors::onFeedCallback(
         nl.getParam("enable_distortion", enable_distortion_);
         if (enable_distortion_) {
             nl.getParam("malicious_node", malicious_node_);
+            nl.getParam("distortion_value", distortion_value_);
             if (i == malicious_node_)
-                anchors_meas = anchors_meas + 0.6;
+                anchors_meas = anchors_meas + distortion_value_;
         }
 
         output_msg.dist = anchors_meas;
