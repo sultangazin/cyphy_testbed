@@ -16,6 +16,8 @@ from commander_interface.srv import GoTo, Land
 from guidance.srv import GenImpTrajectoryAuto
 
 from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Vector3
+
 from testbed_msgs.msg import MissionMsg
 from trjgen.class_bz import Bezier
 
@@ -203,6 +205,8 @@ class NodeArenaClass(RArenaClass):
         self.text_visible = text_visible
         self.text_quat = text_quat
         self.text_scale = text_scale
+        self.original_color = color;
+        self.selection_color = "#FF0000"
 
         super(NodeArenaClass, self).__init__(
                 client, scene, name, id,
@@ -237,7 +241,11 @@ class NodeArenaClass(RArenaClass):
     def on_click_input(self, client, userdata, msg): 
         (sanity, click_x, click_y, click_z, user) = parseEventJsonMsg(msg);
         if (sanity):
-            self.set_color("#FF0000")
+            if (self.color == self.original_color):
+                self.set_color("#FF0000")
+            else:
+                self.set_color(self.original_color)
+
             self.draw()
 
             if (self.on_click):
@@ -884,6 +892,139 @@ class TrajectoryArenaClass(RArenaClass):
 
     def remove(self):
         self.remove_trajectory()
+
+
+
+###### GENERAL TRAJECTORY CLASS #######
+class GeneralTrajectoryArenaClass(RArenaClass):
+    def __init__(self, client, scene, name, id, shape="sphere", color="#AAAAAA", opacity=False, 
+        animate=False, source=None, listen=False, on_click_clb=None, visible=True, 
+        scale=[0.2,0.2,0.2], points=20, duration=2, point_interval=0, tracked_object=None):
+
+        self.scale = scale
+        self.points = points
+        self.duration = duration
+        self.point_interval=point_interval
+        self.tracked_object = tracked_object
+        self.tracked_pos = [0,0,0]
+
+        self.ros_topic = None
+        self.start_time=0
+        self.old_time= 0
+        self.init_pos = [0,0,0]
+        self.point_count=0
+        self.got_trajectory = False
+
+        super(GeneralTrajectoryArenaClass, self).__init__(client, scene, name, id, shape=shape, color=color, opacity=opacity,
+            animate=animate, source=source, listen=listen, on_click_clb=on_click_clb, visible=visible)
+
+
+    def initArenaObject(self):
+        self.trj_id = "{}"+"0{}".format(self.id) 
+        self.obj_id = self.shape + "_" + self.trj_id
+        self.topic_frame = "realm/s/" + self.scene + "/" + self.shape + "_{}" + "0{}".format(self.id)
+        self.registerCallbacks()
+        self.remove_trajectory(100)
+
+    def registerCallbacks(self):
+        if self.source:
+            self.ros_topic = "/" + self.source
+            # Subscribe to vehicle state update
+            rospy.Subscriber(self.ros_topic, Vector3, self.traj_callback)
+            rospy.loginfo("Subscribed to: {}".format(self.ros_topic))
+
+        if self.tracked_object:
+            self.tracked_topic = "/" + self.tracked_object
+            rospy.Subscriber(self.tracked_topic, PoseStamped, self.tracked_callback)
+            rospy.loginfo("Subscribed to: {}".format(self.tracked_topic))
+
+
+    def tracked_callback(self, pose_msg):
+        self.tracked_pos = posFromPoseMsg(pose_msg)
+
+
+    def traj_callback(self, msg):
+        #self.remove_trajectory()
+        self.start_time = rospy.get_time()
+       
+        # Dirty workaround for initializing the position...
+        # I should add this information on the generation side.
+        if (self.start_time  - self.old_time > 1.0):
+            self.init_pos = self.tracked_pos
+            self.old_time  = self.start_time
+
+        pos = [msg.x + self.init_pos[0], 
+                msg.z + self.init_pos[1],  
+                -msg.y + self.init_pos[2]] 
+        topic = self.topic_frame.format(self.point_count)
+
+        json_message = genJsonMessage(
+                shape = self.shape,
+                identifier = self.trj_id.format(self.point_count),
+                action = 1,
+                pos = pos,
+                scale = self.scale,
+                color=self.color
+                ) 
+
+        self.client.publish(
+                topic,
+                json.dumps(json_message),
+                retain=False
+                )
+
+#        if self.opacity:
+#            mess = genTransJsonMsg(
+#                    self.shape, 
+#                    self.trj_id.format(self.point_count),
+#                    self.opacity
+#                    )
+#            self.client.publish(
+#                    topic,
+#                    json.dumps(mess),
+#                    retain=False)
+
+        self.point_count = self.point_count + 1
+            
+            
+
+    def sweep_trajectory(self): 
+        if (self.point_count > 0):
+            i = 0
+            while (self.point_count > 0):
+                topic = self.topic_frame.format(self.point_count)
+                json_message = genDelJsonMsg(self.obj_id.format(i))
+                self.client.publish(
+                        topic,
+                        json.dumps(json_message),
+                        retain=False)
+                self.point_count = self.point_count - 1 
+
+
+    def remove_trajectory(self, max=None):
+        #rospy.loginfo("Removing Trajectory ({})".format(self.name))
+        if max:
+            points = max
+        else:
+            points = self.point_count
+
+        for i in range(points):
+            topic = self.topic_frame.format(i)
+            json_message = genDelJsonMsg(self.obj_id.format(i))
+            self.client.publish(
+                    topic,
+                    json.dumps(json_message),
+                    retain=False)
+
+        # evaluate trajectory and update drawing
+        self.start_time = None
+
+    def update(self):
+        pass
+
+    def remove(self):
+        self.remove_trajectory()
+
 
 
 ###### TRACKER ARENA CLASS ########

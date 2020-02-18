@@ -13,7 +13,7 @@ import os
 
 from commander_interface.srv import GoTo
 
-from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaClass, TrajectoryArenaClass, TrackerArenaClass
+from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaClass, TrajectoryArenaClass, TrackerArenaClass, GeneralTrajectoryArenaClass
 
 floor_offset = 0.9
 realm_y_offset = 0
@@ -300,6 +300,17 @@ def generate_entities():
       scale=[.02,.02,.02], opacity=0.5, tracked_object="vrpn_client_node/cf3/pose")
     id_cnt = id_cnt + 1;
 
+    trajectory_simple = GeneralTrajectoryArenaClass(
+            mqtt_client,
+            scene,
+            'trajectory_simple',
+            id=id_cnt,
+            source="cf2/ghost_trajectory",
+            scale=[.02,.02,.02],
+            opacity=0.1,
+            tracked_object="vrpn_client_node/cf2/pose")
+    id_cnt = id_cnt + 1;
+
 #    center = NodeArenaClass(mqtt_client, scene, 'workstation', id=14,
 #      color="#AAAAAA", pos=[0.07, realm_y_offset + 0.01, 0.1], scale=[0.3,0.02,0.3], opacity=0.7)
 
@@ -327,7 +338,7 @@ def generate_entities():
                     id=id_cnt,
                     color="#00FF00",
                     pos=[x, realm_y_offset + z, -y],
-                    scale=[0.1,0.1,0.1], opacity=0.5) 
+                    scale=[0.15,0.15,0.15], opacity=0.5) 
             )
             id_cnt = id_cnt + 1;
 
@@ -400,6 +411,7 @@ def generate_entities():
 #                edge_n0n1,
                 trajectory2,
                 trajectory3,
+                trajectory_simple,
 #                center,
                 tablet_trk,
 #                nodeB_trk
