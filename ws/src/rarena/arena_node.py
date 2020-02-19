@@ -136,10 +136,10 @@ def generate_entities():
             source="vrpn_client_node/cf2",
             on_click_clb=toggle_active,
             pos=[0,0.05,0.25],
-            scale=[.05,.05,.05],
+            scale=[.01,.01,.01],
             color="#FFFFFF",
             text_visible = False,
-            opacity=0.01)
+            opacity=0.02)
     id_cnt = id_cnt + 1;
 
     drone2_est = DroneArenaClass(
@@ -306,7 +306,7 @@ def generate_entities():
             'trajectory_simple',
             id=id_cnt,
             source="cf2/ghost_trajectory",
-            scale=[.02,.02,.02],
+            scale=[.01,.01,.01],
             opacity=0.1,
             tracked_object="vrpn_client_node/cf2/pose")
     id_cnt = id_cnt + 1;
@@ -383,7 +383,7 @@ def generate_entities():
                 animate=True,
                 packet_interval=500,
                 packet_duration=500,
-                packet_scale=[.02,.02,.02]
+                packet_scale=[.0,.0,.0]
             )
         )
         id_cnt = id_cnt + 1;

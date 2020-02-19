@@ -614,6 +614,9 @@ class EdgeArenaClass(RArenaClass):
     def topic_callback(self, msg):
         position_start = np.copy(self.start_node.pos)  
         position_end = np.copy(self.end_node.pos)
+        
+        delta_d = position_end - position_start
+        position_end = position_start + delta_d * 0.95
 
         if (self.start_node.source):
             if ("vrpn" in self.start_node.source):
@@ -676,6 +679,9 @@ class EdgeArenaClass(RArenaClass):
         if self.visible:
             position_start = np.copy(self.start_node.pos)
             position_end = np.copy(self.end_node.pos)
+
+            delta_d = position_end - position_start
+            position_end = position_start + delta_d * 0.96
             
             if (self.start_node.source):
                 if ("vrpn" in self.start_node.source):
