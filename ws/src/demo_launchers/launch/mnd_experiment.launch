@@ -63,8 +63,7 @@
         <param name="topics/output_all_out_topic" value="/cf2/simulated_anchors" type='str'/>
         <param name="enable_distortion" value="false" type='bool' />
         <param name="malicious_node" value="0" type='int' />
-        <param name="distortion_value" value="0.1" type="double" />
-        <param name="anchors_file" value="anchors.yaml" /> 
+        <param name="distortion_value" value="0.6" type="double" /> <param name="anchors_file" value="anchors.yaml" /> 
 </node>
 
 <node pkg="mn_detector"
@@ -97,5 +96,5 @@
         args="/$(arg vehicle_frame2)/logMND">
 </node>
 -->
-<node pkg="rosbag" name="record_MalNodDet_perf" type="record" args="-O /tmp/mal_node_detection_perf /cf2/mnd_perf "/>
+<node pkg="rosbag" name="record_MalNodDet_perf" type="record" args="-O /tmp/MND_perf /cf2/simulated_anchors /cf2/pose /cf2/external_codom /cf2/logMND"/>
 </launch>

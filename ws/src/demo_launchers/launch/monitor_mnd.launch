@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<!-- 
+     Launcher for the online monitoring of the drone status (Battey, RSSI, etc.)
+-->
+<launch>
+    <arg name="frame" default="cf2"/>
+
+    <!--
+    <node pkg="rviz" 
+        type="rviz" 
+        name="rviz_$(arg frame)" 
+        args="-d $(find state_aggregator)/launch/cyphy_rviz.rviz" > 
+    </node>
+    <node pkg="rqt_plot"
+        type="rqt_plot" 
+        name="$(arg frame)_plot_battery" 
+        args="/$(arg frame)/battery">
+    </node>
+
+    -->
+    <node pkg="rqt_plot"
+        type="rqt_plot" 
+        name="$(arg frame)_plot_mndLog" 
+        args="/$(arg frame)/logMND/values[0]:values[1]">
+    </node>
+</launch>
