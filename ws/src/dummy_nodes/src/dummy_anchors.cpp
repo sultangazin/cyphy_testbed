@@ -123,19 +123,27 @@ void DummyAnchors::onFeedCallback(
     vehicle_p(1) = msg->p.y;
     vehicle_p(2) = msg->p.z;
 
-    // The testbed anchor meas contains a single vector with all the anchors
-    // distances.
+    // Check whether we should distort the measurements
+    nl.getParam("enable_distortion", enable_distortion_);
+    nl.getParam("malicious_node", malicious_node_);
+
+    // Message with the simulation information  
     testbed_msgs::AnchorMeas output_all_msg;
     output_all_msg.header.stamp = current_time;
 
-    //std::cout << "Meas = "; 
     for (int i = 0; i < numberOfAnchors; i++) {
         float anchors_meas = (vehicle_p - anchors[i]).norm();   
-        output_all_msg.meas.push_back(anchors_meas);
-        //std::cout << anchors_meas << "   ";
+       
+        if (enable_distortion_) {
+            nl.getParam("distortion_value", distortion_value_);
+            if (i == malicious_node_)
+                anchors_meas = anchors_meas + distortion_value_;
+        }
+        output_all_msg.meas.push_back(anchors_meas); 
     }
-    //std::cout << " | Vehicle = " << vehicle_p;
-    //std::cout << std::endl;
+    
+    output_all_msg.active_distortion = enable_distortion_;
+    output_all_msg.malicious_anchor = malicious_node_; 
     sensor_all_output_pub_.publish(output_all_msg);
 
     // The crazyflie_driver message contains only the information about a 
@@ -143,17 +151,7 @@ void DummyAnchors::onFeedCallback(
     for (unsigned char i = 0; i < numberOfAnchors; i++) {
         crazyflie_driver::AnchorMeas output_msg;
 
-        float anchors_meas = (vehicle_p - anchors[i]).norm();  
-
-        nl.getParam("enable_distortion", enable_distortion_);
-        if (enable_distortion_) {
-            nl.getParam("malicious_node", malicious_node_);
-            nl.getParam("distortion_value", distortion_value_);
-            if (i == malicious_node_)
-                anchors_meas = anchors_meas + distortion_value_;
-        }
-
-        output_msg.dist = anchors_meas;
+        output_msg.dist = output_all_msg.meas[i];
         output_msg.id = i;
 
         output_msg.x_anchor = (float)anchors[i](0);
