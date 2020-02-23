@@ -31,6 +31,7 @@
                 genericLogTopic_logMND_Variables: ["mnd_log.outcome0", "mnd_log.enable", "mnd_log.residual0", "mnd_log.residual1"]
                 genericLogTopic_logRanging_Variables: ["ranging.dist_enabled"]
             </rosparam>
+	    -->
         </node>
 
 <!--
