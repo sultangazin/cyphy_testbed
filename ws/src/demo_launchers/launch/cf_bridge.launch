@@ -23,14 +23,15 @@
             <param name="enable_logging_packets" value="False" />
             <param name="enable_logging_pose" value="True" /> 
             <param name="enable_provide_position" value="$(arg provide_position)" type="bool" />
-            <param name="enable_provide_distance" value="$(arg provide_distance)" type="bool" />
+            <param name="enable_provide_distance" value="$(arg provide_distance)" type="bool" /> 
+	    <!--
             <rosparam>
-                genericLogTopics: ["logMND_est", "logMND", "logRanging"]
-                genericLogTopicFrequencies: [1000, 100, 1000]
-                genericLogTopic_logMND_est_Variables: ["mnd_est_log.x_est", "mnd_est_log.y_est", "mnd_est_log.z_est"]
-                genericLogTopic_logMND_Variables: ["mnd_log.outcome0", "mnd_log.enable", "mnd_log.residual0", "mnd_log.residual1"]
-                genericLogTopic_logRanging_Variables: ["ranging.dist_enabled"]
+                genericLogTopics: ["XXX1", "XXX2"]
+                genericLogTopicFrequencies: [100, 100]
+                genericLogTopic_XXX1_Variables: ["logname.var1", "logname.var2", "logname.var3"]
+                genericLogTopic_XXX2_Variables: ["logname.var1", "logname.var2", "logname.var3"]
             </rosparam>
+	    -->
         </node>
 
 <!--
@@ -85,6 +86,7 @@ Bag recording
 - /ghost_trajectory: This is the requested trajectory pose (simulated)
 -->
 
-<node pkg="rosbag" name="record_$(arg frame)" type="record" args="-O /tmp/$(arg frame)_crazyflie /$(arg frame)/logPos /$(arg frame)/external_codom /$(arg frame)/logMND_est /$(arg frame)/logMND /$(arg frame)/logRanging" />
-
+<!--
+<node pkg="rosbag" name="record_$(arg frame)" type="record" args="-O /tmp/$(arg frame)_crazyflie /$(arg frame)/logPos /$(arg frame)/external_codom /$(arg frame)/XXX1 /$(arg frame)/XXX2" />
+-->
 </launch>
