@@ -159,6 +159,6 @@ void DummyAnchors::onFeedCallback(
         output_msg.z_anchor = (float)anchors[i](2);
 
         sensor_output_pub_.publish(output_msg);
-        ros::Duration(0.001).sleep();
+        ros::Duration(0.0005).sleep();
     }
 }
