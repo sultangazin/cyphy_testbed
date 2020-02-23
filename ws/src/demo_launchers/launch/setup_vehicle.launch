@@ -7,6 +7,8 @@
     <arg name="vehicle_frame" default="cf2" /> 
     <arg name="uri" default="radio://0/100/2M/E7E7E7E702" /> 
     <arg name="server" default="RS1" />
+    <arg name="provide_position" default="True" />
+    <arg name="provide_distance" default="False" />
 
     <!--
     ===================================================
@@ -16,8 +18,8 @@
         <arg name="uri" value="$(arg uri)" />
         <arg name="frame" value="$(arg vehicle_frame)" />
         <arg name="server" value="$(arg server)" />
-        <arg name="provide_position" value="False" />
-        <arg name="provide_distance" value="True" />
+        <arg name="provide_position" value="$(arg provide_position)" />
+        <arg name="provide_distance" value="$(arg provide_distance)" />
     </include>
 
 
