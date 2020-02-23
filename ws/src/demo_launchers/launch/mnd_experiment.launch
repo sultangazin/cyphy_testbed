@@ -78,10 +78,10 @@
 -->
 <include file="$(find demo_launchers)/launch/setup_vehicle.launch">
     <arg name="vehicle_frame" value="$(arg vehicle_frame2)" />
-    <arg name="uri" value="radio://0/115/2M/E7E7E7E715" />
+    <arg name="provide_position" value="True" />
+    <arg name="provide_distance" value="False" />
+    <arg name="uri" value="radio://0/100/2M/E7E7E7E702" />
     <arg name="server" value="RS2" />
-    <arg name="provide_position" default="False" />
-    <arg name="provide_distance" default="False" />
 </include>
 
 <!--
