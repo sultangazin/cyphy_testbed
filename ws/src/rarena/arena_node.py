@@ -122,7 +122,7 @@ def generate_entities():
             source="vrpn_client_node/cf3",
             on_click_clb=toggle_active,
             pos=[0,0.05,-0.25],
-            scale=[.1,.05,.1],
+            scale=[.1,.1,.1],
             color="#0044AA",
             text_visible = False,
             opacity=0.2)
@@ -423,16 +423,16 @@ def generate_entities():
     for el in CameraObject_list:
         entities.append(el)
 
-#    for el in AnchorEdges_list:
-#        entities.append(el)
+    for el in AnchorEdges_list:
+        entities.append(el)
 
     ## ============================================
     ## Remove Nodes that are not currently in use... 
 #    for el in CameraObject_list:
 #        el.remove()
     
-    for (k, v) in AnchorObject_list.items():
-        v.remove()
+#    for (k, v) in AnchorObject_list.items():
+#        v.remove()
 
     for el in AnchorEdges_list:
         el.remove()
