@@ -22,12 +22,13 @@
  */
 
 
-#pragma once
+#ifndef MPC_WRAPPER_H
+#define MPC_WRAPPER_H
 
 #include <Eigen/Eigen>
 #include <ros/ros.h>
 
-namespace rpg_mpc {
+namespace controller_mpc {
 
 #include "acado_auxiliary_functions.h"
 #include "acado_common.h"
@@ -136,7 +137,8 @@ class MpcWrapper
   const Eigen::Matrix<real_t, kInputSize, 1> kHoverInput_ =
     (Eigen::Matrix<real_t, kInputSize, 1>() << 9.81, 0.0, 0.0, 0.0).finished();
 };
+//\class MPCController
 
 
-
-} // namespace MPC
+} // namespace controller_mpc
+#endif

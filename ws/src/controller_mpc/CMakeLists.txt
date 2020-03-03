@@ -53,18 +53,45 @@ target_include_directories(mpc_solver PUBLIC
   externals/qpoases/INCLUDE
   externals/qpoases/SRC)
 
+add_library(mpc_wrapper
+	src/mpc_wrapper.cpp)
+
+add_dependencies(mpc_wrapper 
+	${catkin_EXPORTED_TARGETS}
+	)
+
+target_link_libraries(mpc_wrapper
+	${catkin_LIBRARIES}
+	Eigen3::Eigen)
+
+target_link_libraries(mpc_wrapper
+	mpc_solver)
+
+add_library(mpc_controller
+	src/mpc_controller.cpp)
+
+add_dependencies(mpc_controller 
+	${catkin_EXPORTED_TARGETS}
+	)
+
+target_link_libraries(mpc_controller
+	${catkin_LIBRARIES}
+	Eigen3::Eigen)
+
+target_link_libraries(mpc_controller
+	mpc_wrapper)
+
 add_executable(mpc_controller_node 
 	exec/mpc_controller_node.cpp 
-	src/mpc_controller.cpp
 )
 
 add_dependencies(mpc_controller_node
 	${catkin_EXPORTED_TARGETS}
 	)
 
-target_link_libraries(
-	mpc_controller_node
-	mpc_solver
-	Eigen3::Eigen 
-	${catkin_LIBRARIES}
-)
+target_link_libraries(mpc_controller_node
+  mpc_controller
+  mpc_wrapper
+  mpc_solver
+  ${catkin_LIBRARIES}
+  Eigen3::Eigen)

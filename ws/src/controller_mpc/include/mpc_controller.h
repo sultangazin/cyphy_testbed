@@ -41,8 +41,15 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifndef MELLINGER_CONTROLLER_H
-#define MELLINGER_CONTROLLER_H
+#ifndef MPC_CONTROLLER_H
+#define MPC_CONTROLLER_H
+
+#include <thread>
+
+#include <Eigen/Eigen>
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PointStamped.h>
+#include <nav_msgs/Path.h>
 
 #include "types.h"
 #include "angles.h"
@@ -52,150 +59,207 @@
 #include <testbed_msgs/FullStateStamped.h>
 #include <testbed_msgs/CustOdometryStamped.h>
 #include <testbed_msgs/CtrlPerfStamped.h>
+#include <testbed_msgs/TrajectoryMPC.h>
+#include <testbed_msgs/TrajectoryPointMPC.h>
 #include <Eigen/Geometry>
 
 #include <ros/ros.h>
+#include <std_msgs/Bool.h>
 #include <std_msgs/Empty.h>
+#include <trajectory_msgs/MultiDOFJointTrajectory.h>
 #include <math.h>
 #include <fstream>
 
+#include "mpc_wrapper.h"
+
 namespace controller_mpc {
 
-enum class ControlMode {
-  ANGLES, RATES, NUM_MODES
-};
-  
-class MPCController {
-  public:
-  // MellingerController() {}
+  enum class ControlMode {
+    ANGLES, RATES, NUM_MODES
+  };
 
-  // Initialize this class by reading parameters and loading callbacks.
-  bool Initialize(const ros::NodeHandle& n);
+  enum STATE {
+    kPosX = 0,
+    kPosY = 1,
+    kPosZ = 2,
+    kOriW = 3,
+    kOriX = 4,
+    kOriY = 5,
+    kOriZ = 6,
+    kVelX = 7,
+    kVelY = 8,
+    kVelZ = 9
+  };
 
-  // Compute control given the current state.
-  Vector3d Control(const VectorXd& x) const;
-  
-  MPCController():
-    received_setpoint_(false),
-    last_state_time_(-1.0),
-    initialized_(false),
-    mpc_wrapper_(MpcWrapper<double>()),
-    timing_feedback_(1e-3),
-    timing_preparation_(1e-3),
-    est_state_((Eigen::Matrix<double, kStateSize, 1>() <<
-                                                0, 0, 0, 1, 0, 0, 0, 0, 0, 0).finished()),
-    reference_states_(Eigen::Matrix<double, kStateSize, kSamples + 1>::Zero()),
-    reference_inputs_(Eigen::Matrix<double, kInputSize, kSamples + 1>::Zero()),
-    predicted_states_(Eigen::Matrix<double, kSateSize, kSamples + 1>::Zero()),
-    predicted_inputs_(Eigen::Matrix<double, kInputSize, kSamples>::Zero()),
-    point_of_interest_(Eigen::Matrix<double, 3, 1>::Zero()),
+  enum INPUT {
+    kThrust = 0,
+    kRateX = 1,
+    kRateY = 2,
+    kRateZ = 3
+  };
     
-    changed_(false),
-    print_info_(false),
-    state_cost_exponential_(0.0),
-    input_cost_exponential_(0.0),
-    max_bodyrate_xy_(0.0),
-    max_bodyrate_z_(0.0),
-    min_thrust_(0.0),
-    max_thrust_(0.0),
-    p_B_C_(Eigen::Matrix<T, 3, 1>::Zero()),
-    q_B_C_(Eigen::Quaternion<T>(1.0, 0.0, 0.0, 0.0)),
-    Q_(Eigen::Matrix<T, kCostSize, kCostSize>::Zero()),
-    R_(Eigen::Matrix<T, kInputSize, kInputSize>::Zero()) {}
+  class MPCController {
+    public:
 
-  // Load parameters and register callbacks. These may/must be overridden
-  // by derived classes.
-  bool LoadParameters(const ros::NodeHandle& n);
-  bool RegisterCallbacks(const ros::NodeHandle& n);
+      EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  void Reset(void);
+      static_assert(kStateSize == 10,
+                    "MpcController: Wrong model size. Number of states does not match.");
+      static_assert(kInputSize == 4,
+                    "MpcController: Wrong model size. Number of inputs does not match.");
 
-  // TODO: change quadrotor_common
-  quadrotor_common::ControlCommand run(
-        const quadrotor_common::QuadStateEstimate& state_estimate,
-        const quadrotor_common::Trajectory& reference_trajectory)
 
-  bool setNewParams(void);
+      // Initialize this class by reading parameters and loading callbacks.
+      bool Initialize(const ros::NodeHandle& n);
 
-  // Process an incoming setpoint point.
-  void SetpointCallback(
-    const testbed_msgs::ControlSetpoint::ConstPtr& msg);
+      // Compute control given the current state.
+      Vector3d Control(const VectorXd& x) const;
+      
+      MPCController():
+        received_setpoint_(false),
+        last_state_time_(-1.0),
+        initialized_(false),
+        mpc_wrapper_(MpcWrapper<double>()),
+        timing_feedback_(1e-3),
+        timing_preparation_(1e-3),
+        est_state_((Eigen::Matrix<double, kStateSize, 1>() <<
+                                                    0, 0, 0, 1, 0, 0, 0, 0, 0, 0).finished()),
+        reference_states_(Eigen::Matrix<double, kStateSize, kSamples + 1>::Zero()),
+        reference_inputs_(Eigen::Matrix<double, kInputSize, kSamples + 1>::Zero()),
+        predicted_states_(Eigen::Matrix<double, kStateSize, kSamples + 1>::Zero()),
+        predicted_inputs_(Eigen::Matrix<double, kInputSize, kSamples>::Zero()),
+        point_of_interest_(Eigen::Matrix<double, 3, 1>::Zero()),
+        
+        changed_(false),
+        print_info_(false),
+        state_cost_exponential_(0.0),
+        input_cost_exponential_(0.0),
+        max_bodyrate_xy_(0.0),
+        max_bodyrate_z_(0.0),
+        min_thrust_(0.0),
+        max_thrust_(0.0),
+        p_B_C_(Eigen::Matrix<double, 3, 1>::Zero()),
+        q_B_C_(Eigen::Quaternion<double>(1.0, 0.0, 0.0, 0.0)),
+        Q_(Eigen::Matrix<double, kCostSize, kCostSize>::Zero()),
+        R_(Eigen::Matrix<double, kInputSize, kInputSize>::Zero()) {}
 
-  // Process an incoming state measurement.
-  void StateCallback(
-    const testbed_msgs::CustOdometryStamped::ConstPtr& msg);
+      // Load parameters and register callbacks. These may/must be overridden
+      // by derived classes.
+      bool LoadParameters(const ros::NodeHandle& n);
+      bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  ControlMode ctrl_mode_;
+      void Reset(void);
 
-  // MPC Parameters
-  bool changed_;
-  bool print_info_;
-  bool solve_from_scratch_;
-  std::thread preparation_thread_;
+      // MPC functions below
 
-  double state_cost_exponential_;
-  double input_cost_exponential_;
+      bool setNewParams(void);
 
-  double max_bodyrate_xy_;
-  double max_bodyrate_z_;
-  double min_thrust_;
-  double max_thrust_;
+      bool setStateEstimate(void);
 
-  Eigen::Matrix<double, 3, 1> p_B_C_;
-  Eigen::Quaternion<double> q_B_C_;
+      bool setReference(const testbed_msgs::TrajectoryMPC::ConstPtr& reference_trajectory);
 
-  Eigen::Matrix<double, kCostSize, kCostSize> Q_;
-  Eigen::Matrix<double, kInputSize, kInputSize> R_;
+      testbed_msgs::ControlStamped run();
 
-  double prev_omega_roll;
-  double prev_omega_pitch;
-  double prev_setpoint_omega_roll;
-  double prev_setpoint_omega_pitch;
+      testbed_msgs::ControlStamped updateControlCommand(
+        const Eigen::Ref<const Eigen::Matrix<double, kStateSize, 1>> state,
+        const Eigen::Ref<const Eigen::Matrix<double, kInputSize, 1>> input,
+        ros::Time& time);
 
-  Vector3d sp_pos_, sp_vel_, sp_acc_, sp_r_pos_, sp_r_vel_, sp_r_acc_;
-  Vector3d sp_brates_;
-  Vector3d pos_, vel_, r_pos_, r_vel_;
-  Eigen::Quaterniond quat_;
+      // Process an incoming setpoint point.
+      //void SetpointCallback(
+      //  const testbed_msgs::ControlSetpoint::ConstPtr& msg);
+      void ReferenceCallback(const testbed_msgs::TrajectoryMPC::ConstPtr& msg);
+      // Process an incoming state measurement.
+      void StateCallback(const testbed_msgs::CustOdometryStamped::ConstPtr& msg);
 
-  std::string setpoint_type_;
+      // Preparation thread function 
+      void preparationThread(void);
 
-  double sp_roll_,sp_pitch_,sp_yaw_;
+      ControlMode ctrl_mode_;
 
-  // Logging variables
-  Vector3d z_axis_desired;
+      // MPC Parameters
+      bool changed_;
+      bool print_info_;
+      bool solve_from_scratch_;
+      std::thread preparation_thread_;
 
-  // Dimensions of control and state spaces.
-  size_t x_dim_;
-  size_t u_dim_;
+        // MPC
+      MpcWrapper<double> mpc_wrapper_;
 
-    // Integral of position error.
-  Vector3d x_int_;
-  Vector3d x_int_thresh_;
-  Vector3d integrator_k_;
+      // Variables
+      double timing_feedback_, timing_preparation_;
+      Eigen::Matrix<double, kStateSize, 1> est_state_;
+      Eigen::Matrix<double, kStateSize, kSamples + 1> reference_states_;
+      Eigen::Matrix<double, kInputSize, kSamples + 1> reference_inputs_;
+      Eigen::Matrix<double, kStateSize, kSamples + 1> predicted_states_;
+      Eigen::Matrix<double, kInputSize, kSamples> predicted_inputs_;
+      Eigen::Matrix<double, 3, 1> point_of_interest_;
 
-  // Remember last time we got a state callback.
-  double last_state_time_;
+      double state_cost_exponential_;
+      double input_cost_exponential_;
 
-  // Publishers and subscribers.
-  ros::Subscriber state_sub_;
-  ros::Subscriber setpoint_sub_;
-  ros::Publisher control_pub_;
-  ros::Publisher error_pub_;
+      double max_bodyrate_xy_;
+      double max_bodyrate_z_;
+      double min_thrust_;
+      double max_thrust_;
 
-  std::string state_topic_;
-  std::string setpoint_topic_;
-  std::string control_topic_;
-  std::string ctrl_perf_topic_;
+      Eigen::Matrix<double, 3, 1> p_B_C_;
+      Eigen::Quaternion<double> q_B_C_;
 
-  // Initialized flag and name.
-  bool received_setpoint_;
-  bool initialized_;
-  std::string name_;
+      Eigen::Matrix<double, kCostSize, kCostSize> Q_;
+      Eigen::Matrix<double, kInputSize, kInputSize> R_;
 
-  // // Load K, x_ref, u_ref from disk.
-  // bool LoadFromDisk();
+      double prev_omega_roll;
+      double prev_omega_pitch;
+      double prev_setpoint_omega_roll;
+      double prev_setpoint_omega_pitch;
 
-}; //\class MellingerController
+      Vector3d sp_pos_, sp_vel_, sp_acc_, sp_r_pos_, sp_r_vel_, sp_r_acc_;
+      Vector3d sp_brates_;
+      Vector3d pos_, vel_, r_pos_, r_vel_;
+      Eigen::Quaterniond quat_;
+
+      std::string setpoint_type_;
+
+      double sp_roll_,sp_pitch_,sp_yaw_;
+
+      // Logging variables
+      Vector3d z_axis_desired;
+
+      // Dimensions of control and state spaces.
+      size_t x_dim_;
+      size_t u_dim_;
+
+        // Integral of position error.
+      Vector3d x_int_;
+      Vector3d x_int_thresh_;
+      Vector3d integrator_k_;
+
+      // Remember last time we got a state callback.
+      double last_state_time_;
+
+      // Publishers and subscribers.
+      ros::Subscriber state_sub_;
+      ros::Subscriber setpoint_sub_;
+      ros::Subscriber reference_sub_;
+      ros::Publisher control_pub_;
+      ros::Publisher error_pub_;
+
+      std::string state_topic_;
+      std::string setpoint_topic_;
+      std::string reference_topic_;
+      std::string control_topic_;
+      std::string ctrl_perf_topic_;
+
+      // Initialized flag and name.
+      bool received_setpoint_;
+      bool initialized_;
+      std::string name_;
+
+      // // Load K, x_ref, u_ref from disk.
+      // bool LoadFromDisk();
+
+  }; //\class MPCController
 
 } 
 

@@ -22,10 +22,9 @@
  */
 
 
-#include "rpg_mpc/mpc_wrapper.h"
+#include "mpc_wrapper.h"
 
-
-namespace rpg_mpc {
+namespace controller_mpc {
 
 // Default Constructor.
 template <typename T>
