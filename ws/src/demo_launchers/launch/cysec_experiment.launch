@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<!--
+    Global Launch File to start the system.
+    The following nodes will be started:
+     - VRPN Client Node
+     - Estimator Nodes for the drones
+     - Arena Node
+     - Commander + Guidance Nodes
+-->
+<launch>
+    <arg name="vehicle_frame2" default="cf2" />
+    <arg name="target" default="target" />
+    <arg name="nodeB" default="nodeB" />
+    <arg name="ip" default="192.168.1.198" /> <arg name="port" default="3883" />
+
+<!-- ===================================== -->
+<!-- Launch the data aquisition component 
+     Source of raw pose data: VRPN Server 
+     -->
+<include file="$(find demo_launchers)/launch/vrpn_launch.launch">
+    <arg name="ip" value="$(arg ip)" />
+    <arg name="port" value="$(arg port)" />
+</include>
+
+
+<!-- ===================================== -->
+<!-- Launch the estimator of the object state from
+     the VRPN raw data.
+     -->
+<include file="$(find demo_launchers)/launch/estimator_launch.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame2)" />
+</include>
+
+
+<!-- ===================================== -->
+<!-- Launch the Arena Node -->
+<!--
+<include file="$(find demo_launchers)/launch/arena.launch">
+</include>
+-->
+
+
+<include file="$(find demo_launchers)/launch/commander_launch.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame2)" />
+    <arg name="commander_id" value="cm2" />
+    <arg name="obst_frame" value="cf3" />
+</include>
+
+<node pkg="manager" 
+    name="swarm_manager" 
+    type="manager_node.py"
+    respawn="true"
+    respawn_delay="3"
+    output="screen">
+</node>
+
+
+<include file="$(find demo_launchers)/launch/setup_vehicle.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame2)" />
+    <arg name="uri" value="radio://0/100/2M/E7E7E7E702" />
+    <arg name="server" value="RS2" />
+</include>
+
+<node pkg="rosbag" name="record_cybsec_exp" type="record" args="-O /tmp/MND_perf /cf2/pose /cf2/external_codom"/>
+</launch>
