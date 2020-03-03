@@ -378,7 +378,7 @@ def generate_entities():
                 id=id_cnt,
                 start_node=v,
                 end_node=drone2,
-                color="#AAAAAA",
+                color="#333333",
                 data_color="#FFFF00",
                 animate=True,
                 packet_interval=500,
