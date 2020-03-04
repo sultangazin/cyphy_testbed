@@ -262,6 +262,8 @@ class GuidanceClass:
         self.service_exe_mission = rospy.Service('exe_Mission',
                 ExeMission, self.handle_exeMission)
 
+        self.service_get_pred_window = rospy.Service("get_pred_window",
+                MPC_RefWindow, self.handle_getPredWindow)
 
     def advertiseTopics(self):
         # Setpoint Publisher
@@ -1432,6 +1434,65 @@ class GuidanceClass:
         self.mission_queue.update(miss_element)
 
         return True
+
+    def handle_getPredWindow(self, req):
+
+        N = req.Npoints
+        dt = req.dt
+        
+        c_time = rospy.get_time() 
+
+        response = MPC_RefWindow.Response();
+
+
+        time_v = c_time + np.array([0:N]) * dt
+        p_v = np.zeros((3, N));
+        p_v = np.zeros((3, N));
+        p_v = np.zeros((3, N));
+
+        # Generate the response with the sampling points for the
+        # MPC
+        for i in range(N):
+            t = time_v[i]
+            current = self.mission_queue.getItemAtTime(t)
+            trj_type = current.getTrjType()
+
+            # Evaluate the current setpoint
+            if trj_type != TrajectoryType.AttTrj:
+                (X, Y, Z, W, R, Omega) = current.getRef(t) 
+                p_v[0, i] = X[0]
+                v_v[0, i] = X[1]
+                a_v[0, i] = X[2]
+
+                p_v[1, i] = Y[0]
+                v_v[1, i] = Y[1]
+                a_v[1, i] = Y[2]
+                
+                p_v[2, i] = Z[0]
+                v_v[2, i] = Z[1]
+                a_v[2, i] = Z[2]
+
+                ## TODO: Should add the quaterion 
+
+                output_msg.setpoint_type = "FullTrj"
+            else:
+                (X, Y, Z, roll, pitch, yaw) = current.getRef(t)
+                output_msg.setpoint_type = "AttTrj"
+                p_v[0, i] = X[0]
+                v_v[0, i] = X[1]
+                a_v[0, i] = X[2]
+
+                p_v[1, i] = Y[0]
+                v_v[1, i] = Y[1]
+                a_v[1, i] = Y[2]
+                
+                p_v[2, i] = Z[0]
+                v_v[2, i] = Z[1]
+                a_v[2, i] = Z[2]
+
+        response.p = p_v
+        response.v = v_v
+        response.a = a_v
 
 
     def handle_exeMission(self, req):
