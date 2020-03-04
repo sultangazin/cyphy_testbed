@@ -1,3 +1,4 @@
 float32 duration 
+float32[3] target_p
 ---
 string ack

@@ -90,9 +90,11 @@ def land_command(tg_p):
             if (v.isActive()):
                 try:
                     print("Issuing LAND command to drone {}".format(k))
-                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + floor_offset], 3.0)
-                    time.sleep(4.0)
-                    resp1 = drones[k].land(3.0)
+                    #resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + floor_offset], 3.0)
+                    #time.sleep(4.0)
+                    landing_p = np.array(tg_p)
+                    landing_p[2] = landing_p[2] + floor_offset
+                    resp1 = drones[k].land(3.0, landing_p)
 
                 except rospy.ServiceException as exc:
                     print("Service did not process request: " + str(exc))
@@ -423,8 +425,8 @@ def generate_entities():
     for el in CameraObject_list:
         entities.append(el)
 
-    for el in AnchorEdges_list:
-        entities.append(el)
+#    for el in AnchorEdges_list:
+#        entities.append(el)
 
     ## ============================================
     ## Remove Nodes that are not currently in use... 

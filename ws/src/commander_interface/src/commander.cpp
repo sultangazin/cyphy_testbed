@@ -109,7 +109,8 @@ bool CommanderInterface::land_callback(
 
     guidance::ExeMission srv;
 
-    boost::array<float, 3> v{{0.0, 0.0, 0.0}};
+    //boost::array<float, 3> v{{0.0, 0.0, 0.0}};
+    boost::array<float, 3> v = req.target_p;
 
     // Relative request to the current point
     srv.request.mission_type = "land";

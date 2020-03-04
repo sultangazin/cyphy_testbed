@@ -1448,7 +1448,10 @@ class GuidanceClass:
             self.gen_goToBZ(tg_p, t2go)
  
         if (req.mission_type == "land"): 
-            self.gen_land()
+            if (req.target_p[0] != 0.0 or req.target_p[1] != 0.0):
+                self.gen_land(req.target_p)
+            else:
+                self.gen_land()
 
         if (req.mission_type == "takeoff"):
             t2go = req.tg_time
