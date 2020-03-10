@@ -17,6 +17,7 @@ from geometry_msgs.msg import PoseStamped
 from guidance.srv import GenImpTrajectoryAuto
 from guidance.srv import GenTrackTrajectory
 from guidance.srv import ExeMission
+from guidance.srv import MPC_RefWindow, MPC_RefWindowResponse
 
 import trjgen.class_pwpoly as pw
 import trjgen.class_trajectory as trj
@@ -1442,57 +1443,65 @@ class GuidanceClass:
         
         c_time = rospy.get_time() 
 
-        response = MPC_RefWindow.Response();
+        response = MPC_RefWindowResponse();
 
-
-        time_v = c_time + np.array([0:N]) * dt
+        time_v = c_time + np.array(range(N)) * dt
         p_v = np.zeros((3, N));
-        p_v = np.zeros((3, N));
-        p_v = np.zeros((3, N));
+        v_v = np.zeros((3, N));
+        a_v = np.zeros((3, N));
+        q_v = np.zeros((4, N));
 
         # Generate the response with the sampling points for the
         # MPC
         for i in range(N):
             t = time_v[i]
             current = self.mission_queue.getItemAtTime(t)
-            trj_type = current.getTrjType()
+            if current is not None:
+                trj_type = current.getTrjType()
 
-            # Evaluate the current setpoint
-            if trj_type != TrajectoryType.AttTrj:
-                (X, Y, Z, W, R, Omega) = current.getRef(t) 
-                p_v[0, i] = X[0]
-                v_v[0, i] = X[1]
-                a_v[0, i] = X[2]
+                # Evaluate the current setpoint
+                if trj_type != TrajectoryType.AttTrj:
+                    (X, Y, Z, W, R, Omega) = current.getRef(t) 
+                    p_v[0, i] = X[0]
+                    v_v[0, i] = X[1]
+                    a_v[0, i] = X[2]
 
-                p_v[1, i] = Y[0]
-                v_v[1, i] = Y[1]
-                a_v[1, i] = Y[2]
-                
-                p_v[2, i] = Z[0]
-                v_v[2, i] = Z[1]
-                a_v[2, i] = Z[2]
+                    p_v[1, i] = Y[0]
+                    v_v[1, i] = Y[1]
+                    a_v[1, i] = Y[2]
+                    
+                    p_v[2, i] = Z[0]
+                    v_v[2, i] = Z[1]
+                    a_v[2, i] = Z[2]
 
-                ## TODO: Should add the quaterion 
+                    q_v[:, i] = Rtoq(R) 
 
-                output_msg.setpoint_type = "FullTrj"
-            else:
-                (X, Y, Z, roll, pitch, yaw) = current.getRef(t)
-                output_msg.setpoint_type = "AttTrj"
-                p_v[0, i] = X[0]
-                v_v[0, i] = X[1]
-                a_v[0, i] = X[2]
+                else:
+                    (X, Y, Z, roll, pitch, yaw) = current.getRef(t)
+                    p_v[0, i] = X[0]
+                    v_v[0, i] = X[1]
+                    a_v[0, i] = X[2]
 
-                p_v[1, i] = Y[0]
-                v_v[1, i] = Y[1]
-                a_v[1, i] = Y[2]
-                
-                p_v[2, i] = Z[0]
-                v_v[2, i] = Z[1]
-                a_v[2, i] = Z[2]
+                    p_v[1, i] = Y[0]
+                    v_v[1, i] = Y[1]
+                    a_v[1, i] = Y[2]
+                    
+                    p_v[2, i] = Z[0]
+                    v_v[2, i] = Z[1]
+                    a_v[2, i] = Z[2]
 
-        response.p = p_v
-        response.v = v_v
-        response.a = a_v
+                    q_v[:, i] = Rtoq(
+                            np.matmul(np.matmul(Rz(yaw), Ry(pitch)),
+                                Rx(roll)
+                                )
+                            )
+
+        response.p = p_v.flatten()
+        response.v = v_v.flatten()
+        response.a = a_v.flatten()
+        response.q = q_v.flatten()
+
+        return response
 
 
     def handle_exeMission(self, req):
