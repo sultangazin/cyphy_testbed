@@ -17,7 +17,8 @@ add_service_files(
 	FILES ${srv_files}
 	)
 
-generate_messages()
+generate_messages(DEPENDENCIES
+    testbed_msgs)
 
 catkin_package(
 	CATKIN_DEPENDS 
