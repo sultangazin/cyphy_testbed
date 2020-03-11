@@ -6,15 +6,20 @@
 <launch>
     <arg name="vehicle_frame" default="cf3" /> 
     <arg name="uri" default="radio://0/100/2M/E7E7E7E7E7" /> 
-
+    <arg name="server" default="RS1" />
+	<arg name="provide_position" default="True" />
+    <arg name="provide_distance" default="False" />
 
     <!--
     ===================================================
-    CF Server Node
+    CF Bridge 
     -->
-    <include file="$(find demo_launchers)/launch/cf_server.launch">
+    <include file="$(find demo_launchers)/launch/cf_bridge.launch">
         <arg name="uri" value="$(arg uri)" />
         <arg name="frame" value="$(arg vehicle_frame)" />
+        <arg name="server" value="$(arg server)" />
+        <arg name="provide_position" value="$(arg provide_position)" />
+        <arg name="provide_distance" value="$(arg provide_distance)" />
     </include>
 
 
@@ -49,5 +54,5 @@ Bag recording
 
 - /setpoint: Trajectory setpoint for the crazyflie 
 -->
-<node pkg="rosbag" name="record_ctrl" type="record" args="-O /tmp/$(arg vehicle_frame)_control $(arg vehicle_frame)/control $(arg vehicle_frame)/cmd_vel /$(arg vehicle_frame)/logMotors $(arg vehicle_frame)/ctrl_perf"/>
+<node pkg="rosbag" name="record_ctrl_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_control $(arg vehicle_frame)/control $(arg vehicle_frame)/cmd_vel /$(arg vehicle_frame)/logMotors $(arg vehicle_frame)/ctrl_perf"/>
 </launch>

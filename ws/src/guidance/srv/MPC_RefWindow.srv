@@ -1,0 +1,4 @@
+int32 Npoints
+float32 dt
+---
+testbed_msgs/TrajectoryMPC trj

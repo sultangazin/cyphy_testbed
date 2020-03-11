@@ -54,9 +54,9 @@
 
 <!-- ===================================== -->
 <!-- Launch the Arena Node
--->
 <include file="$(find demo_launchers)/launch/arena.launch">
 </include>
+-->
 
 <!-- ======================================== -->
 <!-- Launch the controller/guidance componets -->
@@ -85,10 +85,12 @@
     output="screen">
 </node>
 
+<!--
 <node pkg="rviz" 
         type="rviz" 
         name="rviz" 
         args="-d $(find state_aggregator)/launch/cyphy_rviz.rviz" > 
 </node>
+-->
 
 </launch>

@@ -17,6 +17,10 @@ from geometry_msgs.msg import PoseStamped
 from guidance.srv import GenImpTrajectoryAuto
 from guidance.srv import GenTrackTrajectory
 from guidance.srv import ExeMission
+from guidance.srv import MPC_RefWindow, MPC_RefWindowResponse
+
+from testbed_msgs.msg import TrajectoryPointMPC
+from testbed_msgs.msg import TrajectoryMPC
 
 import trjgen.class_pwpoly as pw
 import trjgen.class_trajectory as trj
@@ -262,6 +266,8 @@ class GuidanceClass:
         self.service_exe_mission = rospy.Service('exe_Mission',
                 ExeMission, self.handle_exeMission)
 
+        self.service_get_pred_window = rospy.Service("get_pred_window",
+                MPC_RefWindow, self.handle_getPredWindow)
 
     def advertiseTopics(self):
         # Setpoint Publisher
@@ -482,19 +488,45 @@ class GuidanceClass:
 
         if (self.current_obst is not None):
             obst_p = posFromPoseMsg(self.current_obst)
-            print("Obstacle at ", obst_p)
-        
-            dist_from_ep = np.linalg.norm(tg_p[0:2] - obst_p[0:2])
-            print("Distance from obstacle ", dist_from_ep)
-            if (dist_from_ep < safety_dist):
+            print("Obstacle at ", obst_p)  
+
+            # Extracting the planar distance
+            obst_p_xy = obst_p[0:2]
+            tg_p_xy = tg_p[0:2]
+            start_pos_xy = start_pos[0:2]
+
+            # 1) Check if I am going near the obstacle
+            # Distance between "end point" and "obstacle"
+            dist_ep = np.linalg.norm(tg_p_xy - obst_p_xy)
+            print("Distance from obstacle ", dist_ep)            
+            if (dist_ep < safety_dist):
                 print("Going into the Obstacle area: Skip request!")
                 return False
 
-            (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, safety_dist)
-            if (abs(np.array(tg_p[0:2])) <  abs(np.array(obst_p[0:2]))).any():
-                obst_int = False
+            # Distance between "start point" and "obstacle"
+            vo = obst_p_xy - start_pos_xy
+            dist_so = np.linalg.norm(vo)  
+            no = np.zeros(2)
+            if (dist_so > 0.001):
+                no = vo / dist_so
+
+            # Distance between "start point" and "end point"
+            ve = tg_p_xy - start_pos_xy
+            dist_et = np.linalg.norm(ve)
+            ne = np.zeros(2)
+            if (dist_et > 0.001):
+                ne = ve / dist_et
             
-            print("Distance Vector to trajectory: ", e)
+            # 2) Check if I am stopping in radius less then the distance
+            #    from the obstacle.
+            if (dist_et < dist_so or ne.dot(no) <= 0):
+                obst_int = False
+            else: 
+                (obst_int, e) = evalObstacleInt(start_pos,
+                        tg_p,
+                        obst_p,
+                        safety_dist)
+                print("Distance Vector to trajectory: ", e)
 
         wps = []
         temp = np.copy(start_pos)
@@ -886,19 +918,45 @@ class GuidanceClass:
 
         if (self.current_obst is not None):
             obst_p = posFromPoseMsg(self.current_obst)
-            print("Obstacle at ", obst_p)
-        
-            dist_from_ep = np.linalg.norm(tg_p[0:2] - obst_p[0:2])
-            print("Distance from obstacle ", dist_from_ep)
-            if (dist_from_ep < safety_dist):
+            print("Obstacle at ", obst_p)  
+
+            # Extracting the planar distance
+            obst_p_xy = obst_p[0:2]
+            tg_p_xy = tg_p[0:2]
+            start_pos_xy = start_pos[0:2]
+
+            # 1) Check if I am going near the obstacle
+            # Distance between "end point" and "obstacle"
+            dist_ep = np.linalg.norm(tg_p_xy - obst_p_xy)
+            print("Distance from obstacle ", dist_ep)            
+            if (dist_ep < safety_dist):
                 print("Going into the Obstacle area: Skip request!")
                 return False
 
-            (obst_int, e) = evalObstacleInt(start_pos, tg_p, obst_p, safety_dist)
-            if (abs(np.array(tg_p[0:2])) <  abs(np.array(obst_p[0:2]))).any():
-                obst_int = False
+            # Distance between "start point" and "obstacle"
+            vo = obst_p_xy - start_pos_xy
+            dist_so = np.linalg.norm(vo)  
+            no = np.zeros(2)
+            if (dist_so > 0.001):
+                no = vo / dist_so
+
+            # Distance between "start point" and "end point"
+            ve = tg_p_xy - start_pos_xy
+            dist_et = np.linalg.norm(ve)
+            ne = np.zeros(2)
+            if (dist_et > 0.001):
+                ne = ve / dist_et
             
-            print("Distance Vector to trajectory: ", e)
+            # 2) Check if I am stopping in radius less then the distance
+            #    from the obstacle. 
+            if (dist_et < dist_so or ne.dot(no) <= 0):
+                obst_int = False
+            else: 
+                (obst_int, e) = evalObstacleInt(start_pos,
+                        tg_p,
+                        obst_p,
+                        safety_dist)
+                print("Distance Vector to trajectory: ", e)
 
         
         if (obst_int):
@@ -1380,6 +1438,150 @@ class GuidanceClass:
         self.mission_queue.update(miss_element)
 
         return True
+
+    def handle_getPredWindow(self, req):
+
+        N = req.Npoints
+        dt = req.dt
+        
+        c_time = rospy.get_time() 
+
+        response = MPC_RefWindowResponse();
+
+        time_v = c_time + np.array(range(N)) * dt
+        p_v = np.zeros((3, N));
+        v_v = np.zeros((3, N));
+        a_v = np.zeros((3, N));
+        q_v = np.zeros((4, N));
+
+        # Generate the response with the sampling points for the
+        # MPC
+        _trj = TrajectoryMPC()
+        for i in range(N):
+            t = time_v[i]
+
+            _pt = TrajectoryPointMPC();
+
+            current = self.mission_queue.getItemAtTime(t)
+            if current == None:
+                # If is not the time to stop, ask for the last point of the 
+                # last mission element.
+                (keep_pos, v, _) = self.current_mission.getEnd() 
+                # Send the message once and then set the flag to stop
+                # updating.
+                
+                _pt.pose.position.x = keep_pos[0]
+                _pt.pose.position.y = 0.0 
+                _pt.pose.position.z = 0.0 
+
+                _pt.pose.orientation.w = 1.0
+
+#                p_v[0, i] = keep_pos[0]
+#                v_v[0, i] = 0.0
+#                a_v[0, i] = 0.0
+#
+#                p_v[1, i] = keep_pos[1]
+#                v_v[1, i] = 0.0
+#                a_v[1, i] = 0.0
+#                
+#                p_v[2, i] = keep_pos[2]
+#                v_v[2, i] = 0.0
+#                a_v[2, i] = 0.0
+
+            else:
+                trj_type = current.getTrjType()
+
+                # Evaluate the current setpoint
+                if trj_type != TrajectoryType.AttTrj:
+                    (X, Y, Z, W, R, Omega) = current.getRef(t) 
+
+                    _pt.pose.position.x = X[0]
+                    _pt.pose.position.y = Y[0]
+                    _pt.pose.position.z = Z[0]
+
+                    _q = Rtoq(R)
+                    _pt.pose.orientation.x = _q[1] 
+                    _pt.pose.orientation.y = _q[2] 
+                    _pt.pose.orientation.z = _q[3] 
+                    _pt.pose.orientation.w = _q[0] 
+                    
+                    _pt.velocity.linear.x = X[1]
+                    _pt.velocity.linear.y = Y[1]
+                    _pt.velocity.linear.z = Z[1]
+
+                    _pt.acceleration.linear.x = X[2]
+                    _pt.acceleration.linear.y = Y[2]
+                    _pt.acceleration.linear.z = Z[2]
+
+#                    p_v[0, i] = X[0]
+#                    v_v[0, i] = X[1]
+#                    a_v[0, i] = X[2]
+#
+#                    p_v[1, i] = Y[0]
+#                    v_v[1, i] = Y[1]
+#                    a_v[1, i] = Y[2]
+#                    
+#                    p_v[2, i] = Z[0]
+#                    v_v[2, i] = Z[1]
+#                    a_v[2, i] = Z[2]
+#
+#                    q_v[:, i] = Rtoq(R) 
+                    
+                else:
+                    (X, Y, Z, roll, pitch, yaw) = current.getRef(t)
+
+                    _pt.pose.position.x = X[0]
+                    _pt.pose.position.y = Y[0]
+                    _pt.pose.position.z = Z[0]
+
+                    _pt.velocity.linear.x = X[1]
+                    _pt.velocity.linear.y = Y[1]
+                    _pt.velocity.linear.z = Z[1]
+
+                    _pt.acceleration.linear.x = X[2]
+                    _pt.acceleration.linear.y = Y[2]
+                    _pt.acceleration.linear.z = Z[2]
+
+#                    p_v[0, i] = X[0]
+#                    v_v[0, i] = X[1]
+#                    a_v[0, i] = X[2]
+#
+#                    p_v[1, i] = Y[0]
+#                    v_v[1, i] = Y[1]
+#                    a_v[1, i] = Y[2]
+#                    
+#                    p_v[2, i] = Z[0]
+#                    v_v[2, i] = Z[1]
+#                    a_v[2, i] = Z[2]
+
+                    _q = Rtoq(
+                            np.matmul(np.matmul(Rz(yaw), Ry(pitch)),
+                                Rx(roll)
+                                )
+                            )
+
+
+                    _pt.pose.orientation.x = _q[1]
+                    _pt.pose.orientation.y = _q[2]
+                    _pt.pose.orientation.z = _q[3]
+                    _pt.pose.orientation.w = _q[0]                        
+                    
+                   # q_v[:, i] = Rtoq(
+                   #         np.matmul(np.matmul(Rz(yaw), Ry(pitch)),
+                   #             Rx(roll)
+                   #             )
+                   #         )
+            _trj.points.append(_pt)
+            
+        
+        response.trj = _trj
+
+#        response.p = p_v.flatten()
+#        response.v = v_v.flatten()
+#        response.a = a_v.flatten()
+#        response.q = q_v.flatten()
+
+        return response
 
 
     def handle_exeMission(self, req):

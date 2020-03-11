@@ -157,7 +157,30 @@ def vex(v):
 
     return O
 
+def vee(M):
+    """
+    Compute the Vee vector from a 
+    matrix 
+    """
+    v = np.zeros((3), dtype = float)
 
+    v[2] = -M[0, 1] 
+    v[1] = M[0, 2]
+    v[0] = M[1, 2]
+
+    return v
+
+def Rtoq(R):
+    q = np.zeros(4)
+    psi = np.arccos((np.trace(R) - 1.0) / 2.0)
+    u = vee(R - R.transpose()) / (2.0 * math.sin(psi))
+
+    q[0] = math.cos(psi / 2.0)
+    q[1:4] = u * math.sin(psi / 2.0)
+
+    return q
+
+        
 def AddConstraint(A, constr):
     N = constr.size
     col_constr = constr.reshape(N,1)

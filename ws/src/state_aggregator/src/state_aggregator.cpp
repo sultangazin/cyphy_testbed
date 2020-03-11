@@ -401,8 +401,8 @@ void StateAggregator::onNewPose(
     ext_odometry_msg_.twist.twist.angular.z = w_(2);
 
 	// Custom Odometry Topic
-    ext_codometry_msg_.header.stamp = msg->header.stamp;
-    //ext_codometry_msg_.header.stamp = current_time;
+    //ext_codometry_msg_.header.stamp = msg->header.stamp;
+    ext_codometry_msg_.header.stamp = current_time;
     ext_codometry_msg_.p = ext_pose_msg_.pose.position;
     ext_codometry_msg_.q = ext_pose_msg_.pose.orientation;
     ext_codometry_msg_.v.x = vel_(0);
