@@ -51,6 +51,8 @@
 #include <geometry_msgs/PointStamped.h>
 #include <nav_msgs/Path.h>
 
+#include <guidance/MPC_RefWindow.h>
+
 #include "types.h"
 #include "angles.h"
 #include <testbed_msgs/ControlSetpoint.h>
@@ -165,10 +167,6 @@ namespace controller_mpc {
         const Eigen::Ref<const Eigen::Matrix<double, kInputSize, 1>> input,
         ros::Time& time);
 
-      // Process an incoming setpoint point.
-      //void SetpointCallback(
-      //  const testbed_msgs::ControlSetpoint::ConstPtr& msg);
-      void ReferenceCallback(const testbed_msgs::TrajectoryMPC::ConstPtr& msg);
       // Process an incoming state measurement.
       void StateCallback(const testbed_msgs::CustOdometryStamped::ConstPtr& msg);
 
@@ -255,6 +253,10 @@ namespace controller_mpc {
       bool received_setpoint_;
       bool initialized_;
       std::string name_;
+
+      ros::ServiceClient trajectory_clnt_;
+
+      std::thread run_thread_;
 
       // // Load K, x_ref, u_ref from disk.
       // bool LoadFromDisk();

@@ -46,6 +46,10 @@ namespace controller_mpc {
 
         preparation_thread_ = std::thread(&MpcWrapper<double>::prepare, mpc_wrapper_);
 
+        trajectory_clnt_ = ng.serviceClient<guidance::MPC_RefWindow>("get_pred_window");
+
+        run_thread_ = std::thread(&MPCController::run, this);
+
         initialized_ = true;
         return true;
     }
@@ -322,55 +326,67 @@ namespace controller_mpc {
     }
 
     // I have restructured run function to account for the fact that we work with callbacks
-    testbed_msgs::ControlStamped MPCController::run()
-    //    const testbed_msgs::CustOdometryStamped::ConstPtr& state_estimate,
-    //    const testbed_msgs::TrajectoryMPC::ConstPtr& reference_trajectory) 
+    void MPCController::run()
     {
-        ros::Time call_time = ros::Time::now();
-        const clock_t start = clock();
-        if (changed_) {
-            setNewParams();
+        while(1) {
+            ros::Time call_time = ros::Time::now();
+            const clock_t start = clock();
+            if (changed_) {
+                setNewParams();
+            }
+
+            preparation_thread_.join();
+
+            // Convert everything into Eigen format.
+            setStateEstimate();
+
+            // Request the current trajectory
+            MPC_RefWindow srv;
+            srv.request.Npoints = ;
+            srv.request.dt = ;
+            if(trajectory_clnt_.call(srv))
+                std::cout << "Success";
+            else
+                std::cout << "Fail";
+            testbed_msgs::TrajectoryMPC reference_trajectory = srv.response.trj;
+            setReference(reference_trajectory);
+
+            static const bool do_preparation_step(false);
+
+            // Get the feedback from MPC.
+            mpc_wrapper_.setTrajectory(reference_states_, reference_inputs_);
+            if (solve_from_scratch_) {
+                ROS_INFO("Solving MPC with hover as initial guess.");
+                mpc_wrapper_.solve(est_state_);
+                solve_from_scratch_ = false;
+            } else {
+                mpc_wrapper_.update(est_state_, do_preparation_step);
+            }
+            
+            mpc_wrapper_.getStates(predicted_states_);
+            mpc_wrapper_.getInputs(predicted_inputs_);
+
+            // Publish the predicted trajectory.
+            //publishPrediction(predicted_states_, predicted_inputs_, call_time);
+
+            // Start a thread to prepare for the next execution.
+            preparation_thread_ = std::thread(&MPCController::preparationThread, this);
+
+            // Timing
+            const clock_t end = clock();
+            timing_feedback_ = 0.9 * timing_feedback_ +
+                                0.1 * double(end - start) / CLOCKS_PER_SEC;
+            if (print_info_)
+                ROS_INFO_THROTTLE(1.0, "MPC Timing: Latency: %1.1f ms  |  Total: %1.1f ms",
+                                timing_feedback_ * 1000, (timing_feedback_ + timing_preparation_) * 1000);
+
+            // Publish the input control command
+            testbed_msgs::ControlStamped control_msg = updateControlCommand(predicted_states_.col(0),
+                                        predicted_inputs_.col(0),
+                                        call_time);
+            control_pub_.publish(control_msg);
+            return;
         }
-
-        preparation_thread_.join();
-
-        // Convert everything into Eigen format.
-        // setStateEstimate();
-        // setReference(reference_trajectory);
-
-        static const bool do_preparation_step(false);
-
-        // Get the feedback from MPC.
-        mpc_wrapper_.setTrajectory(reference_states_, reference_inputs_);
-        if (solve_from_scratch_) {
-            ROS_INFO("Solving MPC with hover as initial guess.");
-            mpc_wrapper_.solve(est_state_);
-            solve_from_scratch_ = false;
-        } else {
-            mpc_wrapper_.update(est_state_, do_preparation_step);
-        }
-        
-        mpc_wrapper_.getStates(predicted_states_);
-        mpc_wrapper_.getInputs(predicted_inputs_);
-
-        // Publish the predicted trajectory.
-        //publishPrediction(predicted_states_, predicted_inputs_, call_time);
-
-        // Start a thread to prepare for the next execution.
-        preparation_thread_ = std::thread(&MPCController::preparationThread, this);
-
-        // Timing
-        const clock_t end = clock();
-        timing_feedback_ = 0.9 * timing_feedback_ +
-                            0.1 * double(end - start) / CLOCKS_PER_SEC;
-        if (print_info_)
-            ROS_INFO_THROTTLE(1.0, "MPC Timing: Latency: %1.1f ms  |  Total: %1.1f ms",
-                            timing_feedback_ * 1000, (timing_feedback_ + timing_preparation_) * 1000);
-
-        // Return the input control command.
-        return updateControlCommand(predicted_states_.col(0),
-                                    predicted_inputs_.col(0),
-                                    call_time);
     }
 
 
@@ -478,21 +494,16 @@ namespace controller_mpc {
         received_setpoint_ = true;
     }
 */
-// TODO: Continue here
-    void MPCController::ReferenceCallback(
-        const testbed_msgs::TrajectoryMPC::ConstPtr& msg) {
-            setReference(msg);
-            received_setpoint_ = true;
-    }
+
     // Process an incoming state measurement.
     void MPCController::StateCallback(
             const testbed_msgs::CustOdometryStamped::ConstPtr& msg) {
         // Catch no setpoint.
-        if (!received_setpoint_)
-            return;
+        //if (!received_setpoint_)
+        //    return;
 
-        if (last_state_time_ < 0.0)
-            last_state_time_ = ros::Time::now().toSec();
+        //if (last_state_time_ < 0.0)
+        //    last_state_time_ = ros::Time::now().toSec();
 
         // Send the message from the state to run function
         pos_(0) = msg->p.x;
@@ -507,13 +518,13 @@ namespace controller_mpc {
         quat_.w() = msg->q.w;
         quat_.normalize();
 
-        setStateEstimate();
+        //setStateEstimate();
 
         // Compute dt
-        //float dt = ros::Time::now().toSec() - last_state_time_; // (float)(1.0f/ATTITUDE_RATE);
-        //last_state_time_ = ros::Time::now().toSec();
+        // float dt = ros::Time::now().toSec() - last_state_time_; // (float)(1.0f/ATTITUDE_RATE);
+        // last_state_time_ = ros::Time::now().toSec();
         // std::cout << "dt: " << dt << std::endl;
-
+/*
         testbed_msgs::ControlStamped control_msg;
 
         if (setpoint_type_ == "FullTrj") { 
@@ -538,44 +549,7 @@ namespace controller_mpc {
             }
 
         }
-        /*
-        if (setpoint_type_ == "AttTrj") {
-            
-            Quaterniond qt_i;
-            qt_i = Eigen::AngleAxisd(sp_yaw_, Vector3d::UnitZ()) * 
-                Eigen::AngleAxisd(sp_pitch_, Vector3d::UnitY()) *
-                Eigen::AngleAxisd(sp_roll_, Vector3d::UnitX());
-
-           // // Z target in inertial frame
-           // double x = cos(sp_roll_) * sin(sp_pitch) * cos(sp_yaw_) + sin(sp_roll_) * sin(sp_yaw_);
-           // double y = cos(sp_roll_) * sin(sp_pitch) * sin(sp_yaw_) - sin(sp_roll_) * cos(sp_yaw_);
-           // double z = cos(sp_yaw_) * cos(sp_roll_);
-           // Vector3d zt_i(x, y, z); 
-
-           // // Z target in body frame
-           // Vector3d zt_b = quat_.inverse() * zt_i;
-
-           Quaterniond qt_b = quat_.inverse() * qt_i; // Rotation Body to Target
-
-           double sinr_cosp = 2.0 * (qt_b.w() * qt_b.x() + qt_b.y() * qt_b.z());
-           double cosr_cosp = 1.0 - 2.0 * (qt_b.x() * qt_b.x() + qt_b.y() * qt_b.y());
-           double roll = atan2(sinr_cosp, cosr_cosp);
-            
-           double sinp = 2.0 * (qt_b.w() * qt_b.y() - qt_b.z() * qt_b.x());
-
-           double pitch = asin(sinp);
-
-            
-           // I need to keep the thrust over a limit 
-           // in order to control angles, otherwise
-           // everything will be set to 0.
-           control_msg.control.thrust = 0.25;
-           control_msg.control.roll = roll;
-           control_msg.control.pitch = pitch;
-           control_msg.control.yaw_dot = 0.0;
-
-        }
-        */
+        
         if (setpoint_type_ == "StopCmd") {
             control_msg.control.thrust = 0.0;
             control_msg.control.roll = 0.0;
@@ -584,6 +558,8 @@ namespace controller_mpc {
         }
 
         control_pub_.publish(control_msg);
+        */
+        return;
     }
 
 }
