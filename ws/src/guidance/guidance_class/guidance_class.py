@@ -1456,7 +1456,25 @@ class GuidanceClass:
         for i in range(N):
             t = time_v[i]
             current = self.mission_queue.getItemAtTime(t)
-            if current is not None:
+            if current == None:
+                # If is not the time to stop, ask for the last point of the 
+                # last mission element.
+                (keep_pos, v, _) = self.current_mission.getEnd() 
+                # Send the message once and then set the flag to stop
+                # updating.
+                p_v[0, i] = keep_pos[0]
+                v_v[0, i] = 0.0
+                a_v[0, i] = 0.0
+
+                p_v[1, i] = keep_pos[1]
+                v_v[1, i] = 0.0
+                a_v[1, i] = 0.0
+                
+                p_v[2, i] = keep_pos[2]
+                v_v[2, i] = 0.0
+                a_v[2, i] = 0.0
+
+            else:
                 trj_type = current.getTrjType()
 
                 # Evaluate the current setpoint
