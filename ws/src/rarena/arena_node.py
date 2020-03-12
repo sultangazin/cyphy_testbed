@@ -18,7 +18,7 @@ from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaCl
 floor_offset = 0.9
 realm_y_offset = 0
 
-scene = "test"
+scene = "test_cyphy"
 
 entities = []
 
@@ -32,8 +32,8 @@ arena_nuc_list = []
 AnchorEdges_list = []
 
 mqtt_client = mqtt.Client("client-ros", clean_session=True, userdata=None )
-mqtt_broker = "oz.andrew.cmu.edu"
-#mqtt_broker = "arena-west1.conix.io"
+#mqtt_broker = "oz.andrew.cmu.edu"
+mqtt_broker = "arena-west1.conix.io"
 
 
 ## Callbacks for click events
@@ -474,7 +474,7 @@ if __name__ == '__main__':
 
     # # Instatiate the MQTT client class
     print("Connecting to broker ", mqtt_broker)
-    mqtt_client.connect(mqtt_broker)#, 3003)
+    mqtt_client.connect(mqtt_broker, 3003)
     remove_conix_boxes()
     generate_entities()
     configure_environment()
