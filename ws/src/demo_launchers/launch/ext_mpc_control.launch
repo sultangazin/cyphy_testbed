@@ -7,7 +7,7 @@
   <arg name="topics/control_topic" default="control" />
   <arg name="topics/ctrl_perf_topic" default="ctrl_perf" />
 
-  <arg name="control_mode" value="0"/> <!-- 0: Angle 1: Rates -->
+  <arg name="control_mode" value="1"/> <!-- 0: Angle 1: Rates -->
 
   <!-- Mellinger controller. -->
   <node name="mpc_controller"

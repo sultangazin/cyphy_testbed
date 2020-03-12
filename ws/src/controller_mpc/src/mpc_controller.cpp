@@ -18,11 +18,12 @@ namespace controller_mpc {
             return false;
         }
 
+        std::cout << "Loaded Parameters";
         if (!RegisterCallbacks(n)) {
             ROS_ERROR("%s: Failed to register callbacks.", name_.c_str());
             return false;
         }
-
+        std::cout << "Registered callbacks" << std::endl;
         // // Load K, x_ref, u_ref from disk.
         // if (!LoadFromDisk()) {
         //   ROS_ERROR("%s: Failed to load K, x_ref, u_ref from disk.", name_.c_str());
@@ -42,15 +43,25 @@ namespace controller_mpc {
 
         setNewParams();
 
+        std::cout << "Set new params" << std::endl;
+
         solve_from_scratch_ = true;
 
         preparation_thread_ = std::thread(&MpcWrapper<double>::prepare, mpc_wrapper_);
 
-        trajectory_clnt_ = ng.serviceClient<guidance::MPC_RefWindow>("get_pred_window");
+        if(ctrl_mode_ != ControlMode::RATES){
+            ROS_ERROR("%s: Please set the control mode in rates.", name_.c_str());
+            return false;
+        }
+        // TODO: Change the hardcoded drone parameter
+        trajectory_clnt_ = nl.serviceClient<guidance::MPC_RefWindow>("/cf2/get_pred_window");
 
         run_thread_ = std::thread(&MPCController::run, this);
 
         initialized_ = true;
+
+        std::cout << "Initialized" << std::endl;
+
         return true;
     }
 
@@ -106,8 +117,8 @@ namespace controller_mpc {
         if (!nl.getParam("input_cost_exponential", input_cost_exponential_)) return false;
 
         // Read input limits.
-        if (!nl.getParam("max_bodyrate_xy", input_cost_exponential_)) return false;
-        if (!nl.getParam("max_bodyrate_z", input_cost_exponential_)) return false;
+        if (!nl.getParam("max_bodyrate_xy", max_bodyrate_xy_)) return false;
+        if (!nl.getParam("max_bodyrate_z", max_bodyrate_z_)) return false;
         if (!nl.getParam("min_thrust", min_thrust_)) return false;
         if (!nl.getParam("max_thrust", max_thrust_)) return false;
 
@@ -145,14 +156,20 @@ namespace controller_mpc {
 
         // Topics.
         if (!nl.getParam("topics/state", state_topic_)) return false;
+        std::cout << "State topic" <<std::endl;
+
         //if (!nl.getParam("topics/setpoint", setpoint_topic_)) return false;
-        if (!nl.getParam("topics/reference", reference_topic_)) return false;
+        //if (!nl.getParam("topics/reference", reference_topic_)) return false;
         if (!nl.getParam("topics/control", control_topic_)) return false;
-        
+        std::cout << "Control topic" <<std::endl;
+
+
         if (!nl.getParam("topics/ctrl_perf", ctrl_perf_topic_)) return false;
+        std::cout << "Perf topic" <<std::endl;
 
         // Control Mode
         if (!nl.getParam("control_mode", (int&)ctrl_mode_)) return false;
+        std::cout << "Control mode topic" <<std::endl;
 
         return true;
     }
@@ -163,13 +180,6 @@ namespace controller_mpc {
 
         // Subscribers.
         state_sub_ = nl.subscribe(state_topic_.c_str(), 1, &MPCController::StateCallback, this);
-
-        // TODO: this one gives out trajectory messages and not setpoint messages
-        reference_sub_ = nl.subscribe(
-                reference_topic_.c_str(), 1,  &MPCController::ReferenceCallback, this);
-        /*setpoint_sub_ = nl.subscribe(
-                setpoint_topic_.c_str(), 1, &MPCController::SetpointCallback, this);
-        */
         return true;
     }
 
@@ -229,7 +239,7 @@ namespace controller_mpc {
 
     // Convert to Eigen format. 
     bool MPCController::setReference(
-        const testbed_msgs::TrajectoryMPC::ConstPtr& reference_trajectory) {
+        const testbed_msgs::TrajectoryMPC& reference_trajectory) {
         reference_states_.setZero();
         reference_inputs_.setZero();
 
@@ -239,45 +249,49 @@ namespace controller_mpc {
         Eigen::Quaternion<double> q_heading;
         Eigen::Quaternion<double> q_orientation;
         bool quaternion_norm_ok(true);
-        if (reference_trajectory->points.size() == 1) {
+        if (reference_trajectory.points.size() == 1) {
             q_heading = Eigen::Quaternion<double>(Eigen::AngleAxis<double>(
-                reference_trajectory->points.front().heading,
+                reference_trajectory.points.front().heading,
                 Eigen::Matrix<double, 3, 1>::UnitZ()));
             
-            q_orientation.x() = reference_trajectory->points.front().pose.orientation.x;
-            q_orientation.y() = reference_trajectory->points.front().pose.orientation.y;
-            q_orientation.z() = reference_trajectory->points.front().pose.orientation.z;
-            q_orientation.w() = reference_trajectory->points.front().pose.orientation.w;
+            q_orientation.x() = reference_trajectory.points.front().pose.orientation.x;
+            q_orientation.y() = reference_trajectory.points.front().pose.orientation.y;
+            q_orientation.z() = reference_trajectory.points.front().pose.orientation.z;
+            q_orientation.w() = reference_trajectory.points.front().pose.orientation.w;
 
             // TODO: Alim thinks it's important.. what a nerd. 
             // Question for Luigi: why are we multiplying orientation by a heading?
             q_orientation = q_orientation * q_heading;
+
             reference_states_ = (Eigen::Matrix<double, kStateSize, 1>()
-                << reference_trajectory->points.front().pose.position.x,
-                reference_trajectory->points.front().pose.position.y,
-                reference_trajectory->points.front().pose.position.z,
+                << reference_trajectory.points.front().pose.position.x,
+                reference_trajectory.points.front().pose.position.y,
+                reference_trajectory.points.front().pose.position.z,
                 q_orientation.w(),
                 q_orientation.x(),
                 q_orientation.y(),
                 q_orientation.z(),
-                reference_trajectory->points.front().velocity.linear.x,
-                reference_trajectory->points.front().velocity.linear.y,
-                reference_trajectory->points.front().velocity.linear.z            
+                reference_trajectory.points.front().velocity.linear.x,
+                reference_trajectory.points.front().velocity.linear.y,
+                reference_trajectory.points.front().velocity.linear.z            
             ).finished().replicate(1, kSamples + 1);
 
-            acceleration << reference_trajectory->points.front().acceleration.linear.x,
-                            reference_trajectory->points.front().acceleration.linear.y,
-                            reference_trajectory->points.front().acceleration.linear.z;
+
+            acceleration << reference_trajectory.points.front().acceleration.linear.x,
+                            reference_trajectory.points.front().acceleration.linear.y,
+                            reference_trajectory.points.front().acceleration.linear.z;
+
             acceleration -= gravity;
             reference_inputs_ = (Eigen::Matrix<double, kInputSize, 1>() << acceleration.norm(),
-                reference_trajectory->points.front().velocity.angular.x,
-                reference_trajectory->points.front().velocity.angular.y,
-                reference_trajectory->points.front().velocity.angular.z
+                reference_trajectory.points.front().velocity.angular.x,
+                reference_trajectory.points.front().velocity.angular.y,
+                reference_trajectory.points.front().velocity.angular.z
             ).finished().replicate(1, kSamples + 1);
+
         } else {
-            auto iterator(reference_trajectory->points.begin());
-            ros::Duration t_start = reference_trajectory->points.begin()->time_from_start;
-            auto last_element = reference_trajectory->points.end();
+            auto iterator(reference_trajectory.points.begin());
+            ros::Duration t_start = reference_trajectory.points.begin()->time_from_start;
+            auto last_element = reference_trajectory.points.end();
             last_element = std::prev(last_element);
 
             for (int i = 0; i < kSamples + 1; i++) {
@@ -294,8 +308,8 @@ namespace controller_mpc {
                 q_orientation.w() = iterator->pose.orientation.w;
                             
                 q_orientation = q_heading * q_orientation;
+
                 reference_states_.col(i) << iterator->pose.position.x,
-                    iterator->pose.position.x,
                     iterator->pose.position.y,
                     iterator->pose.position.z,
                     q_orientation.w(),
@@ -314,11 +328,13 @@ namespace controller_mpc {
                     acceleration << iterator->acceleration.linear.x,
                             iterator->acceleration.linear.y,
                             iterator->acceleration.linear.z;
+
                     acceleration -= gravity;
                     reference_inputs_.col(i) << acceleration.norm(),
                         iterator->velocity.angular.x,
                         iterator->velocity.angular.y,
                         iterator->velocity.angular.z;
+
                     quaternion_norm_ok &= abs(est_state_.segment(kOriW, 4).norm() - 1.0) < 0.1;
             }
         }
@@ -328,26 +344,27 @@ namespace controller_mpc {
     // I have restructured run function to account for the fact that we work with callbacks
     void MPCController::run()
     {
-        while(1) {
+        ros::service::waitForService("get_pred_window");
+        while(true) {
             ros::Time call_time = ros::Time::now();
             const clock_t start = clock();
             if (changed_) {
                 setNewParams();
             }
-
             preparation_thread_.join();
 
             // Convert everything into Eigen format.
             setStateEstimate();
 
             // Request the current trajectory
-            MPC_RefWindow srv;
-            srv.request.Npoints = ;
-            srv.request.dt = ;
-            if(trajectory_clnt_.call(srv))
-                std::cout << "Success";
-            else
-                std::cout << "Fail";
+            guidance::MPC_RefWindow srv;
+            srv.request.Npoints = ACADO_N;
+            srv.request.dt = mpc_wrapper_.getTimestep();
+
+            if(!trajectory_clnt_.call(srv)){
+                ROS_ERROR("MPC: The trajectory service is not responding!");
+                return;
+            }
             testbed_msgs::TrajectoryMPC reference_trajectory = srv.response.trj;
             setReference(reference_trajectory);
 
@@ -355,6 +372,7 @@ namespace controller_mpc {
 
             // Get the feedback from MPC.
             mpc_wrapper_.setTrajectory(reference_states_, reference_inputs_);
+
             if (solve_from_scratch_) {
                 ROS_INFO("Solving MPC with hover as initial guess.");
                 mpc_wrapper_.solve(est_state_);
@@ -384,9 +402,10 @@ namespace controller_mpc {
             testbed_msgs::ControlStamped control_msg = updateControlCommand(predicted_states_.col(0),
                                         predicted_inputs_.col(0),
                                         call_time);
+
             control_pub_.publish(control_msg);
-            return;
         }
+        return;
     }
 
 

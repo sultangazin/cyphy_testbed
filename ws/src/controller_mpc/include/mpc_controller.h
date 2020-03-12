@@ -158,9 +158,9 @@ namespace controller_mpc {
 
       bool setStateEstimate(void);
 
-      bool setReference(const testbed_msgs::TrajectoryMPC::ConstPtr& reference_trajectory);
+      bool setReference(const testbed_msgs::TrajectoryMPC& reference_trajectory);
 
-      testbed_msgs::ControlStamped run();
+      void run();
 
       testbed_msgs::ControlStamped updateControlCommand(
         const Eigen::Ref<const Eigen::Matrix<double, kStateSize, 1>> state,
@@ -239,13 +239,13 @@ namespace controller_mpc {
       // Publishers and subscribers.
       ros::Subscriber state_sub_;
       ros::Subscriber setpoint_sub_;
-      ros::Subscriber reference_sub_;
+      //ros::Subscriber reference_sub_;
       ros::Publisher control_pub_;
       ros::Publisher error_pub_;
 
       std::string state_topic_;
       std::string setpoint_topic_;
-      std::string reference_topic_;
+      //std::string reference_topic_;
       std::string control_topic_;
       std::string ctrl_perf_topic_;
 
