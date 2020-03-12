@@ -23,16 +23,26 @@ This is the package providing the services to communicate with the *Crazyflie* d
 4. **demo_launchers**
 This packages contains the *ROS* launch files to simplify the instantiation of the system components.
 Currently, the main launchers are
-    1. "cf\_bridge": Send a request to add a *Crazyflie* to the system and configure the vehicle. This requires the presence of a crazyflie radio server active to take the request and start a communication thread.
-    2. "radio_server": Start a node that provide services to add *Crazyflie*s to the system. It spawns a thread for each connected *Crazyflie*.
-    3. "commander_launch": Starts the Commander node and the Guidance node.
-    4. "controller_launch": Start the radio bridge with the Crazyflie and the ROS remote controller node.
+    1. "cf\_bridge": This launcher is mandatory to operate with the *Crazyflies* since it set up the connection of the crazyflie with the system and sets up the vehicle with the desired initial paramters. 
+    This requires the presence of a crazyflie_server active to take the request and start a communication thread.
+
+    2. "radio_server": Start a crazyflie_server node that provides services to add *Crazyflie*s to the system. It spawns a thread for each connected *Crazyflie*.
+
+    3. "commander_launch": Starts the Commander node and the Guidance node. These nodes are necessary to interact with the vehicles since they generate the reference trajectories followed by the controllers.
+
+    4. "controller_launch": Launch file that simplifies the startup of the remote controller for the *Crazyflie*. Specifically, it starts the radio bridge with the Crazyflie (cf_bridge.launch) and the ROS remote controller node.
+
     5. "estimator_launch": Start the estimator node that aggregates the information provided by the MOCAP to estimate the pose of the vehicle.
+
     6. "vrpn_lauch": Starts the acquisition of data from the input sources, such as *Optitrack*. The launch file starts also an instance of *rViz* to visualize the vehicle/trajectory/estimation in a virtual environment.
-    7. "demo_core": Start the datastream, the commander and arena parts of the framework.
+
+    7. "demo_core": Launch file to simplify the startup of the system. It starts the VRPN node (vrpn_launch), the estimators (estimator_launch), the commanders (commander_launch) and the swarm manager node.
+
     8. "ext_control": Starts the offboard controller node.
+
     9. "arena": Start the arena/ROS bridge
-    10. "setup_vehicle": Start the radio bridge with the Crazyflie.
+
+    10. "setup_vehicle": Start the radio bridge with the Crazyflie (Warps the cf_bridge)
 5. **guidance**
 This package provides the guidance for the drone, that is, given a command and the current status of the drone, it generates the references to achieve the task. 
 6. **monitors**
@@ -104,8 +114,7 @@ roslaunch demo_launchers demo_core.launch
 This start the core nodes: 
 - vrpn
 - estimators
-- commander
-- arena
+- commanders
 - swarm manager
 
 
