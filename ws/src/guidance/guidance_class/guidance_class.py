@@ -1474,8 +1474,8 @@ class GuidanceClass:
                     # updating.
                     
                     _pt.pose.position.x = keep_pos[0]
-                    _pt.pose.position.y = 0.0 
-                    _pt.pose.position.z = 0.0 
+                    _pt.pose.position.y = keep_pos[1] 
+                    _pt.pose.position.z = keep_pos[2] 
 
                     _pt.pose.orientation.w = 1.0
                 else:
