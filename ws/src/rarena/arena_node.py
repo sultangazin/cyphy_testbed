@@ -306,7 +306,7 @@ def generate_entities():
             'trajectory_simple',
             id=id_cnt,
             source="cf2/ghost_trajectory",
-            scale=[.01,.01,.01],
+            scale=[.005,.005,.005],
             opacity=0.1,
             tracked_object="vrpn_client_node/cf2/pose")
     id_cnt = id_cnt + 1;
@@ -378,7 +378,7 @@ def generate_entities():
                 id=id_cnt,
                 start_node=v,
                 end_node=drone2,
-                color="#AAAAAA",
+                color="#333333",
                 data_color="#FFFF00",
                 animate=True,
                 packet_interval=500,

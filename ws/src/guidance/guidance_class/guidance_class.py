@@ -1457,122 +1457,79 @@ class GuidanceClass:
         # Generate the response with the sampling points for the
         # MPC
         _trj = TrajectoryMPC()
-        for i in range(N):
-            t = time_v[i]
 
-            _pt = TrajectoryPointMPC();
+        if not self.Stopped:
+            _trj.active = True
+            for i in range(N):
+                t = time_v[i]
 
-            current = self.mission_queue.getItemAtTime(t)
-            if current == None:
-                # If is not the time to stop, ask for the last point of the 
-                # last mission element.
-                (keep_pos, v, _) = self.current_mission.getEnd() 
-                # Send the message once and then set the flag to stop
-                # updating.
-                
-                _pt.pose.position.x = keep_pos[0]
-                _pt.pose.position.y = 0.0 
-                _pt.pose.position.z = 0.0 
+                _pt = TrajectoryPointMPC();
 
-                _pt.pose.orientation.w = 1.0
-
-#                p_v[0, i] = keep_pos[0]
-#                v_v[0, i] = 0.0
-#                a_v[0, i] = 0.0
-#
-#                p_v[1, i] = keep_pos[1]
-#                v_v[1, i] = 0.0
-#                a_v[1, i] = 0.0
-#                
-#                p_v[2, i] = keep_pos[2]
-#                v_v[2, i] = 0.0
-#                a_v[2, i] = 0.0
-
-            else:
-                trj_type = current.getTrjType()
-
-                # Evaluate the current setpoint
-                if trj_type != TrajectoryType.AttTrj:
-                    (X, Y, Z, W, R, Omega) = current.getRef(t) 
-
-                    _pt.pose.position.x = X[0]
-                    _pt.pose.position.y = Y[0]
-                    _pt.pose.position.z = Z[0]
-
-                    _q = Rtoq(R)
-                    _pt.pose.orientation.x = _q[1] 
-                    _pt.pose.orientation.y = _q[2] 
-                    _pt.pose.orientation.z = _q[3] 
-                    _pt.pose.orientation.w = _q[0] 
+                current = self.mission_queue.getItemAtTime(t)
+                if current == None:
+                    # If is not the time to stop, ask for the last point of the 
+                    # last mission element.
+                    (keep_pos, v, _) = self.current_mission.getEnd() 
+                    # Send the message once and then set the flag to stop
+                    # updating.
                     
-                    _pt.velocity.linear.x = X[1]
-                    _pt.velocity.linear.y = Y[1]
-                    _pt.velocity.linear.z = Z[1]
+                    _pt.pose.position.x = keep_pos[0]
+                    _pt.pose.position.y = 0.0 
+                    _pt.pose.position.z = 0.0 
 
-                    _pt.acceleration.linear.x = X[2]
-                    _pt.acceleration.linear.y = Y[2]
-                    _pt.acceleration.linear.z = Z[2]
-
-#                    p_v[0, i] = X[0]
-#                    v_v[0, i] = X[1]
-#                    a_v[0, i] = X[2]
-#
-#                    p_v[1, i] = Y[0]
-#                    v_v[1, i] = Y[1]
-#                    a_v[1, i] = Y[2]
-#                    
-#                    p_v[2, i] = Z[0]
-#                    v_v[2, i] = Z[1]
-#                    a_v[2, i] = Z[2]
-#
-#                    q_v[:, i] = Rtoq(R) 
-                    
+                    _pt.pose.orientation.w = 1.0
                 else:
-                    (X, Y, Z, roll, pitch, yaw) = current.getRef(t)
+                    trj_type = current.getTrjType()
 
-                    _pt.pose.position.x = X[0]
-                    _pt.pose.position.y = Y[0]
-                    _pt.pose.position.z = Z[0]
+                    # Evaluate the current setpoint
+                    if trj_type != TrajectoryType.AttTrj:
+                        (X, Y, Z, W, R, Omega) = current.getRef(t) 
 
-                    _pt.velocity.linear.x = X[1]
-                    _pt.velocity.linear.y = Y[1]
-                    _pt.velocity.linear.z = Z[1]
+                        _pt.pose.position.x = X[0]
+                        _pt.pose.position.y = Y[0]
+                        _pt.pose.position.z = Z[0]
 
-                    _pt.acceleration.linear.x = X[2]
-                    _pt.acceleration.linear.y = Y[2]
-                    _pt.acceleration.linear.z = Z[2]
+                        _q = Rtoq(R)
+                        _pt.pose.orientation.x = _q[1] 
+                        _pt.pose.orientation.y = _q[2] 
+                        _pt.pose.orientation.z = _q[3] 
+                        _pt.pose.orientation.w = _q[0] 
+                        
+                        _pt.velocity.linear.x = X[1]
+                        _pt.velocity.linear.y = Y[1]
+                        _pt.velocity.linear.z = Z[1]
 
-#                    p_v[0, i] = X[0]
-#                    v_v[0, i] = X[1]
-#                    a_v[0, i] = X[2]
-#
-#                    p_v[1, i] = Y[0]
-#                    v_v[1, i] = Y[1]
-#                    a_v[1, i] = Y[2]
-#                    
-#                    p_v[2, i] = Z[0]
-#                    v_v[2, i] = Z[1]
-#                    a_v[2, i] = Z[2]
+                        _pt.acceleration.linear.x = X[2]
+                        _pt.acceleration.linear.y = Y[2]
+                        _pt.acceleration.linear.z = Z[2]                        
+                    else:
+                        (X, Y, Z, roll, pitch, yaw) = current.getRef(t)
 
-                    _q = Rtoq(
-                            np.matmul(np.matmul(Rz(yaw), Ry(pitch)),
-                                Rx(roll)
+                        _pt.pose.position.x = X[0]
+                        _pt.pose.position.y = Y[0]
+                        _pt.pose.position.z = Z[0]
+
+                        _pt.velocity.linear.x = X[1]
+                        _pt.velocity.linear.y = Y[1]
+                        _pt.velocity.linear.z = Z[1]
+
+                        _pt.acceleration.linear.x = X[2]
+                        _pt.acceleration.linear.y = Y[2]
+                        _pt.acceleration.linear.z = Z[2]
+
+                        _q = Rtoq(
+                                np.matmul(np.matmul(Rz(yaw), Ry(pitch)),
+                                    Rx(roll)
+                                    )
                                 )
-                            )
 
-
-                    _pt.pose.orientation.x = _q[1]
-                    _pt.pose.orientation.y = _q[2]
-                    _pt.pose.orientation.z = _q[3]
-                    _pt.pose.orientation.w = _q[0]                        
-                    
-                   # q_v[:, i] = Rtoq(
-                   #         np.matmul(np.matmul(Rz(yaw), Ry(pitch)),
-                   #             Rx(roll)
-                   #             )
-                   #         )
-            _trj.points.append(_pt)
-            
+                        _pt.pose.orientation.x = _q[1]
+                        _pt.pose.orientation.y = _q[2]
+                        _pt.pose.orientation.z = _q[3]
+                        _pt.pose.orientation.w = _q[0] 
+                _trj.points.append(_pt)
+        else:
+            _trj.active = False
         
         response.trj = _trj
 
