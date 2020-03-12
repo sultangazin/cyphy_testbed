@@ -18,4 +18,6 @@ Header header
 # Trajectory type as defined above
 uint8 type
 
+uint8 active
+
 testbed_msgs/TrajectoryPointMPC[] points
