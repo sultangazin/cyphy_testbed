@@ -172,12 +172,16 @@ def vee(M):
 
 def Rtoq(R):
     q = np.zeros(4)
+    q[0] = 1.0
+
     psi = np.arccos((np.trace(R) - 1.0) / 2.0)
-    u = vee(R - R.transpose()) / (2.0 * math.sin(psi))
 
-    q[0] = math.cos(psi / 2.0)
-    q[1:4] = u * math.sin(psi / 2.0)
+    if (abs(psi) > 0.001):
+        u = vee(R - R.transpose()) / (2.0 * math.sin(psi))
 
+        q[0] = math.cos(psi / 2.0)
+        q[1:4] = u * math.sin(psi / 2.0)
+    
     return q
 
         
