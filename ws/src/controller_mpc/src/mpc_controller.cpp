@@ -39,6 +39,9 @@ namespace controller_mpc {
         error_pub_ = nl.advertise<testbed_msgs::CtrlPerfStamped>(
                 ctrl_perf_topic_.c_str(), 1, false);
 
+        predicted_traj_pub_ = nl.advertise<nav_msgs::Path>(
+                predicted_traj_topic_.c_str(), 1, false);
+
         Reset();
 
         setNewParams();
@@ -165,6 +168,9 @@ namespace controller_mpc {
 
 
         if (!nl.getParam("topics/ctrl_perf", ctrl_perf_topic_)) return false;
+        std::cout << "Perf topic" <<std::endl;
+
+        if (!nl.getParam("topics/predicted_traj", predicted_traj_topic_)) return false;
         std::cout << "Perf topic" <<std::endl;
 
         // Control Mode
@@ -351,10 +357,26 @@ namespace controller_mpc {
             if (changed_) {
                 setNewParams();
             }
-            preparation_thread_.join();
+            if (preparation_thread_.joinable())
+                preparation_thread_.join();
 
             // Convert everything into Eigen format.
             setStateEstimate();
+
+            std::cout << "Debugging state estimate: \n"
+                    << "Position: \n"
+                    << "x: " << est_state_(kPosX) << std::endl
+                    << "y: " << est_state_(kPosY) << std::endl
+                    << "z: " << est_state_(kPosZ) << std::endl
+                    << "Orientation: \n"
+                    << "w: " << est_state_(kOriW) << std::endl
+                    << "x: " << est_state_(kOriX) << std::endl
+                    << "y: " << est_state_(kOriY) << std::endl
+                    << "z: " << est_state_(kOriZ) << std::endl
+                    << "Velocity: \n"
+                    << "x: " << est_state_(kVelX) << std::endl
+                    << "y: " << est_state_(kVelY) << std::endl
+                    << "z: " << est_state_(kVelZ) << std::endl;
 
             // Request the current trajectory
             guidance::MPC_RefWindow srv;
@@ -366,44 +388,90 @@ namespace controller_mpc {
                 return;
             }
             testbed_msgs::TrajectoryMPC reference_trajectory = srv.response.trj;
-            setReference(reference_trajectory);
+            testbed_msgs::ControlStamped control_msg;
+            if (reference_trajectory.active == 1) {
+                setReference(reference_trajectory);
 
-            static const bool do_preparation_step(false);
+                static const bool do_preparation_step(false);
 
-            // Get the feedback from MPC.
-            mpc_wrapper_.setTrajectory(reference_states_, reference_inputs_);
+                // Get the feedback from MPC.
+                mpc_wrapper_.setTrajectory(reference_states_, reference_inputs_);
+                for (int i = 0; i < kSamples + 1; i++) {
+                    std::cout << "Debugging reference states (sample " << i << "): \n" 
+                            << "Position:" <<std::endl
+                            << "x:" << reference_states_(kPosX, i) << std::endl
+                            << "y:" << reference_states_(kPosY, i) << std::endl
+                            << "z:" << reference_states_(kPosZ, i) << std::endl
+                            << "Orientation:" <<std::endl
+                            << "w:" << reference_states_(kOriW, i) << std::endl
+                            << "x:" << reference_states_(kOriX, i) << std::endl
+                            << "y:" << reference_states_(kOriY, i) << std::endl
+                            << "z:" << reference_states_(kOriZ, i) << std::endl
+                            << "Velocity:" <<std::endl
+                            << "x:" << reference_states_(kVelX, i) << std::endl
+                            << "y:" << reference_states_(kVelY, i) << std::endl
+                            << "z:" << reference_states_(kVelZ, i) << std::endl;
+                    std::cout << "Debugging reference inputs (sample " << i << "): \n" 
+                            << "Position:" <<std::endl
+                            << "thrust:" << reference_inputs_(kThrust, i) << std::endl
+                            << "ratex:" << reference_inputs_(kRateX, i) << std::endl
+                            << "ratey:" << reference_inputs_(kRateY, i) << std::endl
+                            << "ratez:" << reference_inputs_(kRateZ, i) << std::endl;
+                }
 
-            if (solve_from_scratch_) {
-                ROS_INFO("Solving MPC with hover as initial guess.");
-                mpc_wrapper_.solve(est_state_);
-                solve_from_scratch_ = false;
-            } else {
-                mpc_wrapper_.update(est_state_, do_preparation_step);
+
+                if (solve_from_scratch_) {
+                    ROS_INFO("Solving MPC with hover as initial guess.");
+                    mpc_wrapper_.solve(est_state_);
+                    solve_from_scratch_ = false;
+                } else {
+                    mpc_wrapper_.update(est_state_, do_preparation_step);
+                }
+
+                mpc_wrapper_.getStates(predicted_states_);
+                mpc_wrapper_.getInputs(predicted_inputs_);
+                
+                // for (int i = 0; i < kSamples; i++) {
+                //     std::cout << "Debugging (sample " << i << "): \n" 
+                //             << "Position:" <<std::endl
+                //             << "x:" << predicted_states_(kPosX, i) << std::endl
+                //             << "y:" << predicted_states_(kPosY, i) << std::endl
+                //             << "z:" << predicted_states_(kPosZ, i) << std::endl
+                //             << "Orientation:" <<std::endl
+                //             << "w:" << predicted_states_(kOriW, i) << std::endl
+                //             << "x:" << predicted_states_(kOriX, i) << std::endl
+                //             << "y:" << predicted_states_(kOriY, i) << std::endl
+                //             << "z:" << predicted_states_(kOriZ, i) << std::endl;
+                // }
+                // Publish the predicted trajectory.
+                publishPrediction(predicted_states_, predicted_inputs_, call_time);
+
+                // Start a thread to prepare for the next execution.
+                preparation_thread_ = std::thread(&MPCController::preparationThread, this);
+
+                // Timing
+                const clock_t end = clock();
+                timing_feedback_ = 0.9 * timing_feedback_ +
+                                    0.1 * double(end - start) / CLOCKS_PER_SEC;
+                if (print_info_)
+                    ROS_INFO_THROTTLE(1.0, "MPC Timing: Latency: %1.1f ms  |  Total: %1.1f ms",
+                                    timing_feedback_ * 1000, (timing_feedback_ + timing_preparation_) * 1000);
+
+                // Publish the input control command
+                control_msg = updateControlCommand(predicted_states_.col(0),
+                                            predicted_inputs_.col(0),
+                                            call_time);
             }
-            
-            mpc_wrapper_.getStates(predicted_states_);
-            mpc_wrapper_.getInputs(predicted_inputs_);
-
-            // Publish the predicted trajectory.
-            //publishPrediction(predicted_states_, predicted_inputs_, call_time);
-
-            // Start a thread to prepare for the next execution.
-            preparation_thread_ = std::thread(&MPCController::preparationThread, this);
-
-            // Timing
-            const clock_t end = clock();
-            timing_feedback_ = 0.9 * timing_feedback_ +
-                                0.1 * double(end - start) / CLOCKS_PER_SEC;
-            if (print_info_)
-                ROS_INFO_THROTTLE(1.0, "MPC Timing: Latency: %1.1f ms  |  Total: %1.1f ms",
-                                timing_feedback_ * 1000, (timing_feedback_ + timing_preparation_) * 1000);
-
-            // Publish the input control command
-            testbed_msgs::ControlStamped control_msg = updateControlCommand(predicted_states_.col(0),
-                                        predicted_inputs_.col(0),
-                                        call_time);
+            else
+            {
+                control_msg.control.thrust = 0.0;
+                control_msg.control.roll = 0.0;
+                control_msg.control.pitch = 0.0;
+                control_msg.control.yaw_dot = 0.0;
+            }
 
             control_pub_.publish(control_msg);
+
         }
         return;
     }
@@ -432,7 +500,8 @@ namespace controller_mpc {
         //command.armed = true;
         //command.control_mode = quadrotor_common::ControlMode::BODY_RATES;
         //command.expected_execution_time = time;
-        command.control.thrust = input_bounded(INPUT::kThrust);
+        double mass = 0.03;
+        command.control.thrust = mass * input_bounded(INPUT::kThrust);
         command.control.roll = input_bounded(INPUT::kRateX);
         command.control.pitch = input_bounded(INPUT::kRateY);
         command.control.yaw_dot = input_bounded(INPUT::kRateZ);
@@ -581,4 +650,40 @@ namespace controller_mpc {
         return;
     }
 
+    bool MPCController::publishPrediction(const Eigen::Ref<const Eigen::Matrix<double, kStateSize, kSamples + 1>> states,
+        const Eigen::Ref<const Eigen::Matrix<double, kInputSize, kSamples>> inputs,
+        ros::Time& time) {
+        nav_msgs::Path path_msg;
+        path_msg.header.stamp = time;
+        path_msg.header.frame_id = "world";
+        geometry_msgs::PoseStamped pose;
+        double dt = mpc_wrapper_.getTimestep();
+
+        for (int i = 0; i < kSamples; i++) {
+            pose.header.stamp = time + ros::Duration(i * dt);
+            pose.header.seq = i;
+            pose.pose.position.x = states(kPosX, i);
+            pose.pose.position.y = states(kPosY, i);
+            pose.pose.position.z = states(kPosZ, i);
+            pose.pose.orientation.w = states(kOriW, i);
+            pose.pose.orientation.x = states(kOriX, i);
+            pose.pose.orientation.y = states(kOriY, i);
+            pose.pose.orientation.z = states(kOriZ, i);
+            std::cout << "Debugging (sample " << i << "): \n" 
+                            << "Position:" <<std::endl
+                            << "x:" << states(kPosX, i) << std::endl
+                            << "y:" << states(kPosY, i) << std::endl
+                            << "z:" << states(kPosZ, i) << std::endl
+                            << "Orientation:" <<std::endl
+                            << "w:" << states(kOriW, i) << std::endl
+                            << "x:" << states(kOriX, i) << std::endl
+                            << "y:" << states(kOriY, i) << std::endl
+                            << "z:" << states(kOriZ, i) << std::endl;
+            path_msg.poses.push_back(pose);
+        }
+
+        predicted_traj_pub_.publish(path_msg);
+
+        return true;
+    }
 }

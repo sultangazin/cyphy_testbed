@@ -173,6 +173,10 @@ namespace controller_mpc {
       // Preparation thread function 
       void preparationThread(void);
 
+      bool publishPrediction(const Eigen::Ref<const Eigen::Matrix<double, kStateSize, kSamples + 1>> states,
+      const Eigen::Ref<const Eigen::Matrix<double, kInputSize, kSamples>> inputs,
+      ros::Time& time);
+
       ControlMode ctrl_mode_;
 
       // MPC Parameters
@@ -242,12 +246,15 @@ namespace controller_mpc {
       //ros::Subscriber reference_sub_;
       ros::Publisher control_pub_;
       ros::Publisher error_pub_;
+      ros::Publisher predicted_traj_pub_;
 
       std::string state_topic_;
       std::string setpoint_topic_;
       //std::string reference_topic_;
       std::string control_topic_;
       std::string ctrl_perf_topic_;
+      std::string predicted_traj_topic_;
+
 
       // Initialized flag and name.
       bool received_setpoint_;

@@ -65,9 +65,9 @@ int main( ){
   const int N = round(t_end/dt);  // Number of nodes
   const double g_z = 9.8066;      // Gravity is everywhere [m/s^2]
   const double w_max_yaw = 1;     // Maximal yaw rate [rad/s]
-  const double w_max_xy = 3;      // Maximal pitch and roll rate [rad/s]
+  const double w_max_xy = 1.5;      // Maximal pitch and roll rate [rad/s]
   const double T_min = 2;         // Minimal thrust [N]
-  const double T_max = 20;        // Maximal thrust [N]
+  const double T_max = 18.6;        // Maximal thrust [N] 
 
   // Bias to prevent division by zero.
   const double epsilon = 0.1;     // Camera projection recover bias [m]
