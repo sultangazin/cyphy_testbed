@@ -12,7 +12,7 @@
     ===================================================
     Contoller Node
     -->
-     <include file="$(find demo_launchers)/launch/ext_control.launch">
+     <include file="$(find demo_launchers)/launch/ext_mpc_control.launch">
          <arg name="topics/setpoint_topic" value="/$(arg vehicle_frame)/setpoint" />
          <arg name="topics/control_topic" value="/$(arg vehicle_frame)/control" />
          <arg name="topics/ctrl_perf_topic" value="/$(arg vehicle_frame)/ctrl_perf" />

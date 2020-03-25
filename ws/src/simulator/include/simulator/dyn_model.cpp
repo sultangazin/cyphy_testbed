@@ -60,7 +60,7 @@ Eigen::Quaterniond rpy2quat(const vector<double>& rpy) {
  *  State: Position(3) | Velocity(3) | Quaternion(4)
  *  Input: Thrust(1) | Orientation(3)
  */
-bool f1(vector<double>& x_,
+bool f2(vector<double>& x_,
 	const vector<double>& x,
 	const vector<double>& u, 
 	double dt, void* param) {
@@ -109,12 +109,17 @@ bool f1(vector<double>& x_,
 
 
 /**
- * Dynamic Model of the vehicle 
+ * Simple Dynamic Model of the vehicle 
+ * The attitude dynamics is neglected, assuming that the internal controller
+ * of the drone is able to achieve the requested body rates.
+ * This describe the interface of the MPC, which is sending
+ * Thrust, and body rates as a reference points to the internal controller.
  *
  *  State: Position(3) | Velocity(3) | Quaternion(4)
- *  Input: Thrust(1) | AngularVel(3)
+ *  Input: Thrust(1) | BodyRates(3)
  */
-bool f2(vector<double>& x_,
+
+bool f1(vector<double>& x_,
 	const vector<double>& x,
 	const vector<double>& u, 
 	double dt, void* param) {
