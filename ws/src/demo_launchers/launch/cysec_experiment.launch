@@ -54,50 +54,12 @@
     output="screen">
 </node>
 
-<node pkg="dummy_nodes"
-        type="dummy_anchors"
-        name="Dummy_Anchors"
-        output="screen">
-        <param name="topics/input_feed_topic" value="/cf2/external_codom" type='str'/>
-        <param name="topics/output_out_topic" value="/cf2/external_distance" type='str'/>
-        <param name="topics/output_all_out_topic" value="/cf2/simulated_anchors" type='str'/>
-        <param name="enable_distortion" value="false" type='bool' />
-        <param name="malicious_node" value="0" type='int' />
-        <param name="distortion_value" value="0.6" type="double" /> <param name="anchors_file" value="anchors.yaml" /> 
-</node>
 
-<!--
-<node pkg="mn_detector"
-    name="mn_detector"
-    type="mn_detector"
-    output="screen">
-    <param name="topics/input_control_topic" value="/cf2/control" />
-    <param name="topics/input_sensors" value="/cf2/simulated_anchors" type='str'/>
-    <param name="topics/output_mnd_perf_topic" value="/cf2/mnd_perf" />
-</node>
--->
 <include file="$(find demo_launchers)/launch/setup_vehicle.launch">
     <arg name="vehicle_frame" value="$(arg vehicle_frame2)" />
-    <arg name="provide_position" value="True" />
-    <arg name="provide_distance" value="False" />
     <arg name="uri" value="radio://0/100/2M/E7E7E7E702" />
     <arg name="server" value="RS2" />
 </include>
 
-<!--
-<node pkg="rviz" 
-        type="rviz" 
-        name="rviz" 
-        args="-d $(find state_aggregator)/launch/cyphy_rviz.rviz" > 
-</node>
--->
-
-<!--
-<node pkg="rqt_plot"
-        type="rqt_plot" 
-        name="$(arg vehicle_frame2)_MND_residual" 
-        args="/$(arg vehicle_frame2)/logMND">
-</node>
--->
-<node pkg="rosbag" name="record_MalNodDet_perf" type="record" args="-O /tmp/MND_perf /cf2/simulated_anchors /cf2/pose /cf2/external_codom /cf2/logMND"/>
+<node pkg="rosbag" name="record_cybsec_exp" type="record" args="-O /tmp/MND_perf /cf2/pose /cf2/external_codom"/>
 </launch>

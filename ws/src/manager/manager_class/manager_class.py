@@ -1,6 +1,7 @@
 # Manager Class
 
 import rospy
+import numpy as np
 
 from manager.srv import StartAll, StopAll, GetStatus, LandAll 
 from commander_interface.srv import TakeOff, Land, Stop
@@ -66,7 +67,8 @@ class ManagerClass:
 
     def handle_landAll(self, req):
         for drone in self.droneList:
-            self.land[drone](3.0)
+            v = np.zeros(3)
+            self.land[drone](3.0, v)
 
         return True
 

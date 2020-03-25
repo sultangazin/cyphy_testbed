@@ -125,7 +125,6 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 
     ros::NodeHandle np("~");
 
-
     // VRPN topic (Set as global)
     np.param<std::string>("topics/in_vrpn_topic", object_name_, "cf1");
     vrpn_topic_ = "/vrpn_client_node/" + object_name_ + "/pose"; 

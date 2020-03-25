@@ -18,7 +18,7 @@ from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaCl
 floor_offset = 0.9
 realm_y_offset = 0
 
-scene = "test"
+scene = "test_cyphy"
 
 entities = []
 
@@ -33,7 +33,7 @@ AnchorEdges_list = []
 
 mqtt_client = mqtt.Client("client-ros", clean_session=True, userdata=None )
 mqtt_broker = "oz.andrew.cmu.edu"
-#mqtt_broker = "192.168.1.108:8080"
+#mqtt_broker = "arena-west1.conix.io"
 
 
 ## Callbacks for click events
@@ -90,9 +90,11 @@ def land_command(tg_p):
             if (v.isActive()):
                 try:
                     print("Issuing LAND command to drone {}".format(k))
-                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + floor_offset], 3.0)
-                    time.sleep(4.0)
-                    resp1 = drones[k].land(3.0)
+                    #resp1 = drones[k].goTo([tg_p[0], tg_p[1], tg_p[2] + floor_offset], 3.0)
+                    #time.sleep(4.0)
+                    landing_p = np.array(tg_p)
+                    landing_p[2] = landing_p[2] + floor_offset
+                    resp1 = drones[k].land(3.0, landing_p)
 
                 except rospy.ServiceException as exc:
                     print("Service did not process request: " + str(exc))
@@ -423,8 +425,8 @@ def generate_entities():
     for el in CameraObject_list:
         entities.append(el)
 
-    for el in AnchorEdges_list:
-        entities.append(el)
+#    for el in AnchorEdges_list:
+#        entities.append(el)
 
     ## ============================================
     ## Remove Nodes that are not currently in use... 
@@ -472,6 +474,7 @@ if __name__ == '__main__':
 
     # # Instatiate the MQTT client class
     print("Connecting to broker ", mqtt_broker)
+    #mqtt_client.connect(mqtt_broker, 3003)
     mqtt_client.connect(mqtt_broker)
     remove_conix_boxes()
     generate_entities()

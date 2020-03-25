@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!--
+    Global Launch File to start the system.
+    The following nodes will be started:
+     - VRPN Client Node
+     - Estimator Nodes for the drones
+     - Arena Node
+     - Commander + Guidance Nodes
+-->
+<launch>
+    <arg name="vehicle_frame" default="cf2" />
+    <arg name="target" default="target" />
+    <arg name="nodeB" default="nodeB" />
+    <arg name="ip" default="192.168.1.198" />
+    <arg name="port" default="3883" />
+
+
+<!-- ===================================== -->
+<!-- Launch the estimator of the object state from
+     the VRPN raw data.
+     -->
+<include file="$(find demo_launchers)/launch/estimator_launch.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame)" />
+</include>
+
+
+
+<!-- ===================================== -->
+<!-- Launch the Arena Node
+<include file="$(find demo_launchers)/launch/arena.launch">
+</include>
+-->
+
+<!-- ======================================== -->
+<!-- Launch the controller/guidance componets -->
+<include file="$(find demo_launchers)/launch/commander_launch.launch">
+    <arg name="vehicle_frame" value="$(arg vehicle_frame)" />
+    <arg name="commander_id" value="cm" />
+</include>
+
+<node pkg="manager" 
+    name="swarm_manager" 
+    type="manager_node.py"
+    respawn="true"
+    respawn_delay="3"
+    output="screen">
+    <rosparam param="droneList">["cf2"] </rosparam>
+</node>
+
+<!--
+<node pkg="rviz" 
+        type="rviz" 
+        name="rviz" 
+        args="-d $(find state_aggregator)/launch/cyphy_rviz.rviz" > 
+</node>
+-->
+
+</launch>
