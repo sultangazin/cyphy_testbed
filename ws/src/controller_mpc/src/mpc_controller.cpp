@@ -301,10 +301,12 @@ namespace controller_mpc {
             last_element = std::prev(last_element);
 
             for (int i = 0; i < kSamples + 1; i++) {
+                /*
                 while ((iterator->time_from_start - t_start).toSec() <= i * dt &&
                         iterator != last_element) {
                     iterator++;
                 }
+                */
 
                 q_heading = Eigen::Quaternion<double>(Eigen::AngleAxis<double>(
                     iterator->heading, Eigen::Matrix<double, 3, 1>::UnitZ()));
@@ -362,8 +364,13 @@ namespace controller_mpc {
 
             // Convert everything into Eigen format.
             setStateEstimate();
+            
+            /*
+            static int counter = 0;
 
-            std::cout << "Debugging state estimate: \n"
+            counter++;
+            if (counter++ % 100 == 0) {
+                std::cout << "Debugging state estimate: \n"
                     << "Position: \n"
                     << "x: " << est_state_(kPosX) << std::endl
                     << "y: " << est_state_(kPosY) << std::endl
@@ -377,6 +384,8 @@ namespace controller_mpc {
                     << "x: " << est_state_(kVelX) << std::endl
                     << "y: " << est_state_(kVelY) << std::endl
                     << "z: " << est_state_(kVelZ) << std::endl;
+            }
+            */
 
             // Request the current trajectory
             guidance::MPC_RefWindow srv;
@@ -396,8 +405,10 @@ namespace controller_mpc {
 
                 // Get the feedback from MPC.
                 mpc_wrapper_.setTrajectory(reference_states_, reference_inputs_);
-                for (int i = 0; i < kSamples + 1; i++) {
-                    std::cout << "Debugging reference states (sample " << i << "): \n" 
+                /*
+                if (counter % 50 == 0) {
+                    for (int i = kSamples; i < kSamples + 1; i++) {
+                        std::cout << "Debugging reference states (sample " << i << "): \n" 
                             << "Position:" <<std::endl
                             << "x:" << reference_states_(kPosX, i) << std::endl
                             << "y:" << reference_states_(kPosY, i) << std::endl
@@ -411,13 +422,15 @@ namespace controller_mpc {
                             << "x:" << reference_states_(kVelX, i) << std::endl
                             << "y:" << reference_states_(kVelY, i) << std::endl
                             << "z:" << reference_states_(kVelZ, i) << std::endl;
-                    std::cout << "Debugging reference inputs (sample " << i << "): \n" 
+                        std::cout << "Debugging reference inputs (sample " << i << "): \n" 
                             << "Position:" <<std::endl
                             << "thrust:" << reference_inputs_(kThrust, i) << std::endl
                             << "ratex:" << reference_inputs_(kRateX, i) << std::endl
                             << "ratey:" << reference_inputs_(kRateY, i) << std::endl
                             << "ratez:" << reference_inputs_(kRateZ, i) << std::endl;
+                    }
                 }
+                */
 
 
                 if (solve_from_scratch_) {
@@ -501,7 +514,7 @@ namespace controller_mpc {
         //command.control_mode = quadrotor_common::ControlMode::BODY_RATES;
         //command.expected_execution_time = time;
         double mass = 0.03;
-        command.control.thrust = mass * input_bounded(INPUT::kThrust);
+        command.control.thrust = input_bounded(INPUT::kThrust);
         command.control.roll = input_bounded(INPUT::kRateX);
         command.control.pitch = input_bounded(INPUT::kRateY);
         command.control.yaw_dot = input_bounded(INPUT::kRateZ);
@@ -669,6 +682,7 @@ namespace controller_mpc {
             pose.pose.orientation.x = states(kOriX, i);
             pose.pose.orientation.y = states(kOriY, i);
             pose.pose.orientation.z = states(kOriZ, i);
+            /*
             std::cout << "Debugging (sample " << i << "): \n" 
                             << "Position:" <<std::endl
                             << "x:" << states(kPosX, i) << std::endl
@@ -679,6 +693,7 @@ namespace controller_mpc {
                             << "x:" << states(kOriX, i) << std::endl
                             << "y:" << states(kOriY, i) << std::endl
                             << "z:" << states(kOriZ, i) << std::endl;
+            */
             path_msg.poses.push_back(pose);
         }
 
