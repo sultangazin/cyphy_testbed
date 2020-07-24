@@ -1,6 +1,7 @@
 #include "gtrack_server/gtrack_server.hpp"
 #include "testbed_msgs/CustPosVel.h"
 #include <geometry_msgs/PointStamped.h>
+#include <geometry_msgs/PoseStamped.h>
 
 
 GTrackServer::GTrackServer() :
@@ -45,7 +46,7 @@ bool GTrackServer::Initialize(const ros::NodeHandle& n) {
     ext_p_pub_ = nl.advertise<geometry_msgs::PointStamped>
         (output_sensor_topic_.c_str(), 10);
 
-    ext_arena_pub_ = nl.advertise<geometry_msgs::PointStamped>
+    ext_arena_pub_ = nl.advertise<geometry_msgs::PoseStamped>
         (output_arena_topic_.c_str(), 10);
 
 
@@ -73,7 +74,7 @@ bool GTrackServer::LoadParameters(const ros::NodeHandle& n) {
     // I don't like this, but until we have a better Arena
     // interface I will play dirty.
     nl.param<std::string>("topics/output_arena_topic", 
-            output_arena_topic_, "gtrack_arena");
+            output_arena_topic_, "gtrack_arena/pose");
 
     nl.param<int>("param/server_port", server_port_, 8080);
 
@@ -89,7 +90,7 @@ void GTrackServer::onNewData(RpcData data) {
 
     testbed_msgs::CustPosVel posvel_msg;
     geometry_msgs::PointStamped pos_msg;
-    geometry_msgs::PointStamped arena_msg;
+    geometry_msgs::PoseStamped arena_msg;
 
     ros::Time current_time = ros::Time::now();
 
@@ -105,9 +106,7 @@ void GTrackServer::onNewData(RpcData data) {
     pos_msg.header.stamp = current_time;
     pos_msg.point = posvel_msg.p;
 
-    arena_msg = pos_msg;
-    arena_msg.point.y = arena_msg.point.z;
-    arena_msg.point.z = -pos_msg.point.y;
+    arena_msg.pose.position = pos_msg.point;
 
     ext_pv_pub_.publish(posvel_msg);
     ext_p_pub_.publish(pos_msg);
