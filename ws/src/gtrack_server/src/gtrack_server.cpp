@@ -95,8 +95,8 @@ void GTrackServer::onNewData(RpcData data) {
     ros::Time current_time = ros::Time::now();
 
     posvel_msg.header.stamp = current_time;
-    posvel_msg.p.x = data.x;
-    posvel_msg.p.y = data.y;
+    posvel_msg.p.x = -data.y + 0.14;
+    posvel_msg.p.y = data.x - 0.115;
     posvel_msg.p.z = data.z;
 
     posvel_msg.v.x = 0.0;
