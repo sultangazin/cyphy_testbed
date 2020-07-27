@@ -125,9 +125,9 @@ def generate_entities():
             on_click_clb=toggle_active,
             pos=[0,0.05,-0.25],
             scale=[.1,.1,.1],
-            color="#0044AA",
+            color="#0011AA",
             text_visible = False,
-            opacity=0.2)
+            opacity=0.5)
     id_cnt = id_cnt + 1;
 
     drone2 = DroneArenaClass(
@@ -144,18 +144,18 @@ def generate_entities():
             opacity=0.2)
     id_cnt = id_cnt + 1;
 
-#    drone2_est = DroneArenaClass(
-#            mqtt_client,
-#            scene,
-#            'cf2',
-#            id=id_cnt,
-#            source="cf2",
-#            pos=[0,0.05,0.25],
-#            scale=[.1,.05,.1],
-#            color="#8844AA",
-#            text_visible = False,
-#            opacity=0.2)
-#    id_cnt = id_cnt + 1;
+    drone2_est = DroneArenaClass(
+            mqtt_client,
+            scene,
+            'cf3_e',
+            id=id_cnt,
+            source="gtrack_arena",
+            pos=[0,0.05,0.25],
+            scale=[.1,.1,.1],
+            color="#AAAAAA",
+            text_visible = False,
+            opacity=0.8)
+    id_cnt = id_cnt + 1;
 
     drones['cf3'] = drone1
     drones['cf2'] = drone2
@@ -237,60 +237,61 @@ def generate_entities():
     # These edges represent the data flow from the controllers to
     # the drones.
     # nuc0 -> drone0
-    edge_n0d0 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=id_cnt,
-       start_node=nuc0, end_node=drone1, color="#AAAAAA", data_color="#FFFF00", 
-       animate=True, packet_interval=500, packet_duration=500, packet_scale=[.02,.02,.02])
-    id_cnt = id_cnt + 1;
-    edges["n0d0"] = edge_n0d0
-   # nuc1 -> drone1
-    edge_n1d1 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=id_cnt,
-       start_node=nuc1, end_node=drone2, color="#AAAAAA", data_color="#FFFF00", 
-       animate=True, packet_interval=500, packet_duration=500, packet_scale=[.02,.02,.02])
-    id_cnt = id_cnt + 1;
+   # 
+   # edge_n0d0 = EdgeArenaClass(mqtt_client, scene, 'edge1', id=id_cnt,
+   #    start_node=nuc0, end_node=drone1, color="#AAAAAA", data_color="#FFFF00", 
+   #    animate=True, packet_interval=500, packet_duration=500, packet_scale=[.02,.02,.02])
+   # id_cnt = id_cnt + 1;
+   # edges["n0d0"] = edge_n0d0
+   ## nuc1 -> drone1
+   # edge_n1d1 = EdgeArenaClass(mqtt_client, scene, 'edge2', id=id_cnt,
+   #    start_node=nuc1, end_node=drone2, color="#AAAAAA", data_color="#FFFF00", 
+   #    animate=True, packet_interval=500, packet_duration=500, packet_scale=[.02,.02,.02])
+   # id_cnt = id_cnt + 1;
 
-    # Sensor Edges
-    # These edges represent the information flow from the drones to the 
-    # control nodes.
-    # drone0 -> nuc0
-    edge_d0n0 = EdgeArenaClass(mqtt_client, scene, 'edge3', id=id_cnt,
-       start_node=drone1, end_node=nuc0, color="#FF7FFF", 
-       data_color="#FF7FFF", animate=True, packet_interval=500,
-       packet_duration=450, packet_scale=[.02,.02,.02])
-    id_cnt = id_cnt + 1;
-    edges["d0n0"] = edge_d0n0
-   # drone0 -> nuc1
-    edge_d0n1 = EdgeArenaClass(mqtt_client, scene, 'edge4', id=id_cnt,
-       start_node=drone1, end_node=nuc1, color="#FF7FFF",
-       data_color="#FF7FFF", animate=True, packet_interval=500,
-       packet_duration=450, packet_scale=[.02,.02,.02])
-    id_cnt = id_cnt + 1;
-    edges["d0n1"] = edge_d0n1
+   # # Sensor Edges
+   # # These edges represent the information flow from the drones to the 
+   # # control nodes.
+   # # drone0 -> nuc0
+   # edge_d0n0 = EdgeArenaClass(mqtt_client, scene, 'edge3', id=id_cnt,
+   #    start_node=drone1, end_node=nuc0, color="#FF7FFF", 
+   #    data_color="#FF7FFF", animate=True, packet_interval=500,
+   #    packet_duration=450, packet_scale=[.02,.02,.02])
+   # id_cnt = id_cnt + 1;
+   # edges["d0n0"] = edge_d0n0
+   ## drone0 -> nuc1
+   # edge_d0n1 = EdgeArenaClass(mqtt_client, scene, 'edge4', id=id_cnt,
+   #    start_node=drone1, end_node=nuc1, color="#FF7FFF",
+   #    data_color="#FF7FFF", animate=True, packet_interval=500,
+   #    packet_duration=450, packet_scale=[.02,.02,.02])
+   # id_cnt = id_cnt + 1;
+   # edges["d0n1"] = edge_d0n1
 
-    # drone1 -> nuc0
-    edge_d1n0 = EdgeArenaClass(mqtt_client, scene, 'edge5', id=id_cnt,
-       start_node=drone2, end_node=nuc0, color="#FF7FFF", 
-       data_color="#FF7FFF", animate=True, packet_interval=500,
-       packet_duration=450, packet_scale=[.02,.02,.02])
-    id_cnt = id_cnt + 1;
-    edges["d1n0"] = edge_d1n0
+   # # drone1 -> nuc0
+   # edge_d1n0 = EdgeArenaClass(mqtt_client, scene, 'edge5', id=id_cnt,
+   #    start_node=drone2, end_node=nuc0, color="#FF7FFF", 
+   #    data_color="#FF7FFF", animate=True, packet_interval=500,
+   #    packet_duration=450, packet_scale=[.02,.02,.02])
+   # id_cnt = id_cnt + 1;
+   # edges["d1n0"] = edge_d1n0
 
-   # drone1 -> nuc1
-    edge_d1n1 = EdgeArenaClass(mqtt_client, scene, 'edge6', id=id_cnt,
-       start_node=drone2, end_node=nuc1, color="#FF7FFF", animate=True,
-       data_color="#FF7FFF", packet_interval=500, packet_duration=450,
-       packet_scale=[.02,.02,.02])
-    id_cnt = id_cnt + 1;
-    edges["d1n1"] = edge_d1n1
+   ## drone1 -> nuc1
+   # edge_d1n1 = EdgeArenaClass(mqtt_client, scene, 'edge6', id=id_cnt,
+   #    start_node=drone2, end_node=nuc1, color="#FF7FFF", animate=True,
+   #    data_color="#FF7FFF", packet_interval=500, packet_duration=450,
+   #    packet_scale=[.02,.02,.02])
+   # id_cnt = id_cnt + 1;
+   # edges["d1n1"] = edge_d1n1
 
 
 
-    # Inter Control Nodes
-    # nuc0 -> nuc1
-    edge_n0n1 = EdgeArenaClass(mqtt_client, scene, 'edge7', id=id_cnt,
-       start_node=nuc0, end_node=nuc1, color="#00AA00", animate=True,
-       packet_interval=1000, packet_duration=500, packet_scale=[.02,.02,.02])
-    id_cnt = id_cnt + 1;
-    edges["n0n1"] = edge_n0n1
+   # # Inter Control Nodes
+   # # nuc0 -> nuc1
+   # edge_n0n1 = EdgeArenaClass(mqtt_client, scene, 'edge7', id=id_cnt,
+   #    start_node=nuc0, end_node=nuc1, color="#00AA00", animate=True,
+   #    packet_interval=1000, packet_duration=500, packet_scale=[.02,.02,.02])
+   # id_cnt = id_cnt + 1;
+   # edges["n0n1"] = edge_n0n1
 
 
     # Trajectories nodes
@@ -318,38 +319,38 @@ def generate_entities():
 
     
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(dir_path + '/' + 'anchors.yaml') as anchor_file:
-        # use safe_load instead load
-        AnchorData = yaml.safe_load(anchor_file)
-        
-        numAnchors = AnchorData["NumOfAnchors"]
-        print("Creating {} anchors objects...".format(numAnchors))
+    #with open(dir_path + '/' + 'anchors.yaml') as anchor_file:
+    #    # use safe_load instead load
+    #    AnchorData = yaml.safe_load(anchor_file)
+    #    
+    #    numAnchors = AnchorData["NumOfAnchors"]
+    #    print("Creating {} anchors objects...".format(numAnchors))
 
-        for i in range(numAnchors):
-            x = float(AnchorData[i]["x"])
-            y = float(AnchorData[i]["y"])
-            z = float(AnchorData[i]["z"])
+    #    for i in range(numAnchors):
+    #        x = float(AnchorData[i]["x"])
+    #        y = float(AnchorData[i]["y"])
+    #        z = float(AnchorData[i]["z"])
 
-            print("Adding Anchor Arena Object in " + 
-                    "[{} {} {}]".format(x, y, z))
+    #        print("Adding Anchor Arena Object in " + 
+    #                "[{} {} {}]".format(x, y, z))
 
-            AnchorObject_list['ao{}'.format(i)] = (
-                    NodeArenaClass(mqtt_client,
-                    scene,
-                    'ao{}'.format(i),
-                    id=id_cnt,
-                    color="#00FF00",
-                    pos=[x, realm_y_offset + z, -y],
-                    scale=[0.15,0.15,0.15], opacity=0.5) 
-            )
-            id_cnt = id_cnt + 1;
+    #        AnchorObject_list['ao{}'.format(i)] = (
+    #                NodeArenaClass(mqtt_client,
+    #                scene,
+    #                'ao{}'.format(i),
+    #                id=id_cnt,
+    #                color="#00FF00",
+    #                pos=[x, realm_y_offset + z, -y],
+    #                scale=[0.15,0.15,0.15], opacity=0.5) 
+    #        )
+    #        id_cnt = id_cnt + 1;
 
     with open(dir_path + '/' + 'cameras.yaml') as camera_file:
         # use safe_load instead load
         CameraData = yaml.safe_load(camera_file)
         
         numCameras = CameraData["NumOfCameras"]
-        print("Creating {} anchors objects...".format(numAnchors))
+        print("Creating {} cameras objects...".format(numCameras))
 
         for i in range(numCameras):
             x = float(CameraData[i]["x"])
@@ -371,25 +372,25 @@ def generate_entities():
             id_cnt = id_cnt + 1;
 
     # Creating Edges Between Anchors and Drone
-    for (k, v) in AnchorObject_list.items():
-        AnchorEdges_list.append(
-            EdgeArenaClass(
-                mqtt_client,
-                scene,
-                'edge{}'.format(id_cnt),
-                id=id_cnt,
-                start_node=v,
-                end_node=drone2,
-                color="#333333",
-                data_color="#FFFF00",
-                animate=True,
-                packet_interval=500,
-                packet_duration=500,
-                packet_scale=[.0,.0,.0]
-            )
-        )
-        id_cnt = id_cnt + 1;
-    
+    #for (k, v) in AnchorObject_list.items():
+    #    AnchorEdges_list.append(
+    #        EdgeArenaClass(
+    #            mqtt_client,
+    #            scene,
+    #            'edge{}'.format(id_cnt),
+    #            id=id_cnt,
+    #            start_node=v,
+    #            end_node=drone2,
+    #            color="#333333",
+    #            data_color="#FFFF00",
+    #            animate=True,
+    #            packet_interval=500,
+    #            packet_duration=500,
+    #            packet_scale=[.0,.0,.0]
+    #        )
+    #    )
+    #    id_cnt = id_cnt + 1;
+    #
 
     # Initialize external trackers for evey viewing devices
     tablet_trk = TrackerArenaClass(mqtt_client, scene, "tablet", "vrpn_client_node", active=True)
@@ -397,26 +398,26 @@ def generate_entities():
 
     entities = [drone1,
                 drone2,
-               # drone2_est,
+                drone2_est,
                 target,
                 floor,
                 land1,
                 land2,
                 nuc0,
                 nuc1,
-                edge_n0d0,
-                edge_n1d1,
-                edge_d0n0,
-                edge_d0n1,
-                edge_d1n0,
-                edge_d1n1,
-                edge_n0n1,
+                #edge_n0d0,
+                #edge_n1d1,
+                #edge_d0n0,
+                #edge_d0n1,
+                #edge_d1n0,
+                #edge_d1n1,
+                #edge_n0n1,
                 trajectory2,
                 trajectory3,
                 trajectory_simple,
-#                center,
+                #center,
                 tablet_trk,
-#                nodeB_trk
+                #nodeB_trk
                 ]
 
     for (k, v) in AnchorObject_list.items():
@@ -425,19 +426,40 @@ def generate_entities():
     for el in CameraObject_list:
         entities.append(el)
 
-#    for el in AnchorEdges_list:
-#        entities.append(el)
+    for el in AnchorEdges_list:
+        entities.append(el)
+
 
     ## ============================================
     ## Remove Nodes that are not currently in use... 
-#    for el in CameraObject_list:
-#        el.remove()
+    for el in CameraObject_list:
+        el.remove()
     
-#    for (k, v) in AnchorObject_list.items():
-#        v.remove()
+    for (k, v) in AnchorObject_list.items():
+        v.remove()
 
     for el in AnchorEdges_list:
         el.remove()
+
+
+    nuc0.remove()
+    nuc1.remove()
+    
+    #edge_n0d0.remove()
+    #edge_n1d1.remove()
+    #edge_d0n0.remove()
+    #edge_d0n1.remove()
+    #edge_d1n0.remove()
+    #edge_d1n1.remove()
+    #edge_n0n1.remove()
+
+
+    #land1.remove()
+    #land2.remove()
+    #target.remove()
+
+
+
 
 def update_entities():
     global entities
