@@ -213,9 +213,17 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 
 bool StateAggregator::RegisterCallbacks(const ros::NodeHandle& n) {
     ros::NodeHandle nl(n);
-    inchannel1_= nl.subscribe(vrpn_topic_.c_str(), 15, 
+
+    // Subscribe to the Optitrack topic
+    nl.subscribe(vrpn_topic_.c_str(), 15, 
             &StateAggregator::onNewPose, this, 
             ros::TransportHints().tcpNoDelay());
+
+    // Subscribe to the Gtrack topic
+    nl.subscribe(grack_topic_.c_str(), 5,
+            &StateAggregator::onNewPosition, this,
+            ros::TransportHints().tcpNoDelay());
+
     return true;
 }
 
@@ -250,8 +258,8 @@ void StateAggregator::onNewPose(
         //  afr --> ros 
         //  R^(ros)_(afr) = Roll(pi/2) = 
         //  [1   0   0
-        //   0   0   -1
-        //   0  1   0]
+        //   0   0  -1
+        //   0   1   0]
         //
         p_(0) = msg->pose.position.x;	
         p_(1) = -msg->pose.position.z;	
@@ -435,4 +443,21 @@ void StateAggregator::onNewPose(
     return;
 }
 
+// Call back to get position messages
+void StateAggregator::onNewPosition(
+        const boost::shared_ptr<geometry_msgs::PointStamped const>& msg) {
+
+    double dt;
+    static timespec t_old;
+    timespec t;
+
+    // Take the time
+    ros::Time current_time = ros::Time::now();
+
+    Eigen::Vector3d v;
+    v(0) = msg->point.x;	
+    v(1) = msg->point.y;	
+    v(2) = msg->point.z;	
+
+ 
 
