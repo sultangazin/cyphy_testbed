@@ -1,3 +1,4 @@
+#include "rpc/this_handler.h"
 #include "gtrack_server/gtrack_server.hpp"
 #include "testbed_msgs/CustPosVel.h"
 #include <geometry_msgs/PointStamped.h>
@@ -16,7 +17,15 @@ GTrackServer::GTrackServer(int port) :
 
     pserver->bind("new_data", [this](RpcData data) {
             onNewData(data);
+			// Disable the response
+			rpc::this_handler().disable_response();
+			return 0;
             });
+
+	pserver->bind("synch", [this](RpcSynchData d) {
+			rpcSynch(d);
+			return true;
+			});
 }
 
 
@@ -53,9 +62,18 @@ bool GTrackServer::Initialize(const ros::NodeHandle& n) {
     initialized_ = true;
 
     pserver = new rpc::server(server_port_);
-    pserver->bind("new_data", [this](RpcData data) {
+    
+	pserver->bind("new_data", [this](RpcData data) {
             onNewData(data);
+			// Disable the response
+			rpc::this_handler().disable_response();
+			return 0;
             });
+
+	pserver->bind("synch", [this](RpcSynchData d) {
+			rpcSynch(d);
+			return true;
+			});
 
     start();
     return true;
@@ -81,6 +99,16 @@ bool GTrackServer::LoadParameters(const ros::NodeHandle& n) {
     return true;
 }
 
+
+void GTrackServer::rpcSynch(d) {
+	timespec client_time = d.timestamp;
+	ros::Time current_time = ros::Time::now();
+
+	long long int dsec_ns = (current_time.tv_sec - client_time.tv_sec) * 1e9;
+	long long int dnsec = current_time.tv_nsec - client_time.tv_nsec;
+	client_time_offset_ns = dsec; 
+	client_time_offset_ns += dnsec;
+}
 
 void GTrackServer::onNewData(RpcData data) {
     std::cout << "Received data" << std::endl;

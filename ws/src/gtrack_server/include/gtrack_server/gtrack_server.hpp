@@ -2,7 +2,7 @@
 #include "rpc/server.h"
 #include <iostream>
 #include <string>
-
+#include <time.h>
 #include "gtrack_server_data.hpp"
 
 class GTrackServer {
@@ -12,6 +12,8 @@ class GTrackServer {
 		~GTrackServer();
 
 		void onNewData(RpcData data);
+		void rpcSynch(RpcSynchData d);
+
         void start();
         bool Initialize(const ros::NodeHandle& n);
 		rpc::server* pserver;
@@ -19,6 +21,8 @@ class GTrackServer {
 	private:
         bool initialized_;
 		int server_port_;
+
+		int64_t client_time_offset_ns;
 
         ros::Publisher ext_pv_pub_;
         ros::Publisher ext_p_pub_;
