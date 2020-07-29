@@ -100,13 +100,14 @@ bool GTrackServer::LoadParameters(const ros::NodeHandle& n) {
 }
 
 
-void GTrackServer::rpcSynch(d) {
-	timespec client_time = d.timestamp;
+void GTrackServer::rpcSynch(RpcSynchData d) {
+	uint64_t sec = d.sec;
+    uint64_t nsec = d.nsec;
 	ros::Time current_time = ros::Time::now();
 
-	long long int dsec_ns = (current_time.tv_sec - client_time.tv_sec) * 1e9;
-	long long int dnsec = current_time.tv_nsec - client_time.tv_nsec;
-	client_time_offset_ns = dsec; 
+	long long int dsec_ns = (current_time.sec - sec) * 1e9;
+	long long int dnsec = current_time.nsec - nsec;
+	client_time_offset_ns = dsec_ns; 
 	client_time_offset_ns += dnsec;
 }
 

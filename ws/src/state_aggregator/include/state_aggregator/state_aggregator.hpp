@@ -12,11 +12,14 @@
 #include <ros/ros.h>
 #include <string>
 #include <time.h>
+#include <unordered_map>
 #include "Eigen/Dense"
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
 #include <testbed_msgs/CustOdometryStamped.h>
 #include <geometry_msgs/PoseStamped.h>
+#include "filter/ddfilter.hpp"
+#include "filter/polyfilter.hpp"
 
 using namespace Eigen;
 
@@ -36,7 +39,12 @@ class StateAggregator {
         void onNewPose(
                 const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg);
 
+        void onNewPosition(
+                const boost::shared_ptr<geometry_msgs::PointStamped const>& msg);
+
     private:
+        double _sigmax;
+        double _sigmay;
 
         // Load parameters and register callbacks.
         bool LoadParameters(const ros::NodeHandle& n);
@@ -53,18 +61,22 @@ class StateAggregator {
         ros::Publisher pose_rpy_pub_;
         ros::Publisher odometry_pub_;
         ros::Publisher codometry_pub_;
+        ros::Publisher rs_pub_;
         tf::TransformBroadcaster ext_odom_broadcaster_;
 
-        ros::Subscriber inchannel1_; 
+        std::unordered_map<std::string, ros::Subscriber> inchannels; 
 
         std::string object_name_;
         // Topics names
         std::string vrpn_topic_;
+        std::string gtrack_topic_;
+
         std::string ext_position_topic_;
         std::string ext_pose_topic_;
         std::string ext_pose_rpy_topic_;
         std::string ext_odom_topic_;
         std::string ext_codom_topic_;
+        std::string rs_codom_topic_;
 
         // Initialized flag and name.
         bool received_reference_;
@@ -82,10 +94,15 @@ class StateAggregator {
         geometry_msgs::TransformStamped ext_odom_trans_;
         testbed_msgs::CustOdometryStamped ext_codometry_msg_;
 
+
+        // FILTER
+        PolyFilter* _pfilt;
+
         // ===========================================================
         // Helper variables
-        int filter_order_;
         Eigen::Vector3d p_;
+        Eigen::Vector3d v_;
+
         Eigen::Vector3d p_pf_;
         Eigen::Vector3d p_old_;
         Eigen::Vector3d vel_;

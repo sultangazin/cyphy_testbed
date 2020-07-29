@@ -1,7 +1,6 @@
 #ifndef _RPC_DATA_HPP_
 #define _RPC_DATA_HPP_ 
 
-#include <time.h>
 #include "rpc/msgpack.hpp"
 
 
@@ -20,8 +19,9 @@ struct RpcData {
 };
 
 struct RpcSynchData {
-	timespec t;	
-	MSGPACK_DEFINE(t);
+	uint64_t sec;	
+    uint64_t nsec;
+	MSGPACK_DEFINE_ARRAY(sec, nsec);
 };
 
 #endif

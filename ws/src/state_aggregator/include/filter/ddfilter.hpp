@@ -18,10 +18,9 @@
 #include <queue>
 #include <mutex>
 
-#define DDFILTER_STATE_DIM (12)
+#define DDFILTER_STATE_DIM (9)
 #define DDFILTER_INPUT_DIM (3)
 #define DDFILTER_MEAS_DIM (3)
-#define DDFILTER_NSTEPS (20)
 
 // Redefinition of types to reduce the cluttering...
 typedef Eigen::Matrix<double, DDFILTER_STATE_DIM, 1> DDXMat;
@@ -49,20 +48,20 @@ class DDFilter {
 
 		void setSteps(int n);
 
-		void update(const DDYMat&);
+		void update(const DDYMat&, uint64_t usec);
 
 		// Fetchers
 		DDXMat getState() const;
         const Eigen::Vector3d getPos() const;
         const Eigen::Vector3d getVel() const;
         const Eigen::Vector3d getAcc() const;
-		const Eigen::Vector3d getJerk() const;
 
     private:
         mutable std::mutex _mx;
 
 		int _Nsteps;
 		std::queue<DDYMat> _YQueue;
+        std::queue<uint64_t> _tQueue;
 
 		DDXMat _x;
 		DDUMat _u;
@@ -78,7 +77,6 @@ class DDFilter {
 		void setPos(const Eigen::Vector3d& p);
         void setVel(const Eigen::Vector3d& v);
         void setAcc(const Eigen::Vector3d& a);
-		void setJerk(const Eigen::Vector3d& j);
 
 		/**
 		 * Fetcher Private
@@ -86,7 +84,6 @@ class DDFilter {
 		const Eigen::Vector3d ExtractPos(const DDXMat& x) const;
         const Eigen::Vector3d ExtractVel(const DDXMat& x) const;
         const Eigen::Vector3d ExtractAcc(const DDXMat& x) const;
-		const Eigen::Vector3d ExtractJerk(const DDXMat& x) const;
 
         /**
          * Compute the matrix of the dynamcs.

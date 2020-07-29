@@ -70,8 +70,7 @@ static Vector3d qd2w(Quaterniond q, Quaterniond qd) {
 StateAggregator::StateAggregator():
     received_reference_(false),
     last_state_time_(-1.0),
-    initialized_(false),
-    filter_order_(1) {
+    initialized_(false) { 
     };
 
 StateAggregator::~StateAggregator() {};
@@ -95,18 +94,33 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
         return false;
     }
 
+    Eigen::Vector3d sigma_x(_sigmax, _sigmax, _sigmax);
+    Eigen::Vector3d sigma_y(_sigmay, _sigmay, _sigmay);
+
+    _pfilt = new PolyFilter(Eigen::Vector3d::Zero(),
+            sigma_x, sigma_y, 0.03);
+
     // Advertise topics
-    ext_pos_pub_ = 
-        nl.advertise<geometry_msgs::PointStamped> (ext_position_topic_.c_str(), 10);
-    pose_pub_ = 
-        nl.advertise<geometry_msgs::PoseStamped> (ext_pose_topic_.c_str(), 10);
+
+    // External Orientation
     pose_rpy_pub_ =
         nl.advertise<geometry_msgs::Vector3Stamped> (ext_pose_rpy_topic_.c_str(), 10);
+
+    // External Position
+    ext_pos_pub_ = 
+        nl.advertise<geometry_msgs::PointStamped> (ext_position_topic_.c_str(), 10);
+
+    // External Pose
+    pose_pub_ = 
+        nl.advertise<geometry_msgs::PoseStamped> (ext_pose_topic_.c_str(), 10);
+
+    //  
     odometry_pub_ =
         nl.advertise<nav_msgs::Odometry> (ext_odom_topic_.c_str(), 10); 
     codometry_pub_ =
-	nl.advertise<testbed_msgs::CustOdometryStamped> (ext_codom_topic_.c_str(), 10); 
-
+        nl.advertise<testbed_msgs::CustOdometryStamped> (ext_codom_topic_.c_str(), 10);
+    rs_pub_ =
+        nl.advertise<testbed_msgs::CustOdometryStamped> (rs_codom_topic_.c_str(), 10);
 
     // Initialize the header refereces of odometry messages
     ext_odom_trans_.header.frame_id = "world";
@@ -129,6 +143,8 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
     np.param<std::string>("topics/in_vrpn_topic", object_name_, "cf1");
     vrpn_topic_ = "/vrpn_client_node/" + object_name_ + "/pose"; 
    
+    ROS_INFO("VRPN topic: %s!", vrpn_topic_.c_str());
+
     std::string key;
     if (np.searchParam("AxisUp", key)) {
         ROS_INFO("Found parameter %s!", key.c_str());
@@ -158,42 +174,33 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
     np.param<std::string>("topics/out_ext_codom_topic", ext_codom_topic_,
 		    "external_codom");
 
+    np.param<std::string>("topics/out_rs_codom_topic", rs_codom_topic_,
+		    "rs_codom");
+
     //    ROS_INFO("Namespace = %s", );
     // Params
-    if (np.searchParam("valpha", key)) {
+    if (np.searchParam("sigmax", key)) {
         ROS_INFO("Found parameter %s!", key.c_str());
-        n.getParam(key, v_alpha_);
+        n.getParam(key, _sigmax);
         ROS_INFO("Setting parameter %s = %f", 
-                "valpha", v_alpha_);
+                "sigmax", _sigmax);
     } else {
-        v_alpha_ = 0.7;
-        ROS_INFO("No param 'valpha' found!"); 
+        _sigmax = 0.1;
+        ROS_INFO("No param 'sigmax' found!"); 
         ROS_INFO("Setting default parameter %s = %f", 
-                "valpha", v_alpha_);
-    }
+                "valpha", _sigmax);
+    } 
 
-    if (np.searchParam("qdalpha", key)) {
+    if (np.searchParam("sigmay", key)) {
         ROS_INFO("Found parameter %s!", key.c_str());
-        n.getParam(key, qd_alpha_);
+        n.getParam(key, _sigmay);
         ROS_INFO("Setting parameter %s = %f", 
-                "qd_alpha", qd_alpha_);
+                "sigmax", _sigmay);
     } else {
-        qd_alpha_ = 0.7;
-        ROS_INFO("No param 'qdalpha' found!"); 
+        _sigmay = 0.001;
+        ROS_INFO("No param 'sigmax' found!"); 
         ROS_INFO("Setting default parameter %s = %f", 
-                "qd_alpha", qd_alpha_);
-    }
-
-    if (np.searchParam("filt_order", key)) {
-        ROS_INFO("Found parameter %s!", key.c_str());
-        n.getParam(key, filter_order_);
-        ROS_INFO("Setting parameter %s = %d", 
-                "filt_order", filter_order_);
-    } else {
-        filter_order_ = 2;
-        ROS_INFO("No param 'filt_order' found!"); 
-        ROS_INFO("Setting default parameter %s = %d", 
-                "filt_order", filter_order_);
+                "valpha", _sigmay);
     }
 
     if (np.searchParam("time_delay", key)) {
@@ -211,19 +218,20 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 }
 
 
+
 bool StateAggregator::RegisterCallbacks(const ros::NodeHandle& n) {
     ros::NodeHandle nl(n);
 
     // Subscribe to the Optitrack topic
-    nl.subscribe(vrpn_topic_.c_str(), 15, 
+    inchannels["vrpn"] = nl.subscribe(vrpn_topic_.c_str(), 15, 
             &StateAggregator::onNewPose, this, 
             ros::TransportHints().tcpNoDelay());
 
     // Subscribe to the Gtrack topic
-    nl.subscribe(grack_topic_.c_str(), 5,
+    inchannels["gtrack_nuc1"] = nl.subscribe(gtrack_topic_.c_str(), 5,
             &StateAggregator::onNewPosition, this,
             ros::TransportHints().tcpNoDelay());
-
+    
     return true;
 }
 
@@ -285,62 +293,16 @@ void StateAggregator::onNewPose(
     } else {
         dt = time_diff(t, t_old); 
 
-        switch (filter_order_) {
-            case 1:
-                {
-                    double G_p = (1.0 - v_alpha_);
+        _pfilt->prediction(dt);
+        _pfilt->update(p_);
 
-                    // Position Filtering
-                    Eigen::Vector3d innov_p = (p_ - p_old_);
-                    p_ = p_old_ + G_p * innov_p;
-
-                    vel_ = vel_ + G_p * (innov_p / dt - vel_);
-                    // Reset the velocity vector in case of NaN
-                    if (!healthy_vector(vel_)) {
-                        ROS_ERROR("Detected NaN!");
-                    }
-                    break;
-                }
-            case 2:
-                {
-                    // Second order filter
-                    double G_p  = 1.0 - pow(v_alpha_, 2.0);
-                    double H_p = pow(1.0 - v_alpha_, 2.0); 
-
-                    // Position Filtering
-                    Eigen::Vector3d p_pred = p_old_ + vel_ * dt;
-                    healthy_vector(p_pred);
-
-                    Eigen::Vector3d innov_p = (p_ - p_pred);
-                    p_ = p_pred + G_p * innov_p;
-
-                    // Velocity Filtering
-                    if (dt > 0.0001)
-                        vel_ = vel_ + H_p * (innov_p / dt);
-
-                    // Reset the velocity vector in case of NaN
-                    if (!healthy_vector(vel_)) {
-                        ROS_ERROR("Detected NaN!");
-                    }
-                    break;
-                }
-            default:
-                {
-                    double G_p = (1.0 - v_alpha_);
-
-                    // Position Filtering
-                    Eigen::Vector3d innov_p = (p_ - p_old_);
-                    p_ = p_old_ + G_p * innov_p;
-
-                    vel_ = vel_ + G_p * (innov_p / dt - vel_);
-                    // Reset the velocity vector in case of NaN
-                    if (!healthy_vector(vel_)) {
-                        ROS_ERROR("Detected NaN!");
-                    }
-
-                    break;
-                }
+        p_ = _pfilt->getPos();
+        v_ = _pfilt->getVel();
+        
+        if (!healthy_vector(vel_)) {
+            ROS_ERROR("Detected NaN!");
         }
+
         // TODO: Filter the quaternion part
         qd_ = Eigen::Quaterniond::Identity();
         w_ = Eigen::Vector3d::Zero(); 
@@ -370,6 +332,7 @@ void StateAggregator::onNewPose(
     euler_(1) = asin(2.0 * q_pf_.w()*q_pf_.y() - 2.0 * q_pf_.x()*q_pf_.z());
     euler_(2) =  atan2(2.0 * q_pf_.x() * q_pf_.y() + 2.0 * q_pf_.z() * q_pf_.w(),
             1.0 - 2.0 * (q_pf_.y() * q_pf_.y() + q_pf_.z() * q_pf_.z()));
+    
 
     // Pose: Position + Orientation
     ext_pose_msg_.header.stamp = msg->header.stamp;
@@ -440,6 +403,19 @@ void StateAggregator::onNewPose(
     odometry_pub_.publish(ext_odometry_msg_);
 	codometry_pub_.publish(ext_codometry_msg_);
 
+    testbed_msgs::CustOdometryStamped rs_odom_msg;
+    rs_odom_msg.header.stamp = current_time;
+    rs_odom_msg.p.x = p_(0);
+    rs_odom_msg.p.y = p_(1);
+    rs_odom_msg.p.z = p_(2);
+
+    rs_odom_msg.v.x = v_(0);
+    rs_odom_msg.v.y = v_(1);
+    rs_odom_msg.v.z = v_(2);
+
+
+    rs_pub_.publish(rs_odom_msg);
+
     return;
 }
 
@@ -447,17 +423,33 @@ void StateAggregator::onNewPose(
 void StateAggregator::onNewPosition(
         const boost::shared_ptr<geometry_msgs::PointStamped const>& msg) {
 
-    double dt;
-    static timespec t_old;
-    timespec t;
-
     // Take the time
     ros::Time current_time = ros::Time::now();
 
+    Eigen::Vector3d p;
     Eigen::Vector3d v;
-    v(0) = msg->point.x;	
-    v(1) = msg->point.y;	
-    v(2) = msg->point.z;	
+    p(0) = msg->point.x;	
+    p(1) = msg->point.y;	
+    p(2) = msg->point.z;	
 
- 
+    _pfilt->update(p_);
+
+    p = _pfilt->getPos();
+    v = _pfilt->getVel();
+
+    testbed_msgs::CustOdometryStamped rs_odom_msg;
+    rs_odom_msg.header.stamp = current_time;
+    rs_odom_msg.p.x = p(0);
+    rs_odom_msg.p.y = p(1);
+    rs_odom_msg.p.z = p(2);
+
+    rs_odom_msg.v.x = v(0);
+    rs_odom_msg.v.y = v(1);
+    rs_odom_msg.v.z = v(2);
+
+
+    rs_pub_.publish(rs_odom_msg);
+
+    return;
+} 
 
