@@ -32,15 +32,6 @@
     <arg name="vehicle_frame" value="$(arg vehicle_frame3)" />
 </include>
 
-<include file="$(find demo_launchers)/launch/estimator_launch.launch">
-    <arg name="vehicle_frame" value="$(arg target)" />
-</include>
-
-<include file="$(find demo_launchers)/launch/estimator_launch.launch">
-    <arg name="vehicle_frame" value="$(arg nodeB)" />
-</include>
-
-
 
 <!-- ===================================== -->
 <!-- Launch the Arena Node

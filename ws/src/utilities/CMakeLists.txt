@@ -1,21 +1,19 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(state_aggregator)
+project(utilities)
 
 # Find required packages
 find_package(
 	catkin REQUIRED 
 	COMPONENTS 
 	roscpp 
-	tf 
 	std_msgs
-	testbed_msgs
-    utilities
+    geometry_msgs
 	)
 find_package (Eigen3 REQUIRED NO_MODULE)
 
 catkin_package(
 	INCLUDE_DIRS include/ # The package contains header files
-	CATKIN_DEPENDS roscpp tf std_msgs
+	CATKIN_DEPENDS roscpp tf std_msgs geometry_msgs
 	)
 
 # Since we use eigen
@@ -25,19 +23,17 @@ include_directories(
 	)
 
 # Declare the executable to be build and the associated source
-add_executable(state_aggregator 
-	exec/state_aggregator_node.cpp 
-	src/state_aggregator.cpp
-    src/filter/ddfilter.cpp
-    src/filter/polyfilter.cpp
+add_library(utilities 
+	src/network_parser/network_parser.cpp 
+    src/timeutils/timeutils.cpp
+    src/custom_conversion/custom_conversion.cpp
 	)
 
-add_dependencies(state_aggregator 
+add_dependencies(utilities 
 	${catkin_EXPORTED_TARGETS}
 	)
 
-target_link_libraries(state_aggregator
+target_link_libraries(utilities
 	${catkin_LIBRARIES}
-    utilities
 	Eigen3::Eigen 
 	)

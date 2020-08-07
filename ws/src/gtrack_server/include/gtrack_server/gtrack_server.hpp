@@ -25,8 +25,7 @@ class GTrackServer {
 		int64_t client_time_offset_ns;
 
         ros::Publisher ext_pv_pub_;
-        ros::Publisher ext_p_pub_;
-        ros::Publisher ext_arena_pub_;
+        ros::Publisher ext_pose_pub_;
 
         std::string name_;
 
@@ -34,5 +33,4 @@ class GTrackServer {
 
         std::string output_state_topic_;
         std::string output_sensor_topic_;
-        std::string output_arena_topic_;
 };

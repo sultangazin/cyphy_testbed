@@ -11,17 +11,33 @@
 
 #include <ros/ros.h>
 #include <string>
-#include <time.h>
 #include <unordered_map>
+#include <thread>
 #include "Eigen/Dense"
 #include <tf/transform_broadcaster.h>
-#include <nav_msgs/Odometry.h>
 #include <testbed_msgs/CustOdometryStamped.h>
 #include <geometry_msgs/PoseStamped.h>
-#include "filter/ddfilter.hpp"
+
 #include "filter/polyfilter.hpp"
+#include "utilities/network_parser/network_parser.hpp"
+
+struct TopicData {
+    std::string topic_name;
+    std::string area_name;
+    std::string sensor_name;
+    std::string datatype;
+    double frequency;
+    bool isActive;
+    bool disabled;
+};
+
 
 using namespace Eigen;
+
+struct kfThread_arg {
+    double period;
+    PolyFilter* pfilt;
+};
 
 // =================================================================
 // CLASS
@@ -35,23 +51,35 @@ class StateAggregator {
         // Initialize this class by reading parameters and loading callbacks.
         bool Initialize(const ros::NodeHandle& n);
 
-        // Callback on Pose 
-        void onNewPose(
-                const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg);
-
-        void onNewPosition(
-                const boost::shared_ptr<geometry_msgs::PointStamped const>& msg);
+        std::unordered_map<
+            std::string,
+            void (StateAggregator::*) (const boost::shared_ptr<geometry_msgs::PoseStamped const>&, void*)>
+                callbacks; 
+          
 
     private:
+        std::string area_name_;
+        std::string agent_name_;
+
         double _sigmax;
         double _sigmay;
+
+        // Network Parser
+        NetworkParser network_parser;
 
         // Load parameters and register callbacks.
         bool LoadParameters(const ros::NodeHandle& n);
         bool RegisterCallbacks(const ros::NodeHandle& n);
+        bool AssociateTopicsToCallbacks(const ros::NodeHandle& n);
+        int UpdateSensorPublishers();
 
         // Remember last time we got a state callback.
         double last_state_time_;
+
+        // Callback on Pose 
+        //void onNewPose(const geometry_msgs::PoseStamped& msg, void* arg);
+        void onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg, void* arg);
+        void onNewPosition( const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg, void* arg);
 
         // Publishers and subscribers.
         // COMM ------------------------------------------------------------
@@ -62,9 +90,16 @@ class StateAggregator {
         ros::Publisher odometry_pub_;
         ros::Publisher codometry_pub_;
         ros::Publisher rs_pub_;
-        tf::TransformBroadcaster ext_odom_broadcaster_;
 
-        std::unordered_map<std::string, ros::Subscriber> inchannels; 
+        /**
+         * MAP containing sensor topic information
+         */
+        std::unordered_map<std::string, TopicData> inchannels_; 
+
+        /**
+         * MAP for active subscribers
+         */
+        std::unordered_map<std::string, ros::Subscriber> active_subscriber; 
 
         std::string object_name_;
         // Topics names
@@ -90,13 +125,14 @@ class StateAggregator {
         geometry_msgs::PoseStamped ext_pose_msg_;
         geometry_msgs::Vector3Stamped ext_pose_rpy_msg_;
         geometry_msgs::PointStamped ext_position_msg_;
-        nav_msgs::Odometry ext_odometry_msg_;
         geometry_msgs::TransformStamped ext_odom_trans_;
         testbed_msgs::CustOdometryStamped ext_codometry_msg_;
 
 
         // FILTER
         PolyFilter* _pfilt;
+        kfThread_arg arg_;
+        std::thread kf_thread;
 
         // ===========================================================
         // Helper variables

@@ -1,68 +1,10 @@
 #include "state_aggregator/state_aggregator.hpp"
 #include "math.h"
 
+#include "utilities/timeutils/timeutils.hpp"
+#include "utilities/custom_conversion/custom_conversion.hpp"
 
-// HELPER FUNCTIONS
-static bool healthy_vector(Eigen::Vector3d& v) {
-    bool ret = true;
-    for (int i = 0; i < 3; i++) {
-        if (std::isnan(v(i))) {
-            v = Eigen::Vector3d::Zero();
-            ret = false;
-            break;
-        }
-    }
-    return ret;
-}
-
-static double time_diff(timespec t1, timespec t2) {
-    long int nsec = (t1.tv_nsec - t2.tv_nsec);
-    long int sec = (t1.tv_sec - t2.tv_sec);
-    if (nsec < 0) {
-        sec -= 1;
-        nsec = 1e9 + nsec;
-    } 		
-
-    return (double)(sec + (double)nsec/1e9); 
-}
-
-
-static Quaterniond qsum(Quaterniond q1, Quaterniond q2) {
-    Quaterniond res(Quaterniond::Identity());
-
-    res.x() = q1.x() + q2.x();
-    res.y() = q1.y() + q2.y();
-    res.z() = q1.z() + q2.z();
-    res.w() = q1.w() + q2.w();
-
-    return res;
-}
-
-static Quaterniond qsm(Quaterniond q1, double a) {
-    Quaterniond res(Quaterniond::Identity());
-
-    res.x() = q1.x() * a;
-    res.y() = q1.y() * a;
-    res.z() = q1.z() * a; 
-    res.w() = q1.w() * a;
-
-    return res;
-}
-
-static Vector3d qd2w(Quaterniond q, Quaterniond qd) {
-    Vector3d out;
-    Matrix<double, 3, 4> M; 
-    Vector4d v;
-    v.block<3,1>(0,0) = qd.vec();
-    v(3) = qd.w();
-    M << -q.x(), q.w(), q.z(), -q.y(),
-      -q.y(), -q.z(), q.w(), q.x(),
-      -q.z(), q.y(), -q.x(), q.w();
-
-    out = M * v;
-    return out;
-}
-
+void kf_thread_fnc(void* p);
 
 // =================================================================
 // CLASS
@@ -81,6 +23,9 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 
     // Compose the name
     name_ = ros::this_node::getName().c_str();
+
+    callbacks["geometry_msgs/PoseStamped"] = &StateAggregator::onNewPose;
+    callbacks["geometry_msgs/PointStamped"] = &StateAggregator::onNewPosition;
 
     // Load parameters
     if (!LoadParameters(nl)) {
@@ -114,23 +59,19 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
     pose_pub_ = 
         nl.advertise<geometry_msgs::PoseStamped> (ext_pose_topic_.c_str(), 10);
 
-    //  
-    odometry_pub_ =
-        nl.advertise<nav_msgs::Odometry> (ext_odom_topic_.c_str(), 10); 
     codometry_pub_ =
         nl.advertise<testbed_msgs::CustOdometryStamped> (ext_codom_topic_.c_str(), 10);
+
+    // Fused position
     rs_pub_ =
         nl.advertise<testbed_msgs::CustOdometryStamped> (rs_codom_topic_.c_str(), 10);
 
-    // Initialize the header refereces of odometry messages
-    ext_odom_trans_.header.frame_id = "world";
-    ext_odom_trans_.child_frame_id = object_name_;
-
-    // Initialize the header part of the odometry topic message
-    ext_odometry_msg_.header.frame_id = "world";
-    ext_odometry_msg_.child_frame_id = object_name_;
-
     initialized_ = true;
+
+    arg_.period = 0.002;
+    arg_.pfilt = _pfilt;
+
+    kf_thread = std::thread(kf_thread_fnc, (void*) &arg_);
 
     return true;
 }
@@ -138,25 +79,7 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 
     ros::NodeHandle np("~");
-
-    // VRPN topic (Set as global)
-    np.param<std::string>("topics/in_vrpn_topic", object_name_, "cf1");
-    vrpn_topic_ = "/vrpn_client_node/" + object_name_ + "/pose"; 
-   
-    ROS_INFO("VRPN topic: %s!", vrpn_topic_.c_str());
-
     std::string key;
-    if (np.searchParam("AxisUp", key)) {
-        ROS_INFO("Found parameter %s!", key.c_str());
-        n.getParam(key, axis_up_);
-        ROS_INFO("Setting parameter %s = %s", 
-                "AxisUp", axis_up_.c_str());
-    } else {
-        axis_up_ = "Z";
-        ROS_INFO("No param 'AxisUp' found!");
-        ROS_INFO("Setting default parameter %s = %s", 
-                "AxisUp", axis_up_.c_str());
-    }
 
     // External position (just position)
     np.param<std::string>("topics/out_ext_position_topic", ext_position_topic_, 
@@ -188,7 +111,7 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
         _sigmax = 0.1;
         ROS_INFO("No param 'sigmax' found!"); 
         ROS_INFO("Setting default parameter %s = %f", 
-                "valpha", _sigmax);
+                "sigmax", _sigmax);
     } 
 
     if (np.searchParam("sigmay", key)) {
@@ -198,9 +121,9 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
                 "sigmax", _sigmay);
     } else {
         _sigmay = 0.001;
-        ROS_INFO("No param 'sigmax' found!"); 
+        ROS_INFO("No param 'sigmay' found!"); 
         ROS_INFO("Setting default parameter %s = %f", 
-                "valpha", _sigmay);
+                "sigmay", _sigmay);
     }
 
     if (np.searchParam("time_delay", key)) {
@@ -218,20 +141,78 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 }
 
 
+int StateAggregator::UpdateSensorPublishers() {
+
+    // In order to automatize the subscription to sensor topics 
+    // I need to fetch information from the network.
+    // I will save the information in a data structure indicized
+    // with the name of the sensors.
+    // The State aggregator knows the name of the vehicle which is tracking. 
+    // The State aggregator knows the name of the area in which is tracking.
+    // The following query will get the name of the sensors that are in the 
+    // current area and that are providing information regarding the target
+    // vehicle.
+    //
+    std::unordered_map<std::string, ros::master::TopicInfo> sdata;
+    network_parser.query_sensors(sdata, area_name_, agent_name_);
+
+    for (auto el : sdata) {
+        if (inchannels_.count(el.first) == 0) {
+            TopicData str;
+            str.topic_name = el.second.name;
+            str.area_name = area_name_;
+            str.sensor_name = el.first;
+            str.datatype = el.second.datatype;
+            str.frequency = 0.0;
+            str.isActive = true;
+            str.disabled = false;
+            inchannels_.insert(
+                    std::pair<std::string, TopicData>(
+                        el.first, str)
+                    );
+        }
+    }
+}
+
+
+bool StateAggregator::AssociateTopicsToCallbacks(const ros::NodeHandle& n) {
+    ros::NodeHandle nl(n);
+    for (auto el : inchannels_) { // For every registered channel
+        std::string topic_name = el.second.topic_name;
+        std::string topic_datatype = el.second.datatype;
+        if (!el.second.disabled) { // If the channel is not disabled
+            if (active_subscriber.count(el.first) == 0) { // Associate the callback
+                active_subscriber.insert(
+                        std::pair<std::string, ros::Subscriber>(
+                            el.first,
+                            nl.subscribe<geometry_msgs::PoseStamped>(
+                                topic_name.c_str(),
+                                5, 
+                                boost::bind(callbacks[topic_datatype], this, _1, (void*)&el.first),
+                                ros::VoidConstPtr(),
+                                ros::TransportHints().tcpNoDelay()
+                                )
+                            )
+                        );
+            }
+        } else { // If the chanell is disabled: unsubscribe
+                if (active_subscriber.count(el.first) > 0) {
+                    active_subscriber[el.first].shutdown();
+                    active_subscriber.erase(el.first);
+                }
+            }
+        }
+
+    return true;
+}
 
 bool StateAggregator::RegisterCallbacks(const ros::NodeHandle& n) {
-    ros::NodeHandle nl(n);
 
-    // Subscribe to the Optitrack topic
-    inchannels["vrpn"] = nl.subscribe(vrpn_topic_.c_str(), 15, 
-            &StateAggregator::onNewPose, this, 
-            ros::TransportHints().tcpNoDelay());
+    // Update the list of sensors publications referring to the 
+    // vehicle in the current area.
+    UpdateSensorPublishers();
+    AssociateTopicsToCallbacks(n); 
 
-    // Subscribe to the Gtrack topic
-    inchannels["gtrack_nuc1"] = nl.subscribe(gtrack_topic_.c_str(), 5,
-            &StateAggregator::onNewPosition, this,
-            ros::TransportHints().tcpNoDelay());
-    
     return true;
 }
 
@@ -241,45 +222,25 @@ bool StateAggregator::RegisterCallbacks(const ros::NodeHandle& n) {
  * Topic Callback
  * Whenever I receive a new Trajectory message, update the odometry.
  */
-void StateAggregator::onNewPose(
-        const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg) {
-
+void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg, void* arg) {
     double dt;
     static timespec t_old;
     timespec t;
 
+    std::string sensor_name = *(std::string*) arg;
+
     // Take the time
     ros::Time current_time = ros::Time::now();
 
-    if (axis_up_ == "Z") {
-        p_(0) = msg->pose.position.x;	
-        p_(1) = msg->pose.position.y;	
-        p_(2) = msg->pose.position.z;	
+    p_(0) = msg->pose.position.x;	
+    p_(1) = msg->pose.position.y;	
+    p_(2) = msg->pose.position.z;	
 
-        q_.x() = msg->pose.orientation.x;
-        q_.y() = msg->pose.orientation.y;
-        q_.z() = msg->pose.orientation.z;
-        q_.w() = msg->pose.orientation.w;
-    } else if (axis_up_ == "Y") {
-        // Switch the axes to be compatible 
-        // with the Aframe/Motive frames
-        //  afr --> ros 
-        //  R^(ros)_(afr) = Roll(pi/2) = 
-        //  [1   0   0
-        //   0   0  -1
-        //   0   1   0]
-        //
-        p_(0) = msg->pose.position.x;	
-        p_(1) = -msg->pose.position.z;	
-        p_(2) = msg->pose.position.y;	
-
-        q_.x() = msg->pose.orientation.x;
-        q_.y() = -msg->pose.orientation.z;
-        q_.z() = msg->pose.orientation.y;
-        q_.w() = msg->pose.orientation.w;
-    } else {
-       ROS_ERROR("Error selecting the source reference frame"); 
-    }
+    q_.x() = msg->pose.orientation.x;
+    q_.y() = msg->pose.orientation.y;
+    q_.z() = msg->pose.orientation.z;
+    q_.w() = msg->pose.orientation.w;
+    
     // Read the timestamp of the message
     t.tv_sec = msg->header.stamp.sec;
     t.tv_nsec = msg->header.stamp.nsec;
@@ -293,7 +254,6 @@ void StateAggregator::onNewPose(
     } else {
         dt = time_diff(t, t_old); 
 
-        _pfilt->prediction(dt);
         _pfilt->update(p_);
 
         p_ = _pfilt->getPos();
@@ -357,19 +317,7 @@ void StateAggregator::onNewPose(
     ext_pose_rpy_msg_.vector.x = euler_(0) * 180.0 / M_PI;
     ext_pose_rpy_msg_.vector.y = euler_(1) * 180.0 / M_PI;
     ext_pose_rpy_msg_.vector.z = euler_(2) * 180.0 / M_PI;
-
-    // Odometry Topic
-    //ext_odometry_msg_.header.stamp = msg->header.stamp;
-    ext_odometry_msg_.header.stamp = current_time;
-    ext_odometry_msg_.pose.pose.position = ext_pose_msg_.pose.position;
-    ext_odometry_msg_.pose.pose.orientation = ext_pose_msg_.pose.orientation;
-    ext_odometry_msg_.twist.twist.linear.x = vel_(0);
-    ext_odometry_msg_.twist.twist.linear.y = vel_(1);
-    ext_odometry_msg_.twist.twist.linear.z = vel_(2);
-    ext_odometry_msg_.twist.twist.angular.x = w_(0);
-    ext_odometry_msg_.twist.twist.angular.y = w_(1);
-    ext_odometry_msg_.twist.twist.angular.z = w_(2);
-
+ 
 	// Custom Odometry Topic
     //ext_codometry_msg_.header.stamp = msg->header.stamp;
     ext_codometry_msg_.header.stamp = current_time;
@@ -382,25 +330,9 @@ void StateAggregator::onNewPose(
     ext_codometry_msg_.w.y = w_(1);
     ext_codometry_msg_.w.z = w_(2);
 
-
-
-    // Update Tranformation Message	
-    //ext_odom_trans_.header.stamp = msg->header.stamp;
-    ext_odom_trans_.header.stamp = current_time;
-    // Position
-    ext_odom_trans_.transform.translation.x = p_pf_(0);
-    ext_odom_trans_.transform.translation.y = p_pf_(1);
-    ext_odom_trans_.transform.translation.z = p_pf_(2);
-    // Orientation
-    ext_odom_trans_.transform.rotation = ext_pose_msg_.pose.orientation;
-
-    // Send messages and transorm
-    ext_odom_broadcaster_.sendTransform(ext_odom_trans_);
-
     ext_pos_pub_.publish(ext_position_msg_);
     pose_pub_.publish(ext_pose_msg_);
     pose_rpy_pub_.publish(ext_pose_rpy_msg_);
-    odometry_pub_.publish(ext_odometry_msg_);
 	codometry_pub_.publish(ext_codometry_msg_);
 
     testbed_msgs::CustOdometryStamped rs_odom_msg;
@@ -419,20 +351,24 @@ void StateAggregator::onNewPose(
     return;
 }
 
+//
 // Call back to get position messages
-void StateAggregator::onNewPosition(
-        const boost::shared_ptr<geometry_msgs::PointStamped const>& msg) {
+void StateAggregator::onNewPosition(const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg, void* arg) {
 
     // Take the time
     ros::Time current_time = ros::Time::now();
 
+    std::string sensor_name = *(std::string*) arg;
+
     Eigen::Vector3d p;
     Eigen::Vector3d v;
-    p(0) = msg->point.x;	
-    p(1) = msg->point.y;	
-    p(2) = msg->point.z;	
 
-    _pfilt->update(p_);
+    p(0) = msg->pose.position.x;	
+    p(1) = msg->pose.position.y;	
+    p(2) = msg->pose.position.z;	
+
+    std::cout << "Update with " << p.transpose() << std::endl;
+    _pfilt->update(p);
 
     p = _pfilt->getPos();
     v = _pfilt->getVel();
@@ -453,3 +389,30 @@ void StateAggregator::onNewPosition(
     return;
 } 
 
+void kf_thread_fnc(void* p) {
+   
+    // Convert the pointer to pass information to the thread.
+    kfThread_arg* pArg = (kfThread_arg*) p;
+
+    double dt = pArg->period;
+    PolyFilter* pfilt = pArg->pfilt;
+
+    struct timespec time;
+    struct timespec next_activation;
+    
+    struct timespec period_tms; 
+    create_tspec(period_tms, dt);
+
+    while (ros::ok()) {
+        // Get current time
+        clock_gettime(CLOCK_MONOTONIC, &time);
+        timespec_sum(time, period_tms, next_activation);
+
+        pfilt->prediction(dt);
+
+        clock_nanosleep(CLOCK_MONOTONIC,
+                TIMER_ABSTIME, &next_activation, NULL);
+    }
+    ROS_INFO("Terminating Kalman Filter Thread...\n");
+
+}
