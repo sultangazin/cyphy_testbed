@@ -1,5 +1,6 @@
 #include "state_aggregator/state_aggregator.hpp"
 #include "math.h"
+#include <chrono>
 
 #include "utilities/timeutils/timeutils.hpp"
 #include "utilities/custom_conversion/custom_conversion.hpp"
@@ -19,13 +20,14 @@ StateAggregator::~StateAggregator() {};
 
 bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 
+    node_ = n;
     ros::NodeHandle nl(n);
 
     // Compose the name
     name_ = ros::this_node::getName().c_str();
 
-    callbacks["geometry_msgs/PoseStamped"] = &StateAggregator::onNewPose;
-    callbacks["geometry_msgs/PointStamped"] = &StateAggregator::onNewPosition;
+    //callbacks_pose = &StateAggregator::onNewPose;
+    //callbacks_point["geometry_msgs/PointStamped"] = &StateAggregator::onNewPosition;
 
     // Load parameters
     if (!LoadParameters(nl)) {
@@ -34,7 +36,7 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
     }
 
     // Register callback
-    if (!RegisterCallbacks(nl)) {
+    if (!RegisterCallbacks()) {
         ROS_ERROR("%s: Failed to register callbacks.", name_.c_str());
         return false;
     }
@@ -66,12 +68,20 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
     rs_pub_ =
         nl.advertise<testbed_msgs::CustOdometryStamped> (rs_codom_topic_.c_str(), 10);
 
+
+    // Advertise Services
+    sensor_service = node_.advertiseService(
+            "control_sensors", &StateAggregator::control_sensor, this);
+
     initialized_ = true;
 
     arg_.period = 0.002;
     arg_.pfilt = _pfilt;
 
     kf_thread = std::thread(kf_thread_fnc, (void*) &arg_);
+
+    net_disc_thr = std::thread(&StateAggregator::net_discovery, this,
+            1000);
 
     return true;
 }
@@ -137,6 +147,10 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
         ROS_INFO("Setting default parameter %s = %f", 
                 "time_delay", t_delay_);
     }
+
+    area_name_ = "area0";
+    agent_name_ = "cf3";
+
     return true;
 }
 
@@ -157,18 +171,21 @@ int StateAggregator::UpdateSensorPublishers() {
     network_parser.query_sensors(sdata, area_name_, agent_name_);
 
     for (auto el : sdata) {
-        if (inchannels_.count(el.first) == 0) {
+        std::string sname = el.first; 
+        if (inchannels_.count(sname) == 0) {
+            std::cout << "[STATE AGGREGATOR] Connecting to Sensor: " <<
+                sname << std::endl;
             TopicData str;
             str.topic_name = el.second.name;
             str.area_name = area_name_;
-            str.sensor_name = el.first;
+            str.sensor_name = sname;
             str.datatype = el.second.datatype;
             str.frequency = 0.0;
             str.isActive = true;
-            str.disabled = false;
+            str.enabled = true;
             inchannels_.insert(
                     std::pair<std::string, TopicData>(
-                        el.first, str)
+                        sname, str)
                     );
         }
     }
@@ -180,20 +197,38 @@ bool StateAggregator::AssociateTopicsToCallbacks(const ros::NodeHandle& n) {
     for (auto el : inchannels_) { // For every registered channel
         std::string topic_name = el.second.topic_name;
         std::string topic_datatype = el.second.datatype;
-        if (!el.second.disabled) { // If the channel is not disabled
+        if (el.second.enabled) { // If the channel is not disabled
             if (active_subscriber.count(el.first) == 0) { // Associate the callback
-                active_subscriber.insert(
+                if (topic_datatype == "geometry_msgs/PoseStamped") {
+                    active_subscriber.insert(
                         std::pair<std::string, ros::Subscriber>(
                             el.first,
                             nl.subscribe<geometry_msgs::PoseStamped>(
                                 topic_name.c_str(),
                                 5, 
-                                boost::bind(callbacks[topic_datatype], this, _1, (void*)&el.first),
+                                boost::bind(&StateAggregator::onNewPose, this, _1,
+                                    (void*)&inchannels_[el.first].sensor_name),
                                 ros::VoidConstPtr(),
                                 ros::TransportHints().tcpNoDelay()
                                 )
                             )
                         );
+                }
+                if (topic_datatype == "geometry_msgs/PointStamped") {
+                    active_subscriber.insert(
+                        std::pair<std::string, ros::Subscriber>(
+                            el.first,
+                            nl.subscribe<geometry_msgs::PointStamped>(
+                                topic_name.c_str(),
+                                5, 
+                                boost::bind(&StateAggregator::onNewPosition, this, _1,
+                                    (void*)&inchannels_[el.first].sensor_name),
+                                ros::VoidConstPtr(),
+                                ros::TransportHints().tcpNoDelay()
+                                )
+                            )
+                        );
+                }
             }
         } else { // If the chanell is disabled: unsubscribe
                 if (active_subscriber.count(el.first) > 0) {
@@ -206,12 +241,12 @@ bool StateAggregator::AssociateTopicsToCallbacks(const ros::NodeHandle& n) {
     return true;
 }
 
-bool StateAggregator::RegisterCallbacks(const ros::NodeHandle& n) {
+bool StateAggregator::RegisterCallbacks() {
 
     // Update the list of sensors publications referring to the 
     // vehicle in the current area.
     UpdateSensorPublishers();
-    AssociateTopicsToCallbacks(n); 
+    AssociateTopicsToCallbacks(node_); 
 
     return true;
 }
@@ -353,7 +388,7 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 
 //
 // Call back to get position messages
-void StateAggregator::onNewPosition(const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg, void* arg) {
+void StateAggregator::onNewPosition(const boost::shared_ptr<geometry_msgs::PointStamped const>& msg, void* arg) {
 
     // Take the time
     ros::Time current_time = ros::Time::now();
@@ -363,9 +398,9 @@ void StateAggregator::onNewPosition(const boost::shared_ptr<geometry_msgs::PoseS
     Eigen::Vector3d p;
     Eigen::Vector3d v;
 
-    p(0) = msg->pose.position.x;	
-    p(1) = msg->pose.position.y;	
-    p(2) = msg->pose.position.z;	
+    p(0) = msg->point.x;	
+    p(1) = msg->point.y;	
+    p(2) = msg->point.z;	
 
     std::cout << "Update with " << p.transpose() << std::endl;
     _pfilt->update(p);
@@ -383,11 +418,44 @@ void StateAggregator::onNewPosition(const boost::shared_ptr<geometry_msgs::PoseS
     rs_odom_msg.v.y = v(1);
     rs_odom_msg.v.z = v(2);
 
-
     rs_pub_.publish(rs_odom_msg);
 
     return;
 } 
+
+bool StateAggregator::control_sensor(
+        state_aggregator::ControlSensor::Request& req,
+        state_aggregator::ControlSensor::Response& res) {
+    bool enabling = req.enable;
+    std::cout << "Calling the service " << std::endl;
+    std::string sensor_name = req.name;
+
+    if (inchannels_.count(sensor_name) == 0) {
+        std::cout << "No sensor registered with name '" <<
+            sensor_name << "'" << std::endl;
+        res.success = false;
+        return false;
+    }
+    
+    if (enabling) {
+        std::cout << "[STATE_AGGREGATOR]: Enabling sensor " <<
+            sensor_name << std::endl;
+    } else {
+        std::cout << "[STATE_AGGREGATOR]: Disabling sensor " <<
+            sensor_name << std::endl;
+    }
+
+    inchannels_[sensor_name].enabled = enabling;
+    res.success = true;
+    return true;
+}
+
+void StateAggregator::net_discovery(int ms){
+    while (ros::ok()) {
+        RegisterCallbacks();
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+    }
+}
 
 void kf_thread_fnc(void* p) {
    

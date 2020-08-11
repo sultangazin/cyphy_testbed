@@ -8,14 +8,25 @@ find_package(
 	roscpp 
 	tf 
 	std_msgs
+    message_generation
 	testbed_msgs
     utilities
 	)
 find_package (Eigen3 REQUIRED NO_MODULE)
 
+
+add_service_files(
+	FILES
+    ControlSensor.srv
+	)
+
+generate_messages()
+
+
 catkin_package(
 	INCLUDE_DIRS include/ # The package contains header files
 	CATKIN_DEPENDS roscpp tf std_msgs
+    message_runtime
 	)
 
 # Since we use eigen

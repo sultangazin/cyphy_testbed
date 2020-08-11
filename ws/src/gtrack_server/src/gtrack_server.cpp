@@ -1,7 +1,7 @@
 #include "rpc/this_handler.h"
 #include "gtrack_server/gtrack_server.hpp"
 #include "testbed_msgs/CustPosVel.h"
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PointStamped.h>
 
 
 GTrackServer::GTrackServer() :
@@ -51,7 +51,7 @@ bool GTrackServer::Initialize(const ros::NodeHandle& n) {
     ext_pv_pub_ = nl.advertise<testbed_msgs::CustPosVel>
         (output_state_topic_.c_str(), 10);
 
-    ext_pose_pub_ = nl.advertise<geometry_msgs::PoseStamped>
+    ext_position_pub_ = nl.advertise<geometry_msgs::PointStamped>
         (output_sensor_topic_.c_str(), 10);
 
     initialized_ = true;
@@ -82,7 +82,7 @@ bool GTrackServer::LoadParameters(const ros::NodeHandle& n) {
             output_state_topic_, "gtrack_state");
 
     nl.param<std::string>("topics/output_sensor_topic", 
-            output_sensor_topic_, "/area0/sensors/gtrack/cf3");
+            output_sensor_topic_, "/area0/sensors/gtrack/cf3/data");
 
     nl.param<int>("param/server_port", server_port_, 8080);
 
@@ -108,7 +108,7 @@ void GTrackServer::onNewData(RpcData data) {
         data.y << " " << data.z << "]" << std::endl;
 
     testbed_msgs::CustPosVel posvel_msg;
-    geometry_msgs::PoseStamped pose_msg;
+    geometry_msgs::PointStamped point_msg;
 
     ros::Time current_time = ros::Time::now();
 
@@ -121,9 +121,9 @@ void GTrackServer::onNewData(RpcData data) {
     posvel_msg.v.y = 0.0;
     posvel_msg.v.z = 0.0;
 
-    pose_msg.header.stamp = current_time;
-    pose_msg.pose.position = posvel_msg.p;
+    point_msg.header.stamp = current_time;
+    point_msg.point = posvel_msg.p;
 
     ext_pv_pub_.publish(posvel_msg);
-    ext_pose_pub_.publish(pose_msg);
+    ext_position_pub_.publish(point_msg);
 }

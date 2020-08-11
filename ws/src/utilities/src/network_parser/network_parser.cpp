@@ -51,8 +51,8 @@ int NetworkParser::query_sensors(
     int counter = 0;
 
     std::string req_pattern{"^/"};   
-    int index = 1;
 
+    int index = 1;
     if(!area_name.empty()) {
         req_pattern.append(area_name);
     } else {
@@ -69,6 +69,9 @@ int NetworkParser::query_sensors(
     } else {
         req_pattern.append("(.*?)");
     }
+    req_pattern.append("/.*");
+
+    //std::cout << "Parsing with pattern: " << req_pattern << std::endl;
     
     std::regex regex_pattern(req_pattern);
     std::smatch matches;

@@ -17,6 +17,7 @@
 #include <tf/transform_broadcaster.h>
 #include <testbed_msgs/CustOdometryStamped.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <state_aggregator/ControlSensor.h>
 
 #include "filter/polyfilter.hpp"
 #include "utilities/network_parser/network_parser.hpp"
@@ -28,7 +29,7 @@ struct TopicData {
     std::string datatype;
     double frequency;
     bool isActive;
-    bool disabled;
+    bool enabled;
 };
 
 
@@ -51,13 +52,17 @@ class StateAggregator {
         // Initialize this class by reading parameters and loading callbacks.
         bool Initialize(const ros::NodeHandle& n);
 
-        std::unordered_map<
-            std::string,
-            void (StateAggregator::*) (const boost::shared_ptr<geometry_msgs::PoseStamped const>&, void*)>
-                callbacks; 
-          
+        // Maps with the callbacks
+        //void (StateAggregator::*) (const boost::shared_ptr<geometry_msgs::PoseStamped const>&, void*) callbacks_pose; 
 
+    /*    std::unordered_map<
+            std::string,
+            void (StateAggregator::*) (const boost::shared_ptr<geometry_msgs::PointStamped const>&, void*)>
+                callbacks_point; 
+*/
     private:
+        ros::NodeHandle node_;
+
         std::string area_name_;
         std::string agent_name_;
 
@@ -69,17 +74,22 @@ class StateAggregator {
 
         // Load parameters and register callbacks.
         bool LoadParameters(const ros::NodeHandle& n);
-        bool RegisterCallbacks(const ros::NodeHandle& n);
+        bool RegisterCallbacks();
         bool AssociateTopicsToCallbacks(const ros::NodeHandle& n);
         int UpdateSensorPublishers();
+        void net_discovery(int ms);
 
         // Remember last time we got a state callback.
         double last_state_time_;
 
         // Callback on Pose 
-        //void onNewPose(const geometry_msgs::PoseStamped& msg, void* arg);
         void onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg, void* arg);
-        void onNewPosition( const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg, void* arg);
+        void onNewPosition( const boost::shared_ptr<geometry_msgs::PointStamped const>& msg, void* arg);
+
+        // Services
+        bool control_sensor(state_aggregator::ControlSensor::Request& req,
+                state_aggregator::ControlSensor::Response& res);
+        ros::ServiceServer sensor_service;
 
         // Publishers and subscribers.
         // COMM ------------------------------------------------------------
@@ -133,6 +143,7 @@ class StateAggregator {
         PolyFilter* _pfilt;
         kfThread_arg arg_;
         std::thread kf_thread;
+        std::thread net_disc_thr;
 
         // ===========================================================
         // Helper variables

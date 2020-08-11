@@ -25,7 +25,7 @@ class GTrackServer {
 		int64_t client_time_offset_ns;
 
         ros::Publisher ext_pv_pub_;
-        ros::Publisher ext_pose_pub_;
+        ros::Publisher ext_position_pub_;
 
         std::string name_;
 
