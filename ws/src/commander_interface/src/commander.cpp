@@ -5,6 +5,10 @@
 #include "commander/commander.hpp"
 #include "guidance/GenTrackTrajectory.h"
 #include "guidance/ExeMission.h"
+#include "crazyflie_driver/GoTo.h"
+#include "crazyflie_driver/Land.h"
+#include "crazyflie_driver/Stop.h"
+#include "crazyflie_driver/Takeoff.h"
 
 // =================================================================
 // =================================================================
@@ -12,6 +16,7 @@ CommanderInterface::CommanderInterface() :
     takeoff_srv_(), land_srv_(), goTo_srv_(), track_srv_(),
     impact_srv_(), stop_srv_()
 {
+    off_board_controller_ = false;
     initialized_ = false;
 }
 
@@ -64,65 +69,122 @@ bool CommanderInterface::Initialize(const ros::NodeHandle& n) {
     stop_srv_ = nh.advertiseService("stop_srv",
             &CommanderInterface::stop_callback, this);
 
-            // Connect to the service provided by the guidance node.
-            // That node will create the guidance (produce reference points) for accomplishing the task
-            guidance_clnt_ = ng.serviceClient<guidance::ExeMission>(
-                "exe_Mission");
-
-            initialized_ = true; 
-
-            return true;
-            }
+    // Connect to the service provided by the guidance node.
+    // That node will create the guidance (produce reference points) for accomplishing the task
+    guidance_clnt_ = ng.serviceClient<guidance::ExeMission>(
+        "exe_Mission");
 
 
-            // Service Callbacks
-            bool CommanderInterface::takeoff_callback(
-                commander_interface::TakeOff::Request  &req,
-                commander_interface::TakeOff::Response &res) {
+    // Connect to the services of the crazyflie_ros
+    cf_ros_goto_clnt_ = ng.serviceClient<crazyflie_driver::GoTo>(
+            "go_to");
 
-            ROS_INFO("%s: Takeoff requested! \n \t Height: %.3f | Duration: %.3f", 
-                    name_.c_str(), req.height, req.duration);
+    cf_ros_takeoff_clnt_ = ng.serviceClient<crazyflie_driver::Takeoff>(
+            "takeoff");
 
-            guidance::ExeMission srv;
+    cf_ros_land_clnt_ = ng.serviceClient<crazyflie_driver::Land>(
+            "land");
 
-            boost::array<float, 3> v{{0.0, 0.0, 0.0}};
+    cf_ros_stop_clnt_ = ng.serviceClient<crazyflie_driver::Stop>(
+            "stop");
 
-            srv.request.mission_type = "takeoff";
-            srv.request.target_v = v;
-            srv.request.target_a = v;
-            v[2] = req.height;
-            srv.request.target_p = v; 
 
-            srv.request.tg_time = req.duration;
+    initialized_ = true; 
 
-            if (guidance_clnt_.call(srv) == true)
-                res.ack = "Roger!";
-            else
-                res.ack = "Fail!";
+    return true;
+}
 
-            return true;
-            }
+
+// Service Callbacks
+bool CommanderInterface::takeoff_callback(
+    commander_interface::TakeOff::Request  &req,
+    commander_interface::TakeOff::Response &res) {
+
+    bool output = false;
+
+    ROS_INFO("%s: Takeoff requested! \n \t Height: %.3f | Duration: %.3f", 
+            name_.c_str(), req.height, req.duration);
+
+    if (off_board_controller_) {
+        guidance::ExeMission srv;
+
+        boost::array<float, 3> v{{0.0, 0.0, 0.0}};
+
+        srv.request.mission_type = "takeoff";
+        srv.request.target_v = v;
+        srv.request.target_a = v;
+        v[2] = req.height;
+        srv.request.target_p = v; 
+
+        srv.request.tg_time = req.duration;
+
+        if (guidance_clnt_.call(srv) == true) {
+            res.ack = "Roger!";
+            output = true;
+        }
+        else {
+            res.ack = "Fail!";
+            output = false;
+        }
+    } else {
+        crazyflie_driver::Takeoff srv;
+        srv.request.height = req.height;
+        srv.request.duration = ros::Duration(req.duration);
+        srv.request.groupMask = 0;
+
+        if (cf_ros_takeoff_clnt_.call(srv) == true) {
+            res.ack = "Roger!";
+            output = true;
+        }
+        else {
+            res.ack = "Fail!";
+            output = false;
+        }
+    }
+
+    return output;
+}
 
 bool CommanderInterface::land_callback(
         commander_interface::Land::Request  &req,
         commander_interface::Land::Response &res) {
+    bool output = false;
 
-    guidance::ExeMission srv;
+    if (off_board_controller_) {
+        guidance::ExeMission srv;
 
-    //boost::array<float, 3> v{{0.0, 0.0, 0.0}};
-    boost::array<float, 3> v = req.target_p;
+        //boost::array<float, 3> v{{0.0, 0.0, 0.0}};
+        boost::array<float, 3> v = req.target_p;
 
-    // Relative request to the current point
-    srv.request.mission_type = "land";
-    srv.request.target_p = v; 
-    srv.request.target_a = v;
+        // Relative request to the current point
+        srv.request.mission_type = "land";
+        srv.request.target_p = v; 
+        srv.request.target_a = v;
 
-    srv.request.tg_time = req.duration;
+        srv.request.tg_time = req.duration;
 
-    if (guidance_clnt_.call(srv))
-        res.ack = "Roger!";
-    else
-        res.ack = "Fail!";
+        if (guidance_clnt_.call(srv)) {
+            res.ack = "Roger!";
+            output = true;
+        } else {
+            res.ack = "Fail!";
+            output = false;
+        }
+    } else {
+        crazyflie_driver::Land srv;
+        srv.request.height = req.target_p[2];
+        srv.request.duration = ros::Duration(req.duration);
+        srv.request.groupMask = 0;
+
+        if (cf_ros_land_clnt_.call(srv) == true) {
+            res.ack = "Roger!";
+            output = true;
+        }
+        else {
+            res.ack = "Fail!";
+            output = false;
+        }
+    }
 
     return true;
 }
@@ -130,26 +192,49 @@ bool CommanderInterface::land_callback(
 bool CommanderInterface::goto_callback(
         commander_interface::GoTo::Request  &req,
         commander_interface::GoTo::Response &res) {
+    bool output = false;
 
-    guidance::ExeMission srv;
+    if (off_board_controller_) {
+        guidance::ExeMission srv;
 
-    boost::array<float, 3> v{{0.0, 0.0, 0.0}};
+        boost::array<float, 3> v{{0.0, 0.0, 0.0}};
 
-    srv.request.mission_type = "goTo";
-    srv.request.target_v = v;
-    srv.request.target_a = v;
+        srv.request.mission_type = "goTo";
+        srv.request.target_v = v;
+        srv.request.target_a = v;
 
-    v = req.target_p;
-    srv.request.target_p = v; 
+        v = req.target_p;
+        srv.request.target_p = v; 
 
-    srv.request.tg_time = req.duration;
+        srv.request.tg_time = req.duration;
 
-    if (guidance_clnt_.call(srv))
-        res.ack = "Roger!";
-    else
-        res.ack = "Fail!";
+        if (guidance_clnt_.call(srv)) {
+            res.ack = "Roger!";
+            output = true;
+        } else {
+            res.ack = "Fail!";
+            output = false;
+        }
+    } else {
+        crazyflie_driver::GoTo srv;
+        srv.request.goal.x = req.target_p[0];
+        srv.request.goal.y = req.target_p[1];
+        srv.request.goal.z = req.target_p[2];
+        srv.request.yaw = 0;
+        srv.request.duration = ros::Duration(req.duration);
+        srv.request.relative = false;
+        srv.request.groupMask = 0;
 
-    return true;
+        if (cf_ros_goto_clnt_.call(srv) == true) {
+            res.ack = "Roger!";
+            output = true;
+        } else {
+            res.ack = "Fail!";
+            output = false;
+        }
+    }
+
+    return output;
 }
 
 bool CommanderInterface::track_callback(
@@ -222,23 +307,39 @@ bool CommanderInterface::flip_callback(
 bool CommanderInterface::stop_callback(
         commander_interface::Stop::Request  &req,
         commander_interface::Stop::Response &res) {
+    bool output = false;
+    if (off_board_controller_) {
+        guidance::ExeMission srv;
 
-    guidance::ExeMission srv;
+        boost::array<float, 3> v{{0.0, 0.0, 0.0}};
 
-    boost::array<float, 3> v{{0.0, 0.0, 0.0}};
+        // Relative request to the current point
+        srv.request.mission_type = "stop";
+        srv.request.target_p = v; 
+        srv.request.target_a = v;
 
-    // Relative request to the current point
-    srv.request.mission_type = "stop";
-    srv.request.target_p = v; 
-    srv.request.target_a = v;
+        srv.request.tg_time = 0.0; 
 
-    srv.request.tg_time = 0.0; 
+        if (guidance_clnt_.call(srv)) {
+            res.ack = "Roger!";
+            output = true;
+        } else {
+            res.ack = "Fail!";
+            output = false;
+        }
+    } else {
+        crazyflie_driver::Stop srv;
+        srv.request.groupMask = 0;
+        
+        if (cf_ros_stop_clnt_.call(srv) == true) {
+            res.ack = "Roger!";
+            output = true;
+        } else {
+            res.ack = "Fail!";
+            output = false;
+        }
+    }
 
-    if (guidance_clnt_.call(srv))
-        res.ack = "Roger!";
-    else
-        res.ack = "Fail!";
-
-    return true;
+    return output;
 }
 

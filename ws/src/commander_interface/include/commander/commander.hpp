@@ -68,7 +68,10 @@ class CommanderInterface {
 
         // Service Client
         ros::ServiceClient guidance_clnt_;
-
+        ros::ServiceClient cf_ros_goto_clnt_;
+        ros::ServiceClient cf_ros_takeoff_clnt_;
+        ros::ServiceClient cf_ros_land_clnt_;
+        ros::ServiceClient cf_ros_stop_clnt_;
 
         // Callbacks
 
@@ -76,6 +79,8 @@ class CommanderInterface {
         // Names and topics
         std::string name_;
         std::string namespace_;
+
+        bool off_board_controller_;
 
         bool initialized_;
 };
