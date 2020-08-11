@@ -8,11 +8,17 @@
      - Commander + Guidance Nodes
 -->
 <launch>
-    <arg name="vehicle_frame3" default="cf3" />
+    <arg name="vehicle_frame" default="cf3" />
     <arg name="target" default="target" />
     <arg name="nodeB" default="nodeB" />
     <arg name="ip" default="192.168.1.198" />
     <arg name="port" default="3883" />
+    
+    <arg name="uri" default="radio://0/80/2M/E7E7E7E703" /> 
+    <arg name="server" default="RS2" />
+	<arg name="provide_position" default="True" />
+    <arg name="provide_distance" default="False" />
+
 
 <!-- ===================================== -->
 <!-- Launch the data aquisition component 
@@ -24,12 +30,19 @@
 </include>
 
 
+<node pkg="gtrack_server"
+    name="gtrack_server_node"
+    type="gtrack_server"
+    output="screen">
+</node>
+
+
 <!-- ===================================== -->
 <!-- Launch the estimator of the object state from
      the VRPN raw data.
      -->
 <include file="$(find demo_launchers)/launch/estimator_launch.launch">
-    <arg name="vehicle_frame" value="$(arg vehicle_frame3)" />
+    <arg name="vehicle_frame" value="$(arg vehicle_frame)" />
 </include>
 
 
@@ -42,7 +55,7 @@
 <!-- ======================================== -->
 <!-- Launch the controller/guidance componets -->
 <include file="$(find demo_launchers)/launch/commander_launch.launch">
-    <arg name="vehicle_frame" value="$(arg vehicle_frame3)" />
+    <arg name="vehicle_frame" value="$(arg vehicle_frame)" />
     <arg name="commander_id" value="cm3" />
     <arg name="obst_frame" value="cf2" />
 </include>
@@ -55,12 +68,19 @@
     output="screen">
 </node>
 
-<node pkg="gtrack_server"
-    name="gtrack_server_node"
-    type="gtrack_server"
-    output="screen">
-</node>
 
+<include file="$(find demo_launchers)/launch/radio_server.launch">
+    <arg name="rs_name" value="$(arg server)" />
+</include>
+
+
+<include file="$(find demo_launchers)/launch/cf_bridge.launch">
+        <arg name="uri" value="$(arg uri)" />
+        <arg name="frame" value="$(arg vehicle_frame)" />
+        <arg name="server" value="$(arg server)" />
+        <arg name="provide_position" value="$(arg provide_position)" />
+        <arg name="provide_distance" value="$(arg provide_distance)" />
+</include>
 
 <!--
 <node pkg="rviz" 

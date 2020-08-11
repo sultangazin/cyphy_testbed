@@ -7,9 +7,8 @@
     <arg name="commander_id" default="cm1" />  
     <arg name="obst_frame" default="cf3" />
 
-
     <group ns="$(arg vehicle_frame)"> 
-        <!--
+    <!--
     ========================================
     Trajectory Generation Service
     -->

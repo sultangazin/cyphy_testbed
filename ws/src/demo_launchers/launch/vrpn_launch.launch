@@ -8,14 +8,16 @@ Run vrpn client
 This connects to the optitrack server and produces pose messages regarding 
 the CF.
 -->
-<node 
-    pkg="vrpn_client_ros"
-    type="vrpn_client_node" 
-    name="vrpn_client_node"
-    output="screen"
-    respawn="true"
-    respawn_delay="3">
-        <rosparam subst_value="true">
+<group ns="area0">
+    <group ns="sensors">
+        <node 
+            pkg="vrpn_client_cyphy"
+            type="vrpn_client_node" 
+            name="optitrack"
+            output="screen"
+            respawn="true"
+            respawn_delay="3">
+            <rosparam subst_value="true">
                 server: $(arg ip)
                 port: $(arg port)
                 update_frequency: 500.0
@@ -23,7 +25,8 @@ the CF.
                 use_server_time: true
                 broadcast_tf: false
                 refresh_tracker_frequency: 1.0
-        </rosparam>
-</node>
-
+            </rosparam>
+        </node>
+    </group>
+</group>
 </launch>
