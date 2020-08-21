@@ -26,9 +26,6 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
     // Compose the name
     name_ = ros::this_node::getName().c_str();
 
-    //callbacks_pose = &StateAggregator::onNewPose;
-    //callbacks_point["geometry_msgs/PointStamped"] = &StateAggregator::onNewPosition;
-
     // Load parameters
     if (!LoadParameters(nl)) {
         ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
@@ -81,7 +78,7 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
     kf_thread = std::thread(kf_thread_fnc, (void*) &arg_);
 
     net_disc_thr = std::thread(&StateAggregator::net_discovery, this,
-            1000);
+            500);
 
     return true;
 }
@@ -232,6 +229,7 @@ bool StateAggregator::AssociateTopicsToCallbacks(const ros::NodeHandle& n) {
             }
         } else { // If the chanell is disabled: unsubscribe
                 if (active_subscriber.count(el.first) > 0) {
+                    std::cout << "Unsubscribing from " << el.first << std::endl;
                     active_subscriber[el.first].shutdown();
                     active_subscriber.erase(el.first);
                 }
@@ -266,6 +264,7 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 
     // Take the time
     ros::Time current_time = ros::Time::now();
+    static ros::Time old_time {};
 
     p_(0) = msg->pose.position.x;	
     p_(1) = msg->pose.position.y;	
@@ -363,25 +362,23 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     ext_codometry_msg_.v.z = vel_(2);
     ext_codometry_msg_.w.x = w_(0);
     ext_codometry_msg_.w.y = w_(1);
-    ext_codometry_msg_.w.z = w_(2);
-
-    ext_pos_pub_.publish(ext_position_msg_);
-    pose_pub_.publish(ext_pose_msg_);
-    pose_rpy_pub_.publish(ext_pose_rpy_msg_);
+    ext_codometry_msg_.w.z = w_(2); 
+   
+    //pose_pub_.publish(ext_pose_msg_);
+    //pose_rpy_pub_.publish(ext_pose_rpy_msg_);
 	codometry_pub_.publish(ext_codometry_msg_);
 
-    testbed_msgs::CustOdometryStamped rs_odom_msg;
-    rs_odom_msg.header.stamp = current_time;
-    rs_odom_msg.p.x = p_(0);
-    rs_odom_msg.p.y = p_(1);
-    rs_odom_msg.p.z = p_(2);
+    ext_pos_pub_.publish(ext_position_msg_);
 
-    rs_odom_msg.v.x = v_(0);
-    rs_odom_msg.v.y = v_(1);
-    rs_odom_msg.v.z = v_(2);
+    static int counter = 0;
+    if (counter % 300 == 0) {
+        double dt =  current_time.toSec() - old_time.toSec();
+        old_time = current_time;
+        std::cout << "Optitrack msg rate = " << 300 / dt << std::endl; 
+        counter = 0;
+    }
+    counter++;
 
-
-    rs_pub_.publish(rs_odom_msg);
 
     return;
 }
@@ -392,6 +389,7 @@ void StateAggregator::onNewPosition(const boost::shared_ptr<geometry_msgs::Point
 
     // Take the time
     ros::Time current_time = ros::Time::now();
+    static timespec told {}; 
 
     std::string sensor_name = *(std::string*) arg;
 
@@ -402,7 +400,16 @@ void StateAggregator::onNewPosition(const boost::shared_ptr<geometry_msgs::Point
     p(1) = msg->point.y;	
     p(2) = msg->point.z;	
 
-    std::cout << "Update with " << p.transpose() << std::endl;
+    static int counter = 0;
+    counter++;
+    if (counter % 15 == 0) {
+        timespec tnow;
+        clock_gettime(CLOCK_MONOTONIC, &tnow);
+        double dt = time_diff(tnow, told);
+        std::cout << "Realsense msg rate = " << 15.0 / dt << std::endl;
+        counter = 0;
+        told = tnow;
+    }
     _pfilt->update(p);
 
     p = _pfilt->getPos();
@@ -419,6 +426,11 @@ void StateAggregator::onNewPosition(const boost::shared_ptr<geometry_msgs::Point
     rs_odom_msg.v.z = v(2);
 
     rs_pub_.publish(rs_odom_msg);
+
+    geometry_msgs::PointStamped pos_msg;
+    pos_msg.header.stamp = current_time;
+    pos_msg.point = rs_odom_msg.p; 
+    ext_pos_pub_.publish(pos_msg);
 
     return;
 } 

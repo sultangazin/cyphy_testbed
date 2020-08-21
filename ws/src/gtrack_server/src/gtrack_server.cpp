@@ -3,28 +3,10 @@
 #include "testbed_msgs/CustPosVel.h"
 #include <geometry_msgs/PointStamped.h>
 
-
 GTrackServer::GTrackServer() :
     pserver(nullptr) {
 
         initialized_ = false;
-}
-
-GTrackServer::GTrackServer(int port) :
-	pserver(new rpc::server(port)) {
-	server_port_ = port;
-
-    pserver->bind("new_data", [this](RpcData data) {
-            onNewData(data);
-			// Disable the response
-			rpc::this_handler().disable_response();
-			return 0;
-            });
-
-	pserver->bind("synch", [this](RpcSynchData d) {
-			rpcSynch(d);
-			return true;
-			});
 }
 
 
@@ -34,7 +16,6 @@ void GTrackServer::start() {
     if (pserver)
         pserver->async_run(2);
 }
-
 
 bool GTrackServer::Initialize(const ros::NodeHandle& n) {
 
@@ -54,7 +35,13 @@ bool GTrackServer::Initialize(const ros::NodeHandle& n) {
     ext_position_pub_ = nl.advertise<geometry_msgs::PointStamped>
         (output_sensor_topic_.c_str(), 10);
 
-    initialized_ = true;
+
+    input_feed_sub_ = nl.subscribe(
+            "/cf3/external_position",
+            5,
+            &GTrackServer::onNewPosition, this,
+            ros::TransportHints().tcpNoDelay());
+
 
     pserver = new rpc::server(server_port_);
     
@@ -65,12 +52,32 @@ bool GTrackServer::Initialize(const ros::NodeHandle& n) {
 			return 0;
             });
 
-	pserver->bind("synch", [this](RpcSynchData d) {
-			rpcSynch(d);
-			return true;
+    pserver->bind("synch", [this](RpcSynchData d) {
+            rpcSynch(d);
+            return true;
 			});
 
+    pserver->bind("get_data", [this](int i){
+            //std::cout << "Answering [" << i << "]" <<
+            //std::endl;
+            RpcData_v outdata;
+            mx.lock();
+            for (auto el : world_map_) {
+                RpcData d;
+                d.id = 3;
+                d.xx = el.second.yy + 0.115; 
+                d.yy = -el.second.xx + 0.14; 
+                d.zz = el.second.zz;
+                outdata.data.push_back(d);
+            }
+            mx.unlock();
+            //rpc::this_handler().respond(outdata);
+            return outdata;
+            });
+
     start();
+
+    initialized_ = true;
     return true;
 }
 
@@ -102,10 +109,12 @@ void GTrackServer::rpcSynch(RpcSynchData d) {
 }
 
 void GTrackServer::onNewData(RpcData data) {
+    /*
     std::cout << "Received data" << std::endl;
     std::cout << "t = " << data.t << std::endl;
-    std::cout << "position = [" << data.x << " " <<
-        data.y << " " << data.z << "]" << std::endl;
+    std::cout << "position = [" << data.xx << " " <<
+        data.yy << " " << data.zz << "]" << std::endl;
+    */
 
     testbed_msgs::CustPosVel posvel_msg;
     geometry_msgs::PointStamped point_msg;
@@ -113,9 +122,9 @@ void GTrackServer::onNewData(RpcData data) {
     ros::Time current_time = ros::Time::now();
 
     posvel_msg.header.stamp = current_time;
-    posvel_msg.p.x = -data.y + 0.14;
-    posvel_msg.p.y = data.x - 0.115;
-    posvel_msg.p.z = data.z;
+    posvel_msg.p.x = -data.yy + 0.14;
+    posvel_msg.p.y = data.xx - 0.115;
+    posvel_msg.p.z = data.zz;
 
     posvel_msg.v.x = 0.0;
     posvel_msg.v.y = 0.0;
@@ -126,4 +135,14 @@ void GTrackServer::onNewData(RpcData data) {
 
     ext_pv_pub_.publish(posvel_msg);
     ext_position_pub_.publish(point_msg);
+}
+
+void GTrackServer::onNewPosition(
+        const geometry_msgs::PointStampedConstPtr& msg) {
+    mx.lock();
+    world_map_[3].id = 3;
+    world_map_[3].xx = msg->point.x;
+    world_map_[3].yy = msg->point.y;
+    world_map_[3].zz = msg->point.z;
+    mx.unlock();
 }
