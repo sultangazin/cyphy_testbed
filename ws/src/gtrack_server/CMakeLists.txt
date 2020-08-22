@@ -30,6 +30,7 @@ include_directories(
 add_executable(gtrack_server 
 	exec/gtrack_server_node.cpp 
 	src/gtrack_server.cpp
+    src/gatlas.cpp
 	)
 
 add_dependencies(gtrack_server 
