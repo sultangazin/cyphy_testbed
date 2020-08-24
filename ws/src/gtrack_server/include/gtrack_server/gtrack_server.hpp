@@ -28,6 +28,7 @@ class GTrackServer {
 
         std::mutex mx;
 
+		GAtlas ga;
         std::unordered_map<int, RpcData> world_map_;
 
 		int64_t client_time_offset_ns;

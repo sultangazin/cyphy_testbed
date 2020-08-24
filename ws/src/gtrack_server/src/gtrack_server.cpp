@@ -75,6 +75,38 @@ bool GTrackServer::Initialize(const ros::NodeHandle& n) {
             return outdata;
             });
 
+	// Service to add Tranformation between atlas items
+	pserver->bind("add_atlas_trf_data", [this](RpcAtlasTrsfData data) {
+			onNewTrfData(data);
+			rpc::this_handler().disable_response();
+			return 0;	
+			});
+
+	pserver->bind("get_atlas_trf_data", [this](int src, int dst) {
+			bool success; 
+			TransformData trf {};	
+			mx.lock();
+			success = ga.getTransform(src, dst, trf);
+			mx.unlock();
+
+			RpcAtlasTrsfData outdata {};
+			
+			if (success) {
+				outdata.origin = src;
+				outdata.dest = dst;
+				outdata.pos = std::vector<double>(3);
+				outdata.quat = std::vector<double>(4);
+				outdata.quat[0] = trf.rot.w();
+				for (int i = 0; i < 3; i++) {
+					outdata.pos[i] = trf.t(i);
+					outdata.quat[i + 1] = trf.rot.vec()(i);
+				}
+			}
+
+			return outdata;
+			});
+
+
     start();
 
     initialized_ = true;
@@ -135,6 +167,16 @@ void GTrackServer::onNewData(RpcData data) {
 
     ext_pv_pub_.publish(posvel_msg);
     ext_position_pub_.publish(point_msg);
+}
+
+void GTrackServer::onNewTrfData(RpcAtlasTrsfData data) {
+	TransformData tf;
+	tf.rot.w() = data.quat[0];
+	for (int i = 0; i < 3; i++) {
+		tf.t(i) = data.pos[i];
+		tf.rot.vec()(i) = data.quat[i + 1]
+	}
+	ga.insert(data.origin, data.dest, tf);
 }
 
 void GTrackServer::onNewPosition(
