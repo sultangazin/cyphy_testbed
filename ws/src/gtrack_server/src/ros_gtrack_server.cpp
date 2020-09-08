@@ -1,23 +1,30 @@
 #include "rpc/this_handler.h"
-#include "gtrack_server/gtrack_server.hpp"
+#include "gtrack_server/ros_gtrack_server.hpp"
 #include "testbed_msgs/CustPosVel.h"
 #include <geometry_msgs/PointStamped.h>
 
-GTrackServer::GTrackServer() :
-    pserver(nullptr) {
+#define _GTRACK_SERVER_DEBUG 
 
+
+ROSGTrackServer::ROSGTrackServer() :
+    pserver(nullptr) {
         initialized_ = false;
+		server_port_ = 8080;
 }
 
-
-GTrackServer::~GTrackServer() {}
-
-void GTrackServer::start() {
+ROSGTrackServer::ROSGTrackServer(int port) :
+    pserver(nullptr) {
+        initialized_ = false;
+		server_port_ = port;
+}
+void ROSGTrackServer::start() {
     if (pserver)
         pserver->async_run(2);
 }
 
-bool GTrackServer::Initialize(const ros::NodeHandle& n) {
+ROSGTrackServer::~ROSGTrackServer() {}
+
+bool ROSGTrackServer::Initialize(const ros::NodeHandle& n) {
 
     ros::NodeHandle nl(n);
 
@@ -39,44 +46,47 @@ bool GTrackServer::Initialize(const ros::NodeHandle& n) {
     input_feed_sub_ = nl.subscribe(
             "/cf3/external_position",
             5,
-            &GTrackServer::onNewPosition, this,
+            &ROSGTrackServer::onNewPosition, this,
             ros::TransportHints().tcpNoDelay());
-
 
     pserver = new rpc::server(server_port_);
     
-	pserver->bind("new_data", [this](RpcData data) {
+    /**
+     * On the server side, the "send_data" is when the 
+     * data arrives from clients.
+     * The messages are pushed into the ROS stream with 
+     * publications on topics.
+     */
+	pserver->bind("send_data", [this](RpcPointData data) {
             onNewData(data);
 			// Disable the response
 			rpc::this_handler().disable_response();
 			return 0;
             });
 
-    pserver->bind("synch", [this](RpcSynchData d) {
-            rpcSynch(d);
-            return true;
-			});
-
+    /**
+     * Get data is the request from the client to get information.
+     * The parameter "i" is not used.
+     */
     pserver->bind("get_data", [this](int i){
-            //std::cout << "Answering [" << i << "]" <<
-            //std::endl;
-            RpcData_v outdata;
-            mx.lock();
-            for (auto el : world_map_) {
-                RpcData d;
-                d.id = 3;
-                d.xx = el.second.yy + 0.115; 
-                d.yy = -el.second.xx + 0.14; 
-                d.zz = el.second.zz;
+            RpcPointData_v outdata;
+            std::unordered_map<int, gatlas::TargetData> world_map = ga.getMap();
+            for (auto el : world_map) {
+                RpcPointData d;
+                d.target_id = 3;
+                d.xx = el.second.pos(1) + 0.115; 
+                d.yy = -el.second.pos(0) + 0.14; 
+                d.zz = el.second.pos(2);
                 outdata.data.push_back(d);
             }
-            mx.unlock();
             //rpc::this_handler().respond(outdata);
             return outdata;
             });
 
-	// Service to add Tranformation between atlas items
-	pserver->bind("add_atlas_trf_data", [this](RpcAtlasTrsfData data) {
+	/**
+     * Service to add Tranformation between atlas items.
+     */
+	pserver->bind("add_atlas_trf_data", [this](RpcGAtlasTrsfData data) {
 			onNewTrfData(data);
 			rpc::this_handler().disable_response();
 			return 0;	
@@ -84,14 +94,14 @@ bool GTrackServer::Initialize(const ros::NodeHandle& n) {
 
 	pserver->bind("get_atlas_trf_data", [this](int src, int dst) {
 			bool success; 
-			TransformData trf {};	
-			mx.lock();
+			gatlas::TransformData trf {};	
 			success = ga.getTransform(src, dst, trf);
-			mx.unlock();
 
-			RpcAtlasTrsfData outdata {};
+			RpcGAtlasTrsfData outdata {};
+            outdata.good = false;
 			
 			if (success) {
+                outdata.good = true;
 				outdata.origin = src;
 				outdata.dest = dst;
 				outdata.pos = std::vector<double>(3);
@@ -106,7 +116,6 @@ bool GTrackServer::Initialize(const ros::NodeHandle& n) {
 			return outdata;
 			});
 
-
     start();
 
     initialized_ = true;
@@ -114,7 +123,7 @@ bool GTrackServer::Initialize(const ros::NodeHandle& n) {
 }
 
 
-bool GTrackServer::LoadParameters(const ros::NodeHandle& n) {
+bool ROSGTrackServer::LoadParameters(const ros::NodeHandle& n) {
     ros::NodeHandle nl("~");
 
     nl.param<std::string>("topics/output_state_topic", 
@@ -129,18 +138,7 @@ bool GTrackServer::LoadParameters(const ros::NodeHandle& n) {
 }
 
 
-void GTrackServer::rpcSynch(RpcSynchData d) {
-	uint64_t sec = d.sec;
-    uint64_t nsec = d.nsec;
-	ros::Time current_time = ros::Time::now();
-
-	long long int dsec_ns = (current_time.sec - sec) * 1e9;
-	long long int dnsec = current_time.nsec - nsec;
-	client_time_offset_ns = dsec_ns; 
-	client_time_offset_ns += dnsec;
-}
-
-void GTrackServer::onNewData(RpcData data) {
+void ROSGTrackServer::onNewData(RpcPointData data) {
     /*
     std::cout << "Received data" << std::endl;
     std::cout << "t = " << data.t << std::endl;
@@ -169,22 +167,23 @@ void GTrackServer::onNewData(RpcData data) {
     ext_position_pub_.publish(point_msg);
 }
 
-void GTrackServer::onNewTrfData(RpcAtlasTrsfData data) {
-	TransformData tf;
+void ROSGTrackServer::onNewPosition(
+        const geometry_msgs::PointStampedConstPtr& msg) {
+
+    ros::Time t = ros::Time::now();
+    Eigen::Vector3d p(msg->point.x, msg->point.y, msg->point.z);
+    ga.update_target_data(3,
+            p,
+            Eigen::Vector3d::Zero(),
+            t.sec + t.nsec * 1e3);
+}
+
+void ROSGTrackServer::onNewTrfData(RpcGAtlasTrsfData data) {
+	gatlas::TransformData tf;
 	tf.rot.w() = data.quat[0];
 	for (int i = 0; i < 3; i++) {
 		tf.t(i) = data.pos[i];
-		tf.rot.vec()(i) = data.quat[i + 1]
+		tf.rot.vec()(i) = data.quat[i + 1];
 	}
-	ga.insert(data.origin, data.dest, tf);
-}
-
-void GTrackServer::onNewPosition(
-        const geometry_msgs::PointStampedConstPtr& msg) {
-    mx.lock();
-    world_map_[3].id = 3;
-    world_map_[3].xx = msg->point.x;
-    world_map_[3].yy = msg->point.y;
-    world_map_[3].zz = msg->point.z;
-    mx.unlock();
+	ga.setTransform(data.origin, data.dest, tf);
 }

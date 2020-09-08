@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include "gtrack_server/gtrack_server.hpp"
+#include "gtrack_server/ros_gtrack_server.hpp"
 
 int main(int argc, char** argv) {
     ros::init(argc, argv, "gtrack_server_node");
@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
 
     ROS_INFO("RPC Server Node");
 
-    GTrackServer rpc_server;
+    ROSGTrackServer rpc_server;
 
     if (!rpc_server.Initialize(nl)) {
         ROS_ERROR("%s: Failed to initialize the node!\n", 

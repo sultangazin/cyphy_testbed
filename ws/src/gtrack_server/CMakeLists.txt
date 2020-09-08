@@ -29,7 +29,7 @@ include_directories(
 # Declare the executable to be build and the associated source
 add_executable(gtrack_server 
 	exec/gtrack_server_node.cpp 
-	src/gtrack_server.cpp
+	src/ros_gtrack_server.cpp
     src/gatlas.cpp
 	)
 
