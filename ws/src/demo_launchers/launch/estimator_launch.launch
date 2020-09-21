@@ -16,8 +16,7 @@ sensors and provides an estimator of the drone state.
         <!-- Topic parameters -->
         <param name="sigmax" value="0.1" type='double' />
         <param name="sigmay" value="0.001" type='double' />
-
-        
+        <param name="param/target_name" value="$(arg vehicle_frame)" />
 
         <param name="topics/out_ext_position_topic" value="external_position" />
         <param name="topics/out_ext_pose_topic" value="external_pose" />
@@ -30,7 +29,7 @@ sensors and provides an estimator of the drone state.
 </group>
 
 
-<node pkg="rosbag" name="mocap_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_mocap  /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/rs_codom /area0/sensors/gtrack/cf3/data /area0/sensors/optitrack/cf3/data"/>
+<node pkg="rosbag" name="mocap_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_mocap  /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/external_pose_rpy /area0/sensors/gtrack/cf3/data /area0/sensors/optitrack/cf3/data"/>
 
 </launch>
 

@@ -64,7 +64,7 @@ class StateAggregator {
         ros::NodeHandle node_;
 
         std::string area_name_;
-        std::string agent_name_;
+        std::string target_name_;
 
         double _sigmax;
         double _sigmay;

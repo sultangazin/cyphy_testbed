@@ -88,6 +88,8 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
     ros::NodeHandle np("~");
     std::string key;
 
+    np.param<std::string>("param/target_name", target_name_,"cf1");
+
     // External position (just position)
     np.param<std::string>("topics/out_ext_position_topic", ext_position_topic_, 
             "external_position");
@@ -146,7 +148,6 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
     }
 
     area_name_ = "area0";
-    agent_name_ = "cf3";
 
     return true;
 }
@@ -165,7 +166,7 @@ int StateAggregator::UpdateSensorPublishers() {
     // vehicle.
     //
     std::unordered_map<std::string, ros::master::TopicInfo> sdata;
-    network_parser.query_sensors(sdata, area_name_, agent_name_);
+    network_parser.query_sensors(sdata, area_name_, target_name_);
 
     for (auto el : sdata) {
         std::string sname = el.first; 
@@ -364,8 +365,8 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     ext_codometry_msg_.w.y = w_(1);
     ext_codometry_msg_.w.z = w_(2); 
    
-    //pose_pub_.publish(ext_pose_msg_);
-    //pose_rpy_pub_.publish(ext_pose_rpy_msg_);
+    pose_pub_.publish(ext_pose_msg_);
+    pose_rpy_pub_.publish(ext_pose_rpy_msg_);
 	codometry_pub_.publish(ext_codometry_msg_);
 
     ext_pos_pub_.publish(ext_position_msg_);
@@ -375,6 +376,11 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
         double dt =  current_time.toSec() - old_time.toSec();
         old_time = current_time;
         std::cout << "Optitrack msg rate = " << 300 / dt << std::endl; 
+        /*
+        std::cout << "Current Position: " << p_pf_.transpose() << std::endl;
+        std::cout << "Current Attitude (rpy): " << (180 / M_PI) * euler_.transpose() << std::endl;
+        std::cout << "Current Attitude (quat): " << " " << q_.vec().transpose() << q_.w() << std::endl;
+        */
         counter = 0;
     }
     counter++;
