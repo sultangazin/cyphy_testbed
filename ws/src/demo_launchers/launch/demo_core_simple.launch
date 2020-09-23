@@ -8,14 +8,17 @@
      - Commander + Guidance Nodes
 -->
 <launch>
+<!--
+    <arg name="vehicle_frame" default="cf3" />
+    <arg name="uri" default="radio://0/80/2M/E7E7E7E703" />
+-->
     <arg name="vehicle_frame" default="cf1" />
+    <arg name="uri" default="radio://0/121/2M/E7E7E7E7E7" />
     <arg name="target" default="target" />
     <arg name="nodeB" default="nodeB" />
     <arg name="ip" default="192.168.1.198" />
     <arg name="port" default="3883" />
     
-    <!--    <arg name="uri" default="radio://0/80/2M/E7E7E7E703" /> -->
-    <arg name="uri" default="radio://0/121/2M/E7E7E7E7E7" />
     <arg name="server" default="RS2" />
 	<arg name="provide_position" default="True" />
     <arg name="provide_distance" default="False" />

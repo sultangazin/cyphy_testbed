@@ -27,7 +27,7 @@
             <rosparam>
                 genericLogTopics: ["ddEstimator", "ddCtrl"]
                 genericLogTopicFrequencies: [100, 100]
-                genericLogTopic_ddEstimator_Variables: ["estimatorDD_log.xx", "estimatorDD_log.yy", "estParamDD_log.alpha_x", "estParamDD_log.alpha_y"]
+                genericLogTopic_ddEstimator_Variables: ["estimatorDD_log.xx", "estimatorDD_log.yy", "estimatorDD_log.roll", "estimatorDD_log.pitch"]
                 genericLogTopic_ddCtrl_Variables: ["ctrlDD_log.msignal0", "ctrlDD_log.msignal1", "ctrlDD_log.msignal2", "ctrlDD_log.msignal3"]
             </rosparam>
 	    <!--
