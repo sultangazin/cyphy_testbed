@@ -5,6 +5,7 @@
     <arg name="server" default="RS1" />
     <arg name="provide_position" default="True" />
     <arg name="provide_distance" default="False" />
+    <arg name="provide_pose" default="False" />
     
     <group ns="$(arg frame)">
         <node pkg="crazyflie_driver"
@@ -21,16 +22,17 @@
             <param name="enable_logging_pressure" value="False" />
             <param name="enable_logging_battery" value="False" />
             <param name="enable_logging_packets" value="False" />
-            <param name="enable_logging_pose" value="True" /> 
+            <param name="enable_logging_pose" value="True" />
             <param name="enable_provide_position" value="$(arg provide_position)" type="bool" />
-            <param name="enable_provide_distance" value="$(arg provide_distance)" type="bool" /> 
+            <param name="enable_provide_distance" value="$(arg provide_distance)" type="bool" />
+            <param name="enable_provide_pose" value="$(arg provide_pose)" type="bool" />
+	    <!--
             <rosparam>
                 genericLogTopics: ["ddEstimator", "ddCtrl"]
                 genericLogTopicFrequencies: [100, 100]
                 genericLogTopic_ddEstimator_Variables: ["estimatorDD_log.xx", "estimatorDD_log.yy", "estimatorDD_log.roll", "estimatorDD_log.pitch"]
                 genericLogTopic_ddCtrl_Variables: ["ctrlDD_log.msignal0", "ctrlDD_log.msignal1", "ctrlDD_log.msignal2", "ctrlDD_log.msignal3"]
             </rosparam>
-	    <!--
             <rosparam>
                 genericLogTopics: ["XXX1", "XXX2"]
                 genericLogTopicFrequencies: [100, 100]

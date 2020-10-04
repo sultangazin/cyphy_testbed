@@ -96,7 +96,7 @@
     <param name="topics/setpoint" value="$(arg topics/setpoint_topic)" />
     <param name="topics/state" value="$(arg topics/state_topic)" />
     <param name="topics/control" value="$(arg topics/control_topic)" />
-    <param name="topics/ctrl_perf" value="/$(arg topics/ctrl_perf_topic)" />
+    <param name="topics/ctrl_perf" value="$(arg topics/ctrl_perf_topic)" />
 
 
   </node>

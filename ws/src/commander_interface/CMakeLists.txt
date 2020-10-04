@@ -10,6 +10,7 @@ find_package(
 	roscpp
 	message_generation
 	guidance
+    actionlib
 )
 
 file(GLOB srv_files RELATIVE
@@ -27,6 +28,7 @@ catkin_package(
 	message_runtime
 	DEPENDS
 	guidance
+    actionlib
 	)
 
 include_directories(

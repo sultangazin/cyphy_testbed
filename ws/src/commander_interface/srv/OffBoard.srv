@@ -1,0 +1,3 @@
+bool offboard_active
+---
+bool status 

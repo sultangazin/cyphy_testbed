@@ -5,6 +5,9 @@ find_package(catkin REQUIRED
 	COMPONENTS 
     roscpp
 	rospy
+    actionlib_msgs
+    actionlib
+    genmsg
 	testbed_msgs
 	message_generation 
 	)
@@ -17,10 +20,18 @@ add_service_files(
 	FILES ${srv_files}
 	)
 
-generate_messages()
+add_action_files(
+    DIRECTORY action 
+    FILES GuidanceTarget.action)
+
+generate_messages(
+    DEPENDENCIES 
+    actionlib_msgs)
 
 catkin_package(
 	CATKIN_DEPENDS 
     rospy
     testbed_msgs
+    actionlib_msgs
+    actionlib
 	message_runtime)

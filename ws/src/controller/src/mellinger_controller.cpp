@@ -202,185 +202,147 @@ namespace controller {
 
         testbed_msgs::ControlStamped control_msg;
 
-        if (setpoint_type_ == "FullTrj") { 
-            // Position and Velocity error
-            Vector3d p_error = sp_pos_ - pos_;
-            Vector3d v_error = sp_vel_ - vel_;
-            // std::cout << "p_error: " << p_error << std::endl;
-            // std::cout << "v_error: " << v_error << std::endl;
+        // Position and Velocity error
+        Vector3d p_error = sp_pos_ - pos_;
+        Vector3d v_error = sp_vel_ - vel_;
+        // std::cout << "p_error: " << p_error << std::endl;
+        // std::cout << "v_error: " << v_error << std::endl;
 
-            testbed_msgs::CtrlPerfStamped ctrl_perf_msg;
-            ctrl_perf_msg.ep.x = p_error(0);
-            ctrl_perf_msg.ep.y = p_error(1);
-            ctrl_perf_msg.ep.z = p_error(2);
-            
-            ctrl_perf_msg.ev.x = v_error(0);
-            ctrl_perf_msg.ev.y = v_error(1);
-            ctrl_perf_msg.ev.z = v_error(2);
+        testbed_msgs::CtrlPerfStamped ctrl_perf_msg;
+        ctrl_perf_msg.ep.x = p_error(0);
+        ctrl_perf_msg.ep.y = p_error(1);
+        ctrl_perf_msg.ep.z = p_error(2);
+
+        ctrl_perf_msg.ev.x = v_error(0);
+        ctrl_perf_msg.ev.y = v_error(1);
+        ctrl_perf_msg.ev.z = v_error(2);
 
 
-            // Integral Error
-            i_error_x += p_error(0) * dt;
-            i_error_x = std::max(std::min(p_error(0), i_range_xy), -i_range_xy);
+        // Integral Error
+        i_error_x += p_error(0) * dt;
+        i_error_x = std::max(std::min(p_error(0), i_range_xy), -i_range_xy);
 
-            i_error_y += p_error(1) * dt;
-            i_error_y = std::max(std::min(p_error(1), i_range_xy), -i_range_xy);
+        i_error_y += p_error(1) * dt;
+        i_error_y = std::max(std::min(p_error(1), i_range_xy), -i_range_xy);
 
-            i_error_z += p_error(2) * dt;
-            i_error_z = std::max(std::min(p_error(2), i_range_z), -i_range_z);
+        i_error_z += p_error(2) * dt;
+        i_error_z = std::max(std::min(p_error(2), i_range_z), -i_range_z);
 
-            // Desired thrust [F_des]
-            Vector3d target_thrust = Vector3d::Zero();
-            Vector3d fb_thrust = Vector3d::Zero();
+        // Desired thrust [F_des]
+        Vector3d target_thrust = Vector3d::Zero();
+        Vector3d fb_thrust = Vector3d::Zero();
 
-            fb_thrust(0) = kp_xy * p_error(0) + kd_xy * v_error(0) + ki_xy * i_error_x;
-            fb_thrust(1) = kp_xy * p_error(1) + kd_xy * v_error(1) + ki_xy * i_error_y;
-            fb_thrust(2) = kp_z  * p_error(2) + kd_z  * v_error(2) + ki_z  * i_error_z;
+        fb_thrust(0) = kp_xy * p_error(0) + kd_xy * v_error(0) + ki_xy * i_error_x;
+        fb_thrust(1) = kp_xy * p_error(1) + kd_xy * v_error(1) + ki_xy * i_error_y;
+        fb_thrust(2) = kp_z  * p_error(2) + kd_z  * v_error(2) + ki_z  * i_error_z;
 
-            target_thrust(0) = sp_acc_(0);
-            target_thrust(1) = sp_acc_(1);
-            target_thrust(2) = (sp_acc_(2) + GRAVITY_MAGNITUDE);
-                        
-            ctrl_perf_msg.fb_t.x = fb_thrust(0);
-            ctrl_perf_msg.fb_t.y = fb_thrust(1);
-            ctrl_perf_msg.fb_t.z = fb_thrust(2);
+        target_thrust(0) = sp_acc_(0);
+        target_thrust(1) = sp_acc_(1);
+        target_thrust(2) = (sp_acc_(2) + GRAVITY_MAGNITUDE);
+
+        ctrl_perf_msg.fb_t.x = fb_thrust(0);
+        ctrl_perf_msg.fb_t.y = fb_thrust(1);
+        ctrl_perf_msg.fb_t.z = fb_thrust(2);
+
+        ctrl_perf_msg.ff_t.x = target_thrust(0);
+        ctrl_perf_msg.ff_t.y = target_thrust(1);
+        ctrl_perf_msg.ff_t.z = target_thrust(2) - GRAVITY_MAGNITUDE;
+
+        target_thrust = target_thrust + fb_thrust;  
+        // std::cout << "target_thrust: " << target_thrust << std::endl;
+
+        error_pub_.publish(ctrl_perf_msg);
+
+        // Move YAW angle setpoint
+        double yaw_rate = 0;
+        double yaw_des = sp_yaw_;
+
+        // Z-Axis [zB]
+        Matrix3d R = quat_.toRotationMatrix();
+        Vector3d z_axis = R.col(2);
+
+        // Current thrust [F]
+        double current_thrust = target_thrust.dot(z_axis);
+
+        // Calculate axis [zB_des]
+        Vector3d z_axis_desired = target_thrust.normalized();
+
+        // [xC_des]
+        // x_axis_desired = z_axis_desired x [sin(yaw), cos(yaw), 0]^T
+        Vector3d x_c_des;
+        x_c_des(0) = cosf(radians(yaw_des));
+        x_c_des(1) = sinf(radians(yaw_des));
+        x_c_des(2) = 0;
+
+        // [yB_des]
+        // Vector3d y_axis_desired = (z_axis_desired.cross(x_c_des)).normalized();
+        Vector3d y_axis_desired = (z_axis_desired.cross(R.col(0))).normalized();
+
+        // [xB_des]
+        Vector3d x_axis_desired = (y_axis_desired.cross(z_axis_desired)).normalized();
+
+        Matrix3d Rdes;
+        Rdes.col(0) = x_axis_desired;
+        Rdes.col(1) = y_axis_desired;
+        Rdes.col(2) = z_axis_desired;
+
+
+        switch (ctrl_mode_) {
+            // Control the drone with attitude commands
+            case ControlMode::ANGLES: 
+                {
+                    // Create "Heading" rotation matrix (x-axis aligned w/ drone but z-axis vertical)
+                    Matrix3d Rhdg;
+                    Vector3d x_c(R(0,0) ,R(1,0), 0);
+                    x_c.normalize();
+                    Vector3d z_c(0, 0, 1);
+                    Vector3d y_c = z_c.cross(x_c);
+                    Rhdg.col(0) = x_c;
+                    Rhdg.col(1) = y_c;
+                    Rhdg.col(2) = z_c;
+
+                    Matrix3d Rout = Rhdg.transpose() * Rdes;
+
+                    Matrix3d Rerr = 0.5 * (Rdes.transpose() * Rhdg - Rhdg.transpose() * Rdes);
+                    Vector3d Verr(-Rerr(1,2),Rerr(0,2),-Rerr(0,1));
+
+                    // std::cout << "Rout: " << Rout << std::endl;
+
+                    control_msg.header.stamp = ros::Time::now();
+
+                    control_msg.control.roll = std::atan2(Rout(2,1),Rout(2,2));
+                    control_msg.control.pitch = -std::asin(Rout(2,0));
+                    control_msg.control.yaw_dot = -10*std::atan2(R(1,0),R(0,0)); //std::atan2(Rdes(1,0),Rdes(0,0));
+                    control_msg.control.thrust = current_thrust;
+                    break; 
+                }
+                // Control the drone with rate commands
+            case ControlMode::RATES:
+                {
+                    // Compute the rotation error between the desired z_ and the current one in Inertial frame
+                    Vector3d ni = z_axis.cross(z_axis_desired);
+                    double alpha = std::acos(ni.norm());
+                    ni.normalize();
+
+                    // Express the axis in body frame
+                    Vector3d nb = quat_.inverse() * ni;
+                    Quaterniond q_pq(Eigen::AngleAxisd(alpha, nb));
+
+                    control_msg.control.roll = (q_pq.w() > 0) ? (2.0 * kpq_rates_ * q_pq.x()) : (-2.0 * kpq_rates_ * q_pq.x());
+                    control_msg.control.pitch = (q_pq.w() > 0) ? (2.0 * kpq_rates_ * q_pq.y()) : (-2.0 * kpq_rates_ * q_pq.y());
+
+                    Quaterniond q_r = q_pq.inverse() * quat_.inverse() * Quaterniond(Rdes);
+                    control_msg.control.yaw_dot = (q_r.w() > 0) ? (2.0 * kr_rates_ * q_r.z()) : (-2.0 * kr_rates_ * q_r.z());
+                    control_msg.control.yaw_dot = -1.0 * control_msg.control.yaw_dot;
+
+                    break;
+                }
+                // Something is wrong if Default...
+            default:
+                ROS_ERROR("%s: Unable to select the control mode.", name_.c_str());
+        }
+
         
-            ctrl_perf_msg.ff_t.x = target_thrust(0);
-            ctrl_perf_msg.ff_t.y = target_thrust(1);
-            ctrl_perf_msg.ff_t.z = target_thrust(2) - GRAVITY_MAGNITUDE;
-
-            target_thrust = target_thrust + fb_thrust;  
-            // std::cout << "target_thrust: " << target_thrust << std::endl;
-
-            error_pub_.publish(ctrl_perf_msg);
-
-            // Move YAW angle setpoint
-            double yaw_rate = 0;
-            double yaw_des = sp_yaw_;
-
-            // Z-Axis [zB]
-            Matrix3d R = quat_.toRotationMatrix();
-            Vector3d z_axis = R.col(2);
-
-            // Current thrust [F]
-            double current_thrust = target_thrust.dot(z_axis);
-
-            // Calculate axis [zB_des]
-            Vector3d z_axis_desired = target_thrust.normalized();
-
-            // [xC_des]
-            // x_axis_desired = z_axis_desired x [sin(yaw), cos(yaw), 0]^T
-            Vector3d x_c_des;
-            x_c_des(0) = cosf(radians(yaw_des));
-            x_c_des(1) = sinf(radians(yaw_des));
-            x_c_des(2) = 0;
-
-            // [yB_des]
-            // Vector3d y_axis_desired = (z_axis_desired.cross(x_c_des)).normalized();
-            Vector3d y_axis_desired = (z_axis_desired.cross(R.col(0))).normalized();
-
-            // [xB_des]
-            Vector3d x_axis_desired = (y_axis_desired.cross(z_axis_desired)).normalized();
-
-            Matrix3d Rdes;
-            Rdes.col(0) = x_axis_desired;
-            Rdes.col(1) = y_axis_desired;
-            Rdes.col(2) = z_axis_desired;
-
-
-            switch (ctrl_mode_) {
-                // Control the drone with attitude commands
-                case ControlMode::ANGLES: 
-                    {
-                        // Create "Heading" rotation matrix (x-axis aligned w/ drone but z-axis vertical)
-                        Matrix3d Rhdg;
-                        Vector3d x_c(R(0,0) ,R(1,0), 0);
-                        x_c.normalize();
-                        Vector3d z_c(0, 0, 1);
-                        Vector3d y_c = z_c.cross(x_c);
-                        Rhdg.col(0) = x_c;
-                        Rhdg.col(1) = y_c;
-                        Rhdg.col(2) = z_c;
-
-                        Matrix3d Rout = Rhdg.transpose() * Rdes;
-
-                        Matrix3d Rerr = 0.5 * (Rdes.transpose() * Rhdg - Rhdg.transpose() * Rdes);
-                        Vector3d Verr(-Rerr(1,2),Rerr(0,2),-Rerr(0,1));
-
-                        // std::cout << "Rout: " << Rout << std::endl;
-
-                        control_msg.header.stamp = ros::Time::now();
-
-                        control_msg.control.roll = std::atan2(Rout(2,1),Rout(2,2));
-                        control_msg.control.pitch = -std::asin(Rout(2,0));
-                        control_msg.control.yaw_dot = -10*std::atan2(R(1,0),R(0,0)); //std::atan2(Rdes(1,0),Rdes(0,0));
-                        control_msg.control.thrust = current_thrust;
-                        break; 
-                    }
-                    // Control the drone with rate commands
-                case ControlMode::RATES:
-                    {
-                        // Compute the rotation error between the desired z_ and the current one in Inertial frame
-                        Vector3d ni = z_axis.cross(z_axis_desired);
-                        double alpha = std::acos(ni.norm());
-                        ni.normalize();
-
-                        // Express the axis in body frame
-                        Vector3d nb = quat_.inverse() * ni;
-                        Quaterniond q_pq(Eigen::AngleAxisd(alpha, nb));
-
-                        control_msg.control.roll = (q_pq.w() > 0) ? (2.0 * kpq_rates_ * q_pq.x()) : (-2.0 * kpq_rates_ * q_pq.x());
-                        control_msg.control.pitch = (q_pq.w() > 0) ? (2.0 * kpq_rates_ * q_pq.y()) : (-2.0 * kpq_rates_ * q_pq.y());
-
-                        Quaterniond q_r = q_pq.inverse() * quat_.inverse() * Quaterniond(Rdes);
-                        control_msg.control.yaw_dot = (q_r.w() > 0) ? (2.0 * kr_rates_ * q_r.z()) : (-2.0 * kr_rates_ * q_r.z());
-                        control_msg.control.yaw_dot = -1.0 * control_msg.control.yaw_dot;
-
-                        break;
-                    }
-                    // Something is wrong if Default...
-                default:
-                    ROS_ERROR("%s: Unable to select the control mode.", name_.c_str());
-            }
-
-        }
-
-        if (setpoint_type_ == "AttTrj") {
-            
-            Quaterniond qt_i;
-            qt_i = Eigen::AngleAxisd(sp_yaw_, Vector3d::UnitZ()) * 
-                Eigen::AngleAxisd(sp_pitch_, Vector3d::UnitY()) *
-                Eigen::AngleAxisd(sp_roll_, Vector3d::UnitX());
-
-           // // Z target in inertial frame
-           // double x = cos(sp_roll_) * sin(sp_pitch) * cos(sp_yaw_) + sin(sp_roll_) * sin(sp_yaw_);
-           // double y = cos(sp_roll_) * sin(sp_pitch) * sin(sp_yaw_) - sin(sp_roll_) * cos(sp_yaw_);
-           // double z = cos(sp_yaw_) * cos(sp_roll_);
-           // Vector3d zt_i(x, y, z); 
-
-           // // Z target in body frame
-           // Vector3d zt_b = quat_.inverse() * zt_i;
-
-           Quaterniond qt_b = quat_.inverse() * qt_i; // Rotation Body to Target
-
-           double sinr_cosp = 2.0 * (qt_b.w() * qt_b.x() + qt_b.y() * qt_b.z());
-           double cosr_cosp = 1.0 - 2.0 * (qt_b.x() * qt_b.x() + qt_b.y() * qt_b.y());
-           double roll = atan2(sinr_cosp, cosr_cosp);
-            
-           double sinp = 2.0 * (qt_b.w() * qt_b.y() - qt_b.z() * qt_b.x());
-
-           double pitch = asin(sinp);
-
-            
-           // I need to keep the thrust over a limit 
-           // in order to control angles, otherwise
-           // everything will be set to 0.
-           control_msg.control.thrust = 0.25;
-           control_msg.control.roll = roll;
-           control_msg.control.pitch = pitch;
-           control_msg.control.yaw_dot = 0.0;
-
-        }
 
         if (setpoint_type_ == "StopCmd") {
             control_msg.control.thrust = 0.0;

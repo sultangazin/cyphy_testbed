@@ -30,6 +30,7 @@
     Commander Node
     -->
     <node name="Commander_Node" pkg="commander_interface" type="commander" output="screen">
+        <param name="param/vehicle_name" value="$(arg vehicle_frame)" type="str"/>
     </node>
 
 

@@ -1,0 +1,14 @@
+#Goal
+float32[3] target_p
+float32[3] target_v
+float32[3] target_a
+float32 tg_time
+string mission_type
+---
+# Result
+int32 ret_status 
+string mission_type
+---
+# Feedback
+float32[3] curr_pos 
+int32 curr_status 
