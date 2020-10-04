@@ -375,8 +375,8 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     if (counter % 300 == 0) {
         double dt =  current_time.toSec() - old_time.toSec();
         old_time = current_time;
-        std::cout << "Optitrack msg rate = " << 300 / dt << std::endl; 
         /*
+        std::cout << "Optitrack msg rate = " << 300 / dt << std::endl; 
         std::cout << "Current Position: " << p_pf_.transpose() << std::endl;
         std::cout << "Current Attitude (rpy): " << (180 / M_PI) * euler_.transpose() << std::endl;
         std::cout << "Current Attitude (quat): " << " " << q_.vec().transpose() << q_.w() << std::endl;
