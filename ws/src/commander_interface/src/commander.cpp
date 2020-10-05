@@ -117,10 +117,9 @@ bool CommanderInterface::takeoff_callback(
 
     bool output = false;
 
-    ROS_INFO("%s: Takeoff requested! \n \t Height: %.3f | Duration: %.3f", 
-            name_.c_str(), req.height, req.duration);
-
     if (off_board_controller_) {
+        ROS_INFO("%s: Takeoff requested [OFFBOARD]! \n \t Height: %.3f | Duration: %.3f", 
+            name_.c_str(), req.height, req.duration);
         // Prepare the action 
         guidance::GuidanceTargetGoal goal;
         boost::array<float, 3> v{{0.0, 0.0, 0.0}};
@@ -128,6 +127,7 @@ bool CommanderInterface::takeoff_callback(
         goal.mission_type = "takeoff";
         goal.target_v = v;
         goal.target_a = v;
+        goal.relative = true;
 
         v[2] = req.height;
         goal.target_p = v; 
@@ -141,6 +141,8 @@ bool CommanderInterface::takeoff_callback(
         res.ack = "Roger!";
         output = true;
     } else {
+        ROS_INFO("%s: Takeoff requested [ONBOARD]! \n \t Height: %.3f | Duration: %.3f", 
+            name_.c_str(), req.height, req.duration);
         crazyflie_driver::Takeoff srv;
         srv.request.height = req.height;
         srv.request.duration = ros::Duration(req.duration);
@@ -166,6 +168,7 @@ bool CommanderInterface::land_callback(
     bool output = false;
 
     if (off_board_controller_) {
+        ROS_INFO("%s: Land requested [OFFBOARD]! \n", name_.c_str());
         guidance::GuidanceTargetGoal goal;
 
         boost::array<float, 3> v = req.target_p;
@@ -175,6 +178,7 @@ bool CommanderInterface::land_callback(
         goal.target_p = v; 
         goal.target_a = v;
         goal.tg_time = req.duration;
+        goal.relative = req.relative;
 
         // Create a thread to call the action and monitor the outcome.
         std::thread run_action(&CommanderInterface::action_thread, this, goal);
@@ -183,6 +187,7 @@ bool CommanderInterface::land_callback(
         res.ack = "Roger!";
         output = true;
     } else {
+        ROS_INFO("%s: Land requested [ONBOARD]! \n", name_.c_str());
         crazyflie_driver::Land srv;
         srv.request.height = req.target_p[2];
         srv.request.duration = ros::Duration(req.duration);
@@ -206,6 +211,7 @@ bool CommanderInterface::goto_callback(
     bool output = false;
 
     if (off_board_controller_) {
+        ROS_INFO("%s: Goto requested [OFFBOARD]! \n", name_.c_str());
         guidance::GuidanceTargetGoal goal;
 
         boost::array<float, 3> v{{0.0, 0.0, 0.0}};
@@ -213,6 +219,12 @@ bool CommanderInterface::goto_callback(
         goal.mission_type = "goTo";
         goal.target_v = v;
         goal.target_a = v;
+
+        if (req.relative == true) {
+            goal.relative = true;
+        } else {
+            goal.relative = false;
+        }
 
         v = req.target_p;
         goal.target_p = v; 
@@ -226,6 +238,7 @@ bool CommanderInterface::goto_callback(
         res.ack = "Roger!";
         output = true;
     } else {
+        ROS_INFO("%s: Goto requested [ONBOARD]! \n", name_.c_str());
         crazyflie_driver::GoTo srv;
         srv.request.goal.x = req.target_p[0];
         srv.request.goal.y = req.target_p[1];
@@ -425,14 +438,6 @@ void CommanderInterface::action_done_cb(
         std::cout << "[" << std::this_thread::get_id() << "]" << "[" << goal_type << "] Success!" << std::endl;
         if (goal_type == "goTo" || goal_type == "takeoff") {
             agent_state_ = AgentState::hovering;
-        }
-        
-        if (goal_type == "land") {
-            agent_state_ = AgentState::stop;
-            crazyflie_driver::Stop srv;
-            srv.request.groupMask = 0;
-
-            cf_ros_stop_clnt_.call(srv);
         }
     }
 }

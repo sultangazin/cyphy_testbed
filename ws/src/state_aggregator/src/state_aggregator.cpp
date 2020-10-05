@@ -99,9 +99,6 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
     // External orientation (rpy)
     np.param<std::string>("topics/out_ext_pose_rpy_topic", ext_pose_rpy_topic_, 
             "external_pose_rpy");
-    // External odometry
-    np.param<std::string>("topics/out_ext_odom_topic", ext_odom_topic_,
-            "external_odom");
 
     np.param<std::string>("topics/out_ext_codom_topic", ext_codom_topic_,
 		    "external_codom");
@@ -294,7 +291,7 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
         p_ = _pfilt->getPos();
         v_ = _pfilt->getVel();
         
-        if (!healthy_vector(vel_)) {
+        if (!healthy_vector(v_)) {
             ROS_ERROR("Detected NaN!");
         }
 
@@ -314,8 +311,10 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
         //q_pf_ = qsum(q_, qsm(qd_, t_delay_));
         //q_pf_ = q_pf_.normalized();
         q_pf_ = q_;
+        vel_ = v_;
     } else {
         p_pf_ = p_;
+        vel_ = v_;
         q_pf_ = q_;
     }
 
@@ -368,7 +367,6 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     pose_pub_.publish(ext_pose_msg_);
     pose_rpy_pub_.publish(ext_pose_rpy_msg_);
 	codometry_pub_.publish(ext_codometry_msg_);
-
     ext_pos_pub_.publish(ext_position_msg_);
 
     static int counter = 0;

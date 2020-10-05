@@ -4,6 +4,7 @@ float32[3] target_v
 float32[3] target_a
 float32 tg_time
 string mission_type
+bool relative
 ---
 # Result
 int32 ret_status 

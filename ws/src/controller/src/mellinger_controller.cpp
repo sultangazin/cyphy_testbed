@@ -122,7 +122,7 @@ namespace controller {
         sp_r_acc_ = Vector3d::Zero();
         sp_brates_ = Vector3d::Zero(); 
 
-        setpoint_type_ = "FullTrj";
+        setpoint_type_ = "active";
 
         pos_ = Vector3d::Zero();
         vel_ = Vector3d::Zero();
@@ -344,7 +344,7 @@ namespace controller {
 
         
 
-        if (setpoint_type_ == "StopCmd") {
+        if (setpoint_type_ == "stop") {
             control_msg.control.thrust = 0.0;
             control_msg.control.roll = 0.0;
             control_msg.control.pitch = 0.0;

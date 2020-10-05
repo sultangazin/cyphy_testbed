@@ -128,8 +128,7 @@ class GuidanceClass:
 
     def gen_land(self, p = None):
         """
-        Generate a tracking trajectory to reach an absolute waypoint 
-        with a given velocity and acceleration.
+        Generate a landing trajectory
         """
         start_pos = posFromOdomMsg(self.current_odometry)
         start_vel = velFromOdomMsg(self.current_odometry)
@@ -140,16 +139,16 @@ class GuidanceClass:
             tg_prel = np.array([p[0] - start_pos[0], p[1] - start_pos[1], -start_pos[2]])
             tg_p = np.copy(p)
             tg_p[2] = 0.0
+            print("Landing in [{}, {}]\n".format(p[0], p[1]))
         else:
             tg_prel = np.array([0.0, 0.0, -start_pos[2]])
             tg_p = np.copy(start_pos)
             tg_p[2] = 0.0
+            print("Landing in [{}, {}]\n".format(start_pos[0], start_pos[1]))
 
         t_end = (start_pos[2] / vland)
         tg_v = np.zeros((3))
         tg_a = np.zeros((3))
-                 
-        print("Landing in [{}, {}]\n".format(tg_prel[0], tg_prel[1]))
 
         (X, Y, Z, W) = genInterpolationMatrices(
                 start_vel, 
@@ -182,7 +181,7 @@ class GuidanceClass:
 
         if (start_pos[2] > 0.4):
             rospy.loginfo("Already Flying!")
-            return True
+            return (None, 0) 
                 
         vtakeoff = 0.3
         t_end = h / vtakeoff
@@ -277,32 +276,37 @@ class GuidanceClass:
     def handle_guidance_action(self, goal):
 
         start_point = posFromOdomMsg(self.current_odometry)
-        frequency = 300;
+        frequency = 200;
 
-        trajectory = []
+        trajectory = None
+
+        t2go = goal.tg_time
+        tg_p = goal.target_p
+        tg_v = goal.target_v
+        tg_a = goal.target_a
+
+
+        # If the goal is relative compute the absolute before requesting 
+        # the trajectory: the functions think in absolute position
+        if (goal.relative):
+            tg_p = tg_p + start_point
 
         # Call the specific trajectory generation
         if (goal.mission_type == "goTo"):
-            t2go = goal.tg_time
-            tg_p = goal.target_p
-            tg_v = goal.target_v
-            tg_a = goal.target_a
-
             (trajectory, Tend) = self.gen_goToBZ(tg_p, t2go)
 
         if (goal.mission_type == "land"): 
-            if (goal.target_p[0] != 0.0 or goal.target_p[1] != 0.0):
-                (trajectory, Tend) = self.gen_land(goal.target_p)
-            else:
-                (trajectory, Tend) = self.gen_land()
+            (trajectory, Tend) = self.gen_land(tg_p)
 
         if (goal.mission_type == "takeoff"):
-            t2go = goal.tg_time
-            tg_p = goal.target_p
             h = tg_p[2]
             (trajectory, Tend) = self.gen_takeoff(h, t2go)
 
-        self.action_thread(goal.mission_type, trajectory, start_point, frequency)
+
+        if (trajectory is not None):
+            self.action_thread(goal.mission_type, trajectory, start_point, frequency)
+        else:
+            print("Trajectory not generated!")
        # 
        # if (req.mission_type == "impact"):
        #     (trjectory, Tend) = self.handle_genImpTrjDet
@@ -353,6 +357,7 @@ class GuidanceClass:
                 return
 
             output_msg = ControlSetpoint()
+            output_msg.setpoint_type = "active"
             output_msg.header.stamp = rospy.Time.now()
 
             # Evaluate the trajectory
@@ -386,14 +391,18 @@ class GuidanceClass:
             # Take the time
             curr_time = rospy.get_time()
 
-        # To be sure that the end point is a hover
+        # End Setpoint
         output_msg = ControlSetpoint()
         output_msg.header.stamp = rospy.Time.now()
 
-        # Fill  the trajectory object
-        output_msg.p.x = start_position[0] + X[0]
-        output_msg.p.y = start_position[1] + Y[0]
-        output_msg.p.z = start_position[2] + Z[0]
+        if (trj_type != "land"):
+            output_msg.setpoint_type = "active"
+            output_msg.p.x = start_position[0] + X[0]
+            output_msg.p.y = start_position[1] + Y[0]
+            output_msg.p.z = start_position[2] + Z[0]
+        else:
+            output_msg.setpoint_type = "stop"
+
         self.ctrl_setpoint_pub.publish(output_msg)
 
         result = GuidanceTargetResult()
