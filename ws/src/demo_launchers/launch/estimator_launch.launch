@@ -14,8 +14,8 @@ sensors and provides an estimator of the drone state.
         respawn_delay="3"
         output="screen"> 
         <!-- Topic parameters -->
-        <param name="sigmax" value="0.1" type='double' />
-        <param name="sigmay" value="0.001" type='double' />
+        <param name="sigmax" value="0.5" type='double' />
+        <param name="sigmay" value="0.0001" type='double' />
         <param name="param/target_name" value="$(arg vehicle_frame)" />
 
         <param name="topics/out_ext_position_topic" value="external_position" />
