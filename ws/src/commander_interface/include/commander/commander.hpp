@@ -100,6 +100,8 @@ class CommanderInterface {
         ros::ServiceClient cf_ros_land_clnt_;
         ros::ServiceClient cf_ros_stop_clnt_;
 
+        ros::ServiceClient control_router_switch_client_;
+
         // Topic subscription
         ros::Subscriber vehicle_pos_sub_;
         

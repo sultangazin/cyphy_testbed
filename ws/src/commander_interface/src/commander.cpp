@@ -1,12 +1,18 @@
 /** @file commander.cpp
  *  @author l.pannocchi@gmail.com
  *
+ *  This is the Commander Interface, that is the user interface with a vehicle.
+ *  This makes possible to issue high-level commands to the vehicle (goto-land-takeoff)
+ *  and to switch controller (Onboard/Offboard).
+ *
  */
 #include "commander/commander.hpp"
 #include "crazyflie_driver/GoTo.h"
 #include "crazyflie_driver/Land.h"
 #include "crazyflie_driver/Stop.h"
 #include "crazyflie_driver/Takeoff.h"
+
+#include <control_router/EnableNWController.h>
 
 #include <thread>
 
@@ -94,11 +100,15 @@ bool CommanderInterface::Initialize(const ros::NodeHandle& n) {
     cf_ros_stop_clnt_ = ng.serviceClient<crazyflie_driver::Stop>(
             "stop");
 
+    control_router_switch_client_ = ng.serviceClient<control_router::EnableNWController>("/" + vehicle_name_ + "/nw_ctrl_enable"); 
+    ROS_INFO("%s: Waiting for Control Router Service...\n", name_.c_str());
+    control_router_switch_client_.waitForExistence();
+    ROS_INFO("%s: Control Router Server ready!\n", name_.c_str());
+
     std::string guidance_server = "AAAA";
     pactc_ = new ActionClient(guidance_server, true);
 
     ROS_INFO("%s: Waiting for Guidance Server [%s]...\n", name_.c_str(), guidance_server.c_str());
-
     pactc_->waitForServer(); 
 
     ROS_INFO("%s: Guidance Server Replied!\n", name_.c_str());
@@ -266,9 +276,11 @@ bool CommanderInterface::ctrl_offboard_callback (
     
     bool able_to_switch = true;
 
-    // If coming from another state ask the new controller to stay in the last position 
+    // IF ( (was in another state before) AND (is flying))
+    // I make this check to be sure that the controller has a valid setpoint
+    // XXX Currently I implemented a simple switch that just stop the drone in the current position
+    // after a switch.
     if ((req.offboard_active != off_board_controller_) && (agent_state_ != AgentState::stop)) {
-
         if (req.offboard_active) {
             guidance::GuidanceTargetGoal goal;
 
@@ -284,12 +296,13 @@ bool CommanderInterface::ctrl_offboard_callback (
             run_action.detach();
             able_to_switch = true;
         } else {
+            /*
             crazyflie_driver::GoTo srv;
             srv.request.goal.x = current_position_[0];
             srv.request.goal.y = current_position_[1];
             srv.request.goal.z = current_position_[2];
             srv.request.yaw = 0;
-            srv.request.duration = ros::Duration(2.0);
+            srv.request.duration = ros::Duration(20.0);
             srv.request.relative = false;
             srv.request.groupMask = 0;
 
@@ -298,19 +311,22 @@ bool CommanderInterface::ctrl_offboard_callback (
             } else {
                 able_to_switch = false;
             }
+            */
         }
-
     }
 
-
+    control_router::EnableNWController srv;
     if (req.offboard_active && able_to_switch) {
         std::cout << "Running with External Controller" << std::endl;
         off_board_controller_ = true;
+        srv.request.enable_nwctrl = true;
     } else {
         std::cout << "Running with Internal Controller" << std::endl;
         off_board_controller_ = false;
+        srv.request.enable_nwctrl = false;
     }
 
+    control_router_switch_client_.call(srv);
     res.status = off_board_controller_;
 
     return able_to_switch;
@@ -389,6 +405,8 @@ void CommanderInterface::action_thread(guidance::GuidanceTargetGoal goal){
             );
     mx.unlock();
 
+    // I decided to have a pure callback implementation without a waiting thread.
+    //
     /*
     std::cout << "[" << std::this_thread::get_id() << "] Waiting for result..." << std::endl;
     pactc_->waitForResult();

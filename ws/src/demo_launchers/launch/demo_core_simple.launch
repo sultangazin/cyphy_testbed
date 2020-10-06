@@ -86,6 +86,19 @@
         <arg name="provide_distance" value="$(arg provide_distance)" />
 </include>
 
+
+<!--
+    ===================================================
+    Control Router 
+-->
+    <node name="control_router"
+        pkg="control_router"
+        type="control_router_node"
+        output="screen">
+        <param name="param/vehicle_name" value="$(arg vehicle_frame)" />
+    </node>
+
+
 <!--
 <node pkg="rviz" 
         type="rviz" 

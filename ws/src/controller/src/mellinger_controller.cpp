@@ -87,8 +87,10 @@ namespace controller {
         // Topics.
         if (!nl.getParam("topics/state", state_topic_)) return false;
         if (!nl.getParam("topics/setpoint", setpoint_topic_)) return false;
-        if (!nl.getParam("topics/control", control_topic_)) return false;
-        
+
+        nl.param<std::string>("param/vehicle_name", vehicle_name_, "cf1");
+        nl.param<std::string>("topics/control", control_topic_, "/area0/controller/controller_name/" + vehicle_name_ + "/control");
+
         if (!nl.getParam("topics/ctrl_perf", ctrl_perf_topic_)) return false;
 
         // Control Mode

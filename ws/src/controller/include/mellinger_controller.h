@@ -185,6 +185,8 @@ class MellingerController {
   bool initialized_;
   std::string name_;
 
+  std::string vehicle_name_;
+
   // // Load K, x_ref, u_ref from disk.
   // bool LoadFromDisk();
 

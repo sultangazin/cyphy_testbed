@@ -14,7 +14,7 @@
     -->
      <include file="$(find demo_launchers)/launch/ext_control.launch">
          <arg name="topics/setpoint_topic" value="/$(arg vehicle_frame)/setpoint" />
-         <arg name="topics/control_topic" value="/$(arg vehicle_frame)/control" />
+         <arg name="topics/control_topic" value="/area0/controller/geometric_ctrl/$(arg vehicle_frame)/control" />
          <arg name="topics/ctrl_perf_topic" value="/$(arg vehicle_frame)/ctrl_perf" />
          <arg name="topics/state_topic" value="/$(arg vehicle_frame)/external_codom" />
      </include>
