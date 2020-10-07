@@ -6,7 +6,9 @@
   <arg name="topics/state_topic" default="state" />
   <arg name="topics/control_topic" default="control" />
   <arg name="topics/ctrl_perf_topic" default="ctrl_perf" />
-
+  <arg name="param/vehicle_name" default="cf1" />
+  <arg name="control_mode" default="ANGLES"/> <!-- 0: Angle 1: Rates -->
+  
   <!-- Control parameters. -->
   <arg name="stabMode" value="1" /> <!-- 1: Angle 0: Rates -->
 
@@ -22,14 +24,15 @@
   <arg name="kd_z" value="8.0" />
   <arg name="ki_z" value="0.4" />
   <arg name="i_range_z" value="0.4" />
-  
-  <arg name="kR_xy" value="180000" />
-  <arg name="kw_xy" value="13000" />
+  <!-- 180000 13000-->  
+  <arg name="kR_xy" value="80000" />
+  <arg name="kw_xy" value="0.0" />
   <arg name="ki_m_xy" value="0.0" />
   <arg name="i_range_m_xy" value="1.0" />
-  
+
+  <!-- 60000 12000-->
   <arg name="kR_z" value="60000" />
-  <arg name="kw_z" value="12000" />
+  <arg name="kw_z" value="0.0" />
   <arg name="ki_m_z" value="500" />
   <arg name="i_range_m_z" value="1500" />
   
@@ -46,7 +49,6 @@
   <arg name="i_error_m_y" value="0" />
   <arg name="i_error_m_z" value="0" />
 
-  <arg name="control_mode" value="0"/> <!-- 0: Angle 1: Rates -->
 
   <!-- Mellinger controller. -->
   <node name="mellinger_controller"
@@ -54,6 +56,7 @@
         type="mellinger_controller_node"
         output="screen">
 
+    <param name="param/vehicle_name" value="$(arg param/vehicle_name)"/>
     <param name="g_vehicleMass" value="$(arg g_vehicleMass)" />
     <param name="massThrust" value="$(arg massThrust)" />
     

@@ -54,20 +54,23 @@
 #include <testbed_msgs/CtrlPerfStamped.h>
 #include <Eigen/Geometry>
 
+#include <crazyflie_driver/PWM.h>
+
 #include <ros/ros.h>
 #include <std_msgs/Empty.h>
 #include <math.h>
 #include <fstream>
+#include <unordered_map>
 
 namespace controller {
 
 enum class ControlMode {
-  ANGLES, RATES, NUM_MODES
+    ANGLES, RATES, PWM, NUMCTRLMODES
 };
-  
+ 
 class MellingerController {
   public:
-  // MellingerController() {}
+  MellingerController();
 
   // Initialize this class by reading parameters and loading callbacks.
   bool Initialize(const ros::NodeHandle& n);
@@ -75,10 +78,6 @@ class MellingerController {
   // Compute control given the current state.
   Vector3d Control(const VectorXd& x) const;
   
-  MellingerController()
-    : received_setpoint_(false),
-      last_state_time_(-1.0),
-      initialized_(false) {}
 
   // Load parameters and register callbacks. These may/must be overridden
   // by derived classes.
@@ -95,7 +94,7 @@ class MellingerController {
   void StateCallback(
     const testbed_msgs::CustOdometryStamped::ConstPtr& msg);
 
-  ControlMode ctrl_mode_;
+  std::string ctrl_mode_;
 
   double g_vehicleMass; // TODO: should be CF global for other modules
   double massThrust;
@@ -173,11 +172,13 @@ class MellingerController {
   ros::Subscriber state_sub_;
   ros::Subscriber setpoint_sub_;
   ros::Publisher control_pub_;
+  ros::Publisher control_pwm_pub_;
   ros::Publisher error_pub_;
 
   std::string state_topic_;
   std::string setpoint_topic_;
   std::string control_topic_;
+  std::string control_pwm_topic_;
   std::string ctrl_perf_topic_;
 
   // Initialized flag and name.
@@ -187,6 +188,9 @@ class MellingerController {
 
   std::string vehicle_name_;
 
+  std::map<std::string, ControlMode> controlMode_;
+
+ 
   // // Load K, x_ref, u_ref from disk.
   // bool LoadFromDisk();
 

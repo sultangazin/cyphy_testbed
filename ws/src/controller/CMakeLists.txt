@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(controller)
-add_compile_options(-std=c++11)
+add_compile_options(-std=c++17)
 
 find_package(catkin REQUIRED 
 	COMPONENTS
@@ -9,6 +9,7 @@ find_package(catkin REQUIRED
 	tf
 	std_msgs
 	testbed_msgs
+    crazyflie_driver
 )
 
 find_package (Eigen3 REQUIRED NO_MODULE)
@@ -21,6 +22,7 @@ catkin_package(
 	tf
 	std_msgs
 	testbed_msgs
+    crazyflie_driver
 )
 
 include_directories(

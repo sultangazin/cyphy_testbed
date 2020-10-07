@@ -22,6 +22,7 @@
     <arg name="server" default="RS2" />
 	<arg name="provide_position" default="True" />
     <arg name="provide_distance" default="False" />
+    <arg name="provide_pose" default="False" />
 
 
 <!-- ===================================== -->
@@ -84,6 +85,8 @@
         <arg name="server" value="$(arg server)" />
         <arg name="provide_position" value="$(arg provide_position)" />
         <arg name="provide_distance" value="$(arg provide_distance)" />
+        <arg name="provide_pose" value="$(arg provide_pose)" />
+        <arg name="controller_type" value="Ext" />
 </include>
 
 

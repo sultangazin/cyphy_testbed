@@ -4,10 +4,22 @@
 #include "math3d.h"
 #include <stdio.h>
 #include <Eigen/Geometry>
+#include <algorithm>
+#include <iomanip>
 
 #define GRAVITY_MAGNITUDE (9.81f)
 
 namespace controller {
+
+    MellingerController::MellingerController() :
+        received_setpoint_(false),
+        last_state_time_(-1.0),
+        initialized_(false) {
+
+        controlMode_["ANGLES"] = ControlMode::ANGLES;
+        controlMode_["RATES"] = ControlMode::RATES;
+        controlMode_["PWM"] = ControlMode::PWM;
+    }
 
     // Initialize.
     bool MellingerController::Initialize(const ros::NodeHandle& n) {
@@ -36,6 +48,10 @@ namespace controller {
 
         error_pub_ = nl.advertise<testbed_msgs::CtrlPerfStamped>(
                 ctrl_perf_topic_.c_str(), 1, false);
+        
+        control_pwm_pub_ = nl.advertise<crazyflie_driver::PWM>(
+                control_pwm_topic_.c_str(), 1, false);
+
 
         Reset();
 
@@ -93,8 +109,10 @@ namespace controller {
 
         if (!nl.getParam("topics/ctrl_perf", ctrl_perf_topic_)) return false;
 
+        nl.param<std::string>("topics/pwm_control", control_pwm_topic_, "/" + vehicle_name_ + "/cmd_pwm");
+
         // Control Mode
-        if (!nl.getParam("control_mode", (int&)ctrl_mode_)) return false;
+        nl.param<std::string>("control_mode", ctrl_mode_, "ANGLES");
 
         return true;
     }
@@ -202,8 +220,6 @@ namespace controller {
         last_state_time_ = ros::Time::now().toSec();
         // std::cout << "dt: " << dt << std::endl;
 
-        testbed_msgs::ControlStamped control_msg;
-
         // Position and Velocity error
         Vector3d p_error = sp_pos_ - pos_;
         Vector3d v_error = sp_vel_ - vel_;
@@ -288,9 +304,19 @@ namespace controller {
         Rdes.col(1) = y_axis_desired;
         Rdes.col(2) = z_axis_desired;
 
+        if (controlMode_.count(ctrl_mode_) == 0) {
+            ROS_ERROR("%s: Unable to select the control mode.", name_.c_str());
+            return;
+        }
 
-        switch (ctrl_mode_) {
-            // Control the drone with attitude commands
+
+        testbed_msgs::ControlStamped control_msg;
+        crazyflie_driver::PWM pwm_msg;
+
+        static unsigned int ccc = 0;
+        
+        ControlMode current_mode = controlMode_[ctrl_mode_];
+        switch (current_mode) {
             case ControlMode::ANGLES: 
                 {
                     // Create "Heading" rotation matrix (x-axis aligned w/ drone but z-axis vertical)
@@ -308,8 +334,6 @@ namespace controller {
                     Matrix3d Rerr = 0.5 * (Rdes.transpose() * Rhdg - Rhdg.transpose() * Rdes);
                     Vector3d Verr(-Rerr(1,2),Rerr(0,2),-Rerr(0,1));
 
-                    // std::cout << "Rout: " << Rout << std::endl;
-
                     control_msg.header.stamp = ros::Time::now();
 
                     control_msg.control.roll = std::atan2(Rout(2,1),Rout(2,2));
@@ -318,7 +342,6 @@ namespace controller {
                     control_msg.control.thrust = current_thrust;
                     break; 
                 }
-                // Control the drone with rate commands
             case ControlMode::RATES:
                 {
                     // Compute the rotation error between the desired z_ and the current one in Inertial frame
@@ -330,30 +353,82 @@ namespace controller {
                     Vector3d nb = quat_.inverse() * ni;
                     Quaterniond q_pq(Eigen::AngleAxisd(alpha, nb));
 
-                    control_msg.control.roll = (q_pq.w() > 0) ? (2.0 * kpq_rates_ * q_pq.x()) : (-2.0 * kpq_rates_ * q_pq.x());
-                    control_msg.control.pitch = (q_pq.w() > 0) ? (2.0 * kpq_rates_ * q_pq.y()) : (-2.0 * kpq_rates_ * q_pq.y());
+                    control_msg.control.roll = (q_pq.w() > 0) ? 
+                        (2.0 * kpq_rates_ * q_pq.x()) : (-2.0 * kpq_rates_ * q_pq.x());
+                    control_msg.control.pitch = (q_pq.w() > 0) ?
+                        (2.0 * kpq_rates_ * q_pq.y()) : (-2.0 * kpq_rates_ * q_pq.y());
 
                     Quaterniond q_r = q_pq.inverse() * quat_.inverse() * Quaterniond(Rdes);
-                    control_msg.control.yaw_dot = (q_r.w() > 0) ? (2.0 * kr_rates_ * q_r.z()) : (-2.0 * kr_rates_ * q_r.z());
+                    control_msg.control.yaw_dot = (q_r.w() > 0) ?
+                        (2.0 * kr_rates_ * q_r.z()) : (-2.0 * kr_rates_ * q_r.z());
                     control_msg.control.yaw_dot = -1.0 * control_msg.control.yaw_dot;
 
                     break;
                 }
-                // Something is wrong if Default...
+            case ControlMode::PWM:
+                {
+                    // Create "Heading" rotation matrix (x-axis aligned w/ drone but z-axis vertical)
+                    Matrix3d Rhdg;
+                    Vector3d x_c(R(0,0) ,R(1,0), 0);
+                    x_c.normalize();
+                    Vector3d z_c(0, 0, 1);
+                    Vector3d y_c = z_c.cross(x_c);
+                    Rhdg.col(0) = x_c;
+                    Rhdg.col(1) = y_c;
+                    Rhdg.col(2) = z_c;
+
+                    Matrix3d Rout = Rhdg.transpose() * Rdes;
+
+                    Matrix3d Rerr = 0.5 * (Rdes.transpose() * Rhdg - Rhdg.transpose() * Rdes);
+                    Vector3d Verr(-Rerr(1,2), Rerr(0,2), -Rerr(0,1));
+
+                    Vector3d M;
+                    M(0) = std::clamp(-kR_xy * Verr(0), -32000.0, 32000.0);
+                    M(1) = std::clamp(-kR_xy * Verr(1), -32000.0, 32000.0);
+                    M(2) = std::clamp(-kR_z * Verr(2), -32000.0, 32000.0);
+
+                    double pwmt = 40500.0 / 9.81 * current_thrust;
+
+                    if (ccc % 100 == 0) {
+                        std::cout << M.transpose() << std::endl;
+                        std::cout << pwmt << std::endl;
+                    }
+
+                    int16_t r = M(0) / 2.0;
+                    int16_t p = M(1) / 2.0;
+                    
+                    pwm_msg.header.stamp = ros::Time::now();
+                    pwm_msg.pwm0 = std::clamp((int)(pwmt - r - p + M(2)), 0, UINT16_MAX);
+                    pwm_msg.pwm1 = std::clamp((int)(pwmt - r + p - M(2)), 0, UINT16_MAX);
+                    pwm_msg.pwm2 = std::clamp((int)(pwmt + r + p + M(2)), 0, UINT16_MAX);
+                    pwm_msg.pwm3 = std::clamp((int)(pwmt + r - p - M(2)), 0, UINT16_MAX);
+                    break;
+                }
             default:
                 ROS_ERROR("%s: Unable to select the control mode.", name_.c_str());
         }
-
         
-
-        if (setpoint_type_ == "stop") {
+        if (setpoint_type_ == "stop" && false) {
             control_msg.control.thrust = 0.0;
             control_msg.control.roll = 0.0;
             control_msg.control.pitch = 0.0;
             control_msg.control.yaw_dot = 0.0;
+
+            pwm_msg.pwm0 = 0;
+            pwm_msg.pwm1 = 0;
+            pwm_msg.pwm2 = 0;
+            pwm_msg.pwm3 = 0;
         }
 
-        control_pub_.publish(control_msg);
+        if (current_mode == ControlMode::PWM) {
+            if (++ccc % 1 == 0) {
+                control_pwm_pub_.publish(pwm_msg);
+                std::cout  << pwm_msg.pwm0 << " | " << pwm_msg.pwm1 << " | "<< pwm_msg.pwm2 <<
+                    " | " << pwm_msg.pwm3 << std::endl;
+            }
+        } else {
+            control_pub_.publish(control_msg);
+        }
     }
 
 }
