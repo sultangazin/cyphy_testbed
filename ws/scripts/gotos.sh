@@ -4,22 +4,24 @@ sleep 1
 
 # Take off
 echo "Take of with onboard controller"
-#rosservice call /cf3/Commander_Node/takeoff_srv "0.5" "3.0"
-sleep 3
-
-# Switch to external controller
-echo "Switch to external controller"
-rosservice call /cf3/Commander_Node/ctrl_offboard_srv "offboard_active: true"
-
 rosservice call /cf3/Commander_Node/takeoff_srv "0.7" "3.0"
 sleep 3
 
-#echo "Move +x"
-#rosservice call /cf3/Commander_Node/goTo_srv "[0.2, 0.0, 0.5]" "3.0" "false"
-#sleep 3
-#echo "Move -x"
-#rosservice call /cf3/Commander_Node/goTo_srv "[-0.2, 0.0, 0.5]" "3.0" "false"
-#sleep 3
+# Switch to external controller
+echo "Switch to external controller 1"
+rosservice call /cf3/nw_ctrl_select "sel_controller: 1"
+rosservice call /cf3/Commander_Node/ctrl_offboard_srv "offboard_active: true"
+sleep 3
+
+echo "Move +x"
+rosservice call /cf3/Commander_Node/goTo_srv "[0.7, 0.0, 0.5]" "3.0" "false"
+sleep 3
+
+echo "Move -x"
+rosservice call /cf3/nw_ctrl_select "sel_controller: 2"
+rosservice call /cf3/Commander_Node/goTo_srv "[-0.2, 0.0, 0.5]" "3.0" "false"
+sleep 3
+
 #echo "Move +y"
 #rosservice call /cf3/Commander_Node/goTo_srv "[0.0, 0.2, 0.5]" "3.0" "false"
 #sleep 3

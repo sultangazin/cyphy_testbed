@@ -408,7 +408,7 @@ namespace controller {
                 ROS_ERROR("%s: Unable to select the control mode.", name_.c_str());
         }
         
-        if (setpoint_type_ == "stop" && false) {
+        if (setpoint_type_ == "stop") {
             control_msg.control.thrust = 0.0;
             control_msg.control.roll = 0.0;
             control_msg.control.pitch = 0.0;
