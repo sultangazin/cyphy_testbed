@@ -390,8 +390,8 @@ namespace controller {
                     double pwmt = 40500.0 / 9.81 * current_thrust;
 
                     if (ccc % 100 == 0) {
-                        std::cout << M.transpose() << std::endl;
-                        std::cout << pwmt << std::endl;
+                        //std::cout << M.transpose() << std::endl;
+                        //std::cout << pwmt << std::endl;
                     }
 
                     int16_t r = M(0) / 2.0;
@@ -423,8 +423,8 @@ namespace controller {
         if (current_mode == ControlMode::PWM) {
             if (++ccc % 1 == 0) {
                 control_pwm_pub_.publish(pwm_msg);
-                std::cout  << pwm_msg.pwm0 << " | " << pwm_msg.pwm1 << " | "<< pwm_msg.pwm2 <<
-                    " | " << pwm_msg.pwm3 << std::endl;
+                //std::cout  << pwm_msg.pwm0 << " | " << pwm_msg.pwm1 << " | "<< pwm_msg.pwm2 <<
+                //    " | " << pwm_msg.pwm3 << std::endl;
             }
         } else {
             control_pub_.publish(control_msg);

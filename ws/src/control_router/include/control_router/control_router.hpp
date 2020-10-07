@@ -32,7 +32,6 @@ class ControlRouter {
 
         // Networked Control Enable
         bool enabled_;
-        bool stopped_;
 
         // Current controller
         int current_controller_;
@@ -51,6 +50,7 @@ class ControlRouter {
 
         // Topic subscription
         ros::Subscriber control_sub_;
+        ros::Subscriber control2_sub_;
 
         // Topic publication
         ros::Publisher control_pub_;
@@ -58,6 +58,9 @@ class ControlRouter {
         // Topics callbacks
         void update_control_callback(
                 const testbed_msgs::ControlStamped::ConstPtr& msg);
+        void update_control2_callback(
+                const testbed_msgs::ControlStamped::ConstPtr& msg);
+
 
         // Names and topics
         std::string name_;

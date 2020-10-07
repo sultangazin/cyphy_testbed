@@ -8,10 +8,9 @@
 // =================================================================
 // =================================================================
 ControlRouter::ControlRouter() {
-        current_controller_ = 0;
+        current_controller_ = 1;
 
         enabled_ = false;
-        stopped_ = false;
 }
 
 ControlRouter::~ControlRouter() {
@@ -48,6 +47,9 @@ bool ControlRouter::Initialize(const ros::NodeHandle& n) {
     ros::NodeHandle ng(n);
     control_sub_ = ng.subscribe(
         input_control_topic_.c_str(), 1, &ControlRouter::update_control_callback, this);
+    control2_sub_ = ng.subscribe(
+        input_control2_topic_.c_str(), 1, &ControlRouter::update_control2_callback, this);
+
 
     // Advertise topics/Services
     // I want to advertise service in the node namespace
@@ -101,27 +103,40 @@ bool ControlRouter::enable_network_controllers(
 
 
 
-//XXX There will be a more complex selection...now let's implement it
+//XXX There will be a more complex selection...now, I just want to have 
 //simple to test the control switching between onboard/offboard
 void ControlRouter::update_control_callback(
         const testbed_msgs::ControlStamped::ConstPtr& msg) {
 
-    curr_control_.control.thrust = msg->control.thrust;
-    curr_control_.control.roll = msg->control.roll;  
-    curr_control_.control.pitch = msg->control.pitch;
-    curr_control_.control.yaw_dot = msg->control.yaw_dot;
+    if (current_controller_ == 1) {
+        std::cout << "Fuck 1!" << std::endl;
+        curr_control_.control.thrust = msg->control.thrust;
+        curr_control_.control.roll = msg->control.roll;  
+        curr_control_.control.pitch = msg->control.pitch;
+        curr_control_.control.yaw_dot = msg->control.yaw_dot;
 
-    if (enabled_) {
-        stopped_ = false;
-        testbed_msgs::ControlStamped out_msg;
-        out_msg = *msg;
-        control_pub_.publish(out_msg);
-    } else {
-        if (stopped_ == false) {
+        if (enabled_) {
             testbed_msgs::ControlStamped out_msg;
-            out_msg.control.thrust = curr_control_.control.thrust;
+            out_msg = *msg;
             control_pub_.publish(out_msg);
-            stopped_ = true;
+        }
+    }
+}
+
+void ControlRouter::update_control2_callback(
+        const testbed_msgs::ControlStamped::ConstPtr& msg) {
+
+    if (current_controller_ == 2) {
+        std::cout << "Fuck 2!" << std::endl;
+        curr_control_.control.thrust = msg->control.thrust;
+        curr_control_.control.roll = msg->control.roll;  
+        curr_control_.control.pitch = msg->control.pitch;
+        curr_control_.control.yaw_dot = msg->control.yaw_dot;
+
+        if (enabled_) {
+            testbed_msgs::ControlStamped out_msg;
+            out_msg = *msg;
+            control_pub_.publish(out_msg);
         }
     }
 }
