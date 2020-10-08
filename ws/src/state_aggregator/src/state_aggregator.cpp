@@ -295,10 +295,21 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
             ROS_ERROR("Detected NaN!");
         }
 
-        // TODO: Filter the quaternion part
-        qd_ = Eigen::Quaterniond::Identity();
-        w_ = Eigen::Vector3d::Zero(); 
+        // TODO: Filter the quaternion part...
+        static Eigen::Vector3d www = Eigen::Vector3d::Zero();
+        if (dt > 0.001) {
+            Eigen::Quaterniond qd_; 
+            for (int i = 0; i < 4; i++) {
+                qd_.coeffs()(i) = (q_.coeffs()(i) - q_old_.coeffs()(i)) / dt;
+            }
+            Eigen::Quaterniond tempq = q_.inverse() * qd_;
+            www = 0.99 * www + (0.01) * 2.0 * tempq.vec();
+            w_ = www;
+            //std::cout << "dt = " << dt << "dq: " << qd_.vec().transpose() << "| w : " << www.transpose() << std::endl;
+        }
 
+        
+        
         p_old_ = p_;
         q_old_ = q_;
         t_old = t;
