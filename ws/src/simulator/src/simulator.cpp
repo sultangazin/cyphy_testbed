@@ -68,8 +68,8 @@ bool XSimulator::LoadParameters(const ros::NodeHandle& n) {
     if (!nl.getParam("frame_name", frame_name_))
         return false;
 
-    if (!nl.getParam("topics/input_control_topic", ctrl_topic_))
-        return false;
+    nl.param<std::string>("topics/input_control_topic", ctrl_topic_, 
+            frame_name_ + "/control");
 
     nl.param<std::string>("topics/output_sensor_topic", 
             sim_sensor_topic_, "xsim_sensors");
@@ -77,9 +77,8 @@ bool XSimulator::LoadParameters(const ros::NodeHandle& n) {
     nl.param<std::string>("topics/output_state_topic", 
             sim_state_topic_, "xsim_state");
 
-    nl.param<std::string>("topics/output_simvrpn_topic", 
-            vrpn_sim_pose_topic_,
-            "/vrpn_client_node/" + frame_name_ + "/pose");
+    nl.param<std::string>("topics/output_simvrpn_topic", vrpn_sim_pose_topic_,
+            "/area0/sensors/optitrack/" + frame_name_ + "/data");
 
     // Load Model Parameter of the drone
     nl.param<double>("param/drone_mass", Mass_, 1.0);
@@ -119,6 +118,8 @@ void XSimulator::ControlCallback(
     // The implementation of the flat controller returns an acceleration instead
     // of a thrust.
     ros::Time current_time = ros::Time::now();
+
+    std::cout << "HO" << std::endl;
 
     if (old_time_.toSec() > 0) {
         double dt = current_time.toSec() - old_time_.toSec();
@@ -200,6 +201,8 @@ void XSimulator::pub_thread_fnc(double dt) {
 
         sim_->get_X(x);
     
+        if (x[2] > 0)
+            std::cout << x[0] << " " << x[1] << " " << x[2] << std::endl;
         //ext_codometry_msg_.header.stamp = msg->header.stamp;
         ext_codometry_msg.header.stamp = ros::Time::now();
         ext_codometry_msg.p.x = x[0];
