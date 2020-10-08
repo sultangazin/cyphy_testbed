@@ -119,7 +119,6 @@ void XSimulator::ControlCallback(
     // of a thrust.
     ros::Time current_time = ros::Time::now();
 
-    std::cout << "HO" << std::endl;
 
     if (old_time_.toSec() > 0) {
         double dt = current_time.toSec() - old_time_.toSec();
@@ -201,8 +200,6 @@ void XSimulator::pub_thread_fnc(double dt) {
 
         sim_->get_X(x);
     
-        if (x[2] > 0)
-            std::cout << x[0] << " " << x[1] << " " << x[2] << std::endl;
         //ext_codometry_msg_.header.stamp = msg->header.stamp;
         ext_codometry_msg.header.stamp = ros::Time::now();
         ext_codometry_msg.p.x = x[0];
