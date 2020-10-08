@@ -8,6 +8,7 @@ find_package(
 	catkin REQUIRED 
 	COMPONENTS
 	roscpp
+    testbed_msgs
 	message_generation
 )
 
@@ -23,6 +24,7 @@ generate_messages()
 catkin_package(
 	CATKIN_DEPENDS roscpp
 	message_runtime
+    testbed_msgs
 	DEPENDS
 	)
 

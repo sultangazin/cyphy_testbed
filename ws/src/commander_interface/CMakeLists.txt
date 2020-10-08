@@ -10,6 +10,7 @@ find_package(
 	roscpp
 	message_generation
 	guidance
+    control_router
     actionlib
 )
 
@@ -29,6 +30,7 @@ catkin_package(
 	DEPENDS
 	guidance
     actionlib
+    control_router
 	)
 
 include_directories(
