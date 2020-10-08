@@ -2,6 +2,7 @@
 #define __CONTROLLER_DD_HPP__
 
 #include "dd_controller/dd_estimator_param.hpp"
+#include <Eigen/Dense>
 
 #define DDCTRL_OUTPUTSIZE (4)
 
@@ -46,7 +47,8 @@ class DDController {
 
 		void Step(const state_t* ps, DDParams* pp, double T);
 
-		void getControls(double m_ctrls[DDCTRL_OUTPUTSIZE]);
+		void getControls(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>& ctrls);
+        const Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> getControls();
 	private:
 		setpoint_t ctrl_setpoint;
 
@@ -55,12 +57,11 @@ class DDController {
 		std::array<double, 2> Katt_;
 		std::array<double, 2> Kyaw_;
 
-		Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> inputs;
+		Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> inputs_;
 
 		double lin2angle(const double setpoint[2],
 						const double state_lin[2], const double state_ang[2],
 						double alpha, double beta, double deltaT);
-
 };
 
 

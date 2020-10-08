@@ -28,8 +28,6 @@
 #define DDESTPAR_BETA2DSIZE (DDESTPAR_INPUT2DSIZE * DDESTPAR_INPUT2DSIZE)
 #define DDESTPAR_GAINS2DSIZE (DDESTPAR_ALPHA2DSIZE + DDESTPAR_BETA2DSIZE)
 
-typedef Eigen::Matrix<double, DDESTPAR_INPUT2DSIZE, 1>  input_t;
-
 typedef Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, 1>  alpha2d_t;
 typedef Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, DDESTPAR_INPUT2DSIZE>  beta2d_t; 
 
@@ -63,9 +61,9 @@ class DDParamEstimator1D {
 		// Estimation Step
 		void Step(double state_acc, double input, double T);
 
-		void SetGains(const std::array<double, 2> gains);
+		void SetGains(const std::array<double, 2>& gains);
 
-		void SetBetaBounds(const std::array<double, 2> bbounds);
+		void SetBetaBounds(const std::array<double, 2>& bbounds);
 
 		void SetParams(double alpha, double beta);
 
@@ -73,17 +71,15 @@ class DDParamEstimator1D {
 
 		void Reset();
 
-
 	private:
 		double alpha_;
 		double beta_;
 
 		// Estimator Gains
-		double est_gains_[2];
+        std::array<double, 2> est_gains_;
 
 		// Bounds on the beta parameter
-		double beta_bounds_[2];
-
+        std::array<double, 2> beta_bounds_;
 };
 
 
@@ -108,20 +104,27 @@ class DDParamEstimator2D {
 				/**
 				 * Estimation step
 				 */
-				void Step(const Eigen::Matrix<double, DDESTPAR_NVAR2D, 1> est_acc,
-								const input_t input, double deltaT);
+				void Step(
+                        const Eigen::Matrix<double, DDESTPAR_NVAR2D, 1>& est_acc,
+                        const Eigen::Matrix<double, DDESTPAR_INPUT2DSIZE, 1>& input,
+                        double deltaT);
 				/**
 				 * Set estimator gains
 				 */
-				void SetGains(const std::array<double, DDESTPAR_ALPHA2DSIZE> alpha_gains, const std::array<double, DDESTPAR_BETA2DSIZE> beta_gains);
+				void SetGains(
+                        const std::array<double, DDESTPAR_ALPHA2DSIZE>& alpha_gains,
+                        const std::array<double, DDESTPAR_BETA2DSIZE>& beta_gains);
+
 				/**
 				 * Get estimated params
 				 */
 				void GetParams(alpha2d_t& a, beta2d_t& b);
+
 				/**
 				 * Set params
 				 */
 				void SetParams(const alpha2d_t& a, const beta2d_t& b);
+
 				/**
 				 * Set Bounds
 				 */
@@ -148,6 +151,7 @@ class DDParamEstimator2D {
 
 /**
  * Parameter Estimator FULL 
+ * I am using std::arrays for parameters and gains to facilitate the usage in a ROS environment.
  */
 class DDParamEstimator {
 		public:
@@ -158,6 +162,7 @@ class DDParamEstimator {
 				~DDParamEstimator();
 
 				void Reset();
+
 				/**
 				 * Perform a estimation step
 				 */
@@ -168,34 +173,34 @@ class DDParamEstimator {
 				/**
 				 * Set the parameter estimators gains
 				 */
-				void SetGains(const std::array<double, 2> gains_x, const std::array<double, 2> gains_y,
-								const std::array<double, DDESTPAR_ALPHA2DSIZE> gains_alpha2d,
-								const std::array<double, DDESTPAR_BETA2DSIZE> gains_beta2d);
-
-
-				/**
-				 * Get the data structure of the parameters from the estimator
-				 */
-				DDParams GetParams();
+				void SetGains(const std::array<double, 2>& gains_x, const std::array<double, 2>& gains_y,
+								const std::array<double, DDESTPAR_ALPHA2DSIZE>& gains_alpha2d,
+								const std::array<double, DDESTPAR_BETA2DSIZE>& gains_beta2d);
 
 				/**
-				 * Get the data structure of the parameters from the estimator
+				 * Set the data structure of the parameters from the estimator
 				 */
 				void SetParams(const DDParams& pa);
 
 				/**
 				 * Set the bound for the beta parameters
 				 */
-				void SetBounds(const std::array<double, 2> beta_x, const std::array<double, 2> beta_y,
+				void SetBounds(const std::array<double, 2>& beta_x, const std::array<double, 2>& beta_y,
 								const std::array<double, DDESTPAR_BETA2DSIZE>& blbounds,
 								const std::array<double, DDESTPAR_BETA2DSIZE>& bubounds);
+
+                /**
+				 * Get the data structure of the parameters from the estimator
+				 */
+				DDParams GetParams();
+
 
 		private:
 				// Measurement Data
 				DDParamEstimator1D paramest1D[2];
 				DDParamEstimator2D paramest2D;
 
-				DDParams params;
+				DDParams params_;
 
 				bool initialized;
 };

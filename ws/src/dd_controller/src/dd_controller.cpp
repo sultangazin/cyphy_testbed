@@ -17,6 +17,8 @@
 
 #include <math.h>
 #include "dd_controller/dd_controller.hpp"
+#include <algorithm>
+#include <iostream>
 
 #define MAXTILT (3.0f * M_PI / 8.0f)
 #define MAXANGULARSPEED (10000.0f)
@@ -85,11 +87,13 @@ void state2arrays(const state_t* sp,
 
 
 // PUBLIC
-DDController::DDController() {
+DDController::DDController() : 
+    inputs_(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>::Zero()) {
 	SetKxy({-0.25, -1.0});
 	SetKz({-100.0, -20.0});
 	SetKatt({-80.0, -20.0});
 	SetKyaw({-100, -20});
+    memset(&ctrl_setpoint, 0, sizeof(setpoint_t));
 }
 
 DDController::~DDController() {
@@ -164,14 +168,10 @@ void DDController::Step(const state_t *state, DDParams* par,
 		Eigen::Matrix<double, 4, 1> phat(phatz, phatroll, phatpitch, phatyaw);
 
 		// Inputs = Beta^-1 * (Phat  - Alpha) 
-		inputs = par->beta2d.inverse() * (par->alpha2d - phat);
+		inputs_ = par->beta2d.inverse() * (phat - par->alpha2d);
 
 		for (int i = 0; i < DDCTRL_OUTPUTSIZE; i++) {
-				if (inputs(i) > 1.0) {
-						inputs(i) = 1.0;
-				} else if (inputs(i) < 0.0) {
-						inputs(i) = 0.0;
-				}
+            inputs_(i) = std::clamp(inputs_(i), 0.0, 1.0);
 		}
 }
 
@@ -218,8 +218,10 @@ double DDController::lin2angle(
 		return angle_output;
 }
 
-void DDController::getControls(double m_ctrls[DDCTRL_OUTPUTSIZE]) {
-		for (int i = 0; i < DDCTRL_OUTPUTSIZE; i++) {
-				m_ctrls[i] = inputs[i];
-		}
+void DDController::getControls(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>& ctrls) {
+		ctrls = inputs_;
+}
+
+const Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> DDController::getControls() {
+    return inputs_;
 }

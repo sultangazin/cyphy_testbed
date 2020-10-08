@@ -1,4 +1,5 @@
 #include "dd_controller/dd_estimator_param.hpp"
+#include <algorithm>
 
 
 // ======================================================
@@ -31,11 +32,10 @@ void DDParamEstimator1D::Step(
 
 		//Compute Updates
 		alpha_new = alpha +
-				est_gains_[0] * sqrt_T * (state_acc -  (alpha + beta * input));
+				est_gains_[0] * sqrt_T * (state_acc - (alpha + beta * input));
 		beta_new = beta +
 				est_gains_[1] * sqrt_T * input * (
 								state_acc - (alpha + beta * input));
-
 
 		if (beta_new < beta_bounds_[0]) {
 				beta_new = beta_bounds_[0];
@@ -50,16 +50,12 @@ void DDParamEstimator1D::Step(
 		beta_ = beta_new;
 }
 
-void DDParamEstimator1D::SetGains(const std::array<double, 2> gains) {
-		for (int i = 0; i < 2; i++) {
-				est_gains_[i] = gains[i];
-		}
+void DDParamEstimator1D::SetGains(const std::array<double, 2>& gains) {
+    est_gains_ = gains;
 }
 
-void DDParamEstimator1D::SetBetaBounds(const std::array<double, 2> bbounds) {
-		for (int i = 0; i < 2; i++) {
-				beta_bounds_[i] = bbounds[i];
-		}
+void DDParamEstimator1D::SetBetaBounds(const std::array<double, 2>& bbounds) {
+	beta_bounds_ = bbounds;
 }
 
 
@@ -95,8 +91,8 @@ void DDParamEstimator2D::Reset() {
 }
 
 void DDParamEstimator2D::Step(
-				const Eigen::Matrix<double, DDESTPAR_NVAR2D, 1> est_acc,
-				const input_t input,
+				const Eigen::Matrix<double, DDESTPAR_NVAR2D, 1>& est_acc,
+				const Eigen::Matrix<double, DDESTPAR_INPUT2DSIZE, 1>& input,
 				double deltaT) {
 
 		// Compute the estimation error of the acceleration
@@ -126,21 +122,14 @@ void DDParamEstimator2D::Step(
 
 		// Check bound of Betas
 		for (int i = 0; i < DDESTPAR_BETA2DSIZE; i++) {
-				if (beta_(i) < beta_lbounds_[i]) {
-						beta_(i) = beta_lbounds_[i];
-				}
-				if (beta_(i) > beta_ubounds_[i]) {
-						beta_(i) = beta_ubounds_[i];
-				}
+            beta_(i) = std::clamp(beta_(i), beta_lbounds_[i], beta_ubounds_[i]);
 		}
 }
 
 
 void DDParamEstimator2D::SetGains(
-				const std::array<double, DDESTPAR_ALPHA2DSIZE>
-				alpha_gains,
-				const std::array<double, DDESTPAR_BETA2DSIZE>
-				beta_gains) {
+				const std::array<double, DDESTPAR_ALPHA2DSIZE>& alpha_gains,
+				const std::array<double, DDESTPAR_BETA2DSIZE>& beta_gains) {
 		// Set Alpha Gains
 		for (int i = 0; i < DDESTPAR_ALPHA2DSIZE; i++) {
 				kest_alpha(i) = alpha_gains[i];
@@ -261,31 +250,25 @@ void DDParamEstimator::Step(state_t* ps,
 
 		paramest2D.Step(state_acczatt, input, deltaT);
 
-		// Update the internal structure
-		paramest1D[0].SetParams(params.alpha_x, params.beta_x);
-		paramest1D[1].SetParams(params.alpha_y, params.beta_y);
-		paramest2D.SetParams(params.alpha2d, params.beta2d);
+		// Update the internal structure taking the estimate from the
+        // components.
+		paramest1D[0].GetParams(&params_.alpha_x, &params_.beta_x);
+		paramest1D[1].GetParams(&params_.alpha_y, &params_.beta_y);
+		paramest2D.GetParams(params_.alpha2d, params_.beta2d);
 		
-		params.valid = true;
-
+		params_.valid = true;
 }
 
-void DDParamEstimator::SetGains(const std::array<double, 2> gains_x,
-				const std::array<double, 2> gains_y,
-				const std::array<double, DDESTPAR_ALPHA2DSIZE> gains_alpha2d,
-				const std::array<double, DDESTPAR_BETA2DSIZE> gains_beta2d) {
+void DDParamEstimator::SetGains(const std::array<double, 2>& gains_x, const std::array<double, 2>& gains_y,
+				const std::array<double, DDESTPAR_ALPHA2DSIZE>& gains_alpha2d,
+				const std::array<double, DDESTPAR_BETA2DSIZE>& gains_beta2d) {
 		paramest1D[0].SetGains(gains_x);
 		paramest1D[1].SetGains(gains_y);
 		paramest2D.SetGains(gains_alpha2d, gains_beta2d);
 }
 
-
-DDParams DDParamEstimator::GetParams() {
-		return params;
-}
-
 void DDParamEstimator::SetParams(const DDParams& pa) {
-		params = pa;
+		params_ = pa;
 
 		paramest1D[0].SetParams(pa.alpha_x, pa.beta_x);
 
@@ -294,7 +277,7 @@ void DDParamEstimator::SetParams(const DDParams& pa) {
 		paramest2D.SetParams(pa.alpha2d, pa.beta2d);
 }
 
-void DDParamEstimator::SetBounds(const std::array<double, 2> beta_x, const std::array<double, 2> beta_y,
+void DDParamEstimator::SetBounds(const std::array<double, 2>& beta_x, const std::array<double, 2>& beta_y,
 				const std::array<double, DDESTPAR_BETA2DSIZE>& blbounds,
 				const std::array<double, DDESTPAR_BETA2DSIZE>& bubounds) {
 
@@ -302,4 +285,8 @@ void DDParamEstimator::SetBounds(const std::array<double, 2> beta_x, const std::
 		paramest1D[1].SetBetaBounds(beta_y);
 
 		paramest2D.SetBetaBounds(blbounds, bubounds);
+}
+
+DDParams DDParamEstimator::GetParams() {
+		return params_;
 }

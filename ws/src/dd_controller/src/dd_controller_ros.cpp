@@ -19,8 +19,14 @@ void thread_fnc(void* p);
 //
 DDControllerROS::DDControllerROS():
     received_reference_(false),
+    received_setpoint_(false),
+    estimator_ready_(false),
+    controller_ready_(false),
+    initialization_counter_(4),
+    setpoint_type_("stop"),
     last_state_time_(-1.0),
-    initialized_(false) { 
+    initialized_(false),
+    pwm_ctrls_(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>::Zero()) { 
     };
 
 DDControllerROS::~DDControllerROS() {};
@@ -44,7 +50,6 @@ bool DDControllerROS::Initialize(const ros::NodeHandle& n) {
         ROS_ERROR("%s: Failed to register callbacks.", node_name_.c_str());
         return false;
     }
-
     
     // Instantiate classes
     pddctrl_ = new DDController();
@@ -53,6 +58,11 @@ bool DDControllerROS::Initialize(const ros::NodeHandle& n) {
 
     // Setup output publications and services
     SetUpPublications(nl);
+
+    // Setup one-time subscription
+    setpoint_sub_ = nl.subscribe(setpoint_topic_.c_str(), 1,
+            &DDControllerROS::onNewSetpoint, this);
+
 
     /*
     // In case I wanted to do something periodically
@@ -73,24 +83,26 @@ bool DDControllerROS::LoadParameters(const ros::NodeHandle& n) {
     ros::NodeHandle np("~");
     std::string key;
 
-    np.param<std::string>("param/target_name", target_name_,"cf1");
+    // Vehicle name
+    np.param<std::string>("param/vehicle_name", vehicle_name_,"cf1");
 
-    // External pose
-    np.param<std::string>("topics/in_pose_sensor_topic", pose_meas_topic_,
-            "external_pose");
+    // Control Setpoint
+    np.param<std::string>("topics/in_ctrl_setpoint_topic", setpoint_topic_,
+            "/" + vehicle_name_ + "/setpoint");
     
-
     // Output Motors 
     np.param<std::string>("topics/out_motors_topic", motor_ctrls_topic_,
-            "motor_ctrls");
+            "/" + vehicle_name_ + "/cmd_pwm");
 
     // State Estimate 
     np.param<std::string>("topics/out_state_estimate_topic", state_estimate_topic_,
-            "dd_estimate");
+            "/" + vehicle_name_ + "/dd_estimate");
 
     // Parameters Estimation 
     np.param<std::string>("topics/out_param_estimate_topic", param_estimate_topic_,
-            "dd_param_estimate");
+            "/" + vehicle_name_ + "/dd_param_estimate");
+
+    np.param<std::string>("param/area_name", area_name_, "area0");
 
     /*
     // Params
@@ -106,19 +118,17 @@ bool DDControllerROS::LoadParameters(const ros::NodeHandle& n) {
                 "sigmax", _sigmax);
     } 
     */
-
-    area_name_ = "area0";
-
     return true;
 }
 
 bool DDControllerROS::SetUpPublications(const ros::NodeHandle& n) {
 
     ros::NodeHandle nl(n);
+
     // Output Publications
-    motor_ctrls_pub_ = nl.advertise<dd_controller::MotorsCtrlStamped> (motor_ctrls_topic_.c_str(), 10);
-    state_estimate_pub_= nl.advertise<dd_controller::StateEstimateStamped> (state_estimate_topic_.c_str(), 10);
-    param_estimate_pub_ = nl.advertise<dd_controller::ParamEstimateStamped> (param_estimate_topic_.c_str(), 10);
+    motor_ctrls_pub_ = nl.advertise<crazyflie_driver::PWM> (motor_ctrls_topic_.c_str(), 5);
+    state_estimate_pub_= nl.advertise<dd_controller::StateEstimateStamped> (state_estimate_topic_.c_str(), 5);
+    param_estimate_pub_ = nl.advertise<dd_controller::ParamEstimateStamped> (param_estimate_topic_.c_str(), 5);
 
     // Advertise Services
     dd_controller_service = node_.advertiseService(
@@ -129,7 +139,6 @@ bool DDControllerROS::SetUpPublications(const ros::NodeHandle& n) {
 
 
 int DDControllerROS::UpdateSensorPublishers() {
-
     // In order to automatize the subscription to sensor topics 
     // I need to fetch information from the network.
     // I will save the information in a data structure indicized
@@ -141,7 +150,7 @@ int DDControllerROS::UpdateSensorPublishers() {
     // vehicle.
     //
     std::unordered_map<std::string, ros::master::TopicInfo> sdata;
-    network_parser.query_sensors(sdata, area_name_, target_name_);
+    network_parser.query_sensors(sdata, area_name_, vehicle_name_);
 
     // For each topic found save the data relative to the sensor in the node
     // 'inchannels' data structure.
@@ -223,12 +232,15 @@ bool DDControllerROS::RegisterCallbacks() {
 // CALLBACK ---------------------------------------------------------------------
 /* 
  * Topic Callback
- * Whenever I receive a new Trajectory message, update the odometry.
+ * Whenever I receive a new pose message.
  */
 void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg, void* arg) {
     double dt;
     static timespec t_old;
     timespec t;
+
+    state_t estim_state;
+    DDParams param;
 
     std::string sensor_name = *(std::string*) arg;
 
@@ -258,6 +270,7 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     double yaw =  atan2(2.0 * quat.x() * quat.y() + 2.0 * quat.z() * quat.w(),
             1.0 - 2.0 * (quat.y() * quat.y() + quat.z() * quat.z()));
     
+    // 1) Estimation Step
     std::array<double, DDEST_NUMOFCHANNELS> meas {
         pos(0),
         pos(1),
@@ -266,47 +279,130 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
         pitch,
         yaw
     };
-
     // Feed the data into the DD estimator
     pddest_->AddMeas(meas, ros::Time::now().toSec());
-    
     // Trigger an estimation step
     // (I should think if it's the case to move this step in a separate thread)
-    pddest_->Step();
+    estimator_ready_ = pddest_->Step();
 
-    // Fetch the state from the estimator
-    state_t estim_state;
-    pddest_->GetState(&estim_state);
+    if (estimator_ready_) { // If state estimation is ready
+        
+        // 2) Parameter Estimation
+        pddest_->GetState(&estim_state);
+        if (pwm_ctrls_.norm() > 0.1) {
+            pddparest_->Step(&estim_state, pwm_ctrls_, pddest_->GetMeasuresTimeInterval());
+        }
 
+        // 3) Run the controller
+        // If state and parameters are ok we can run the controller.
+        param = pddparest_->GetParams();
+
+        if (received_setpoint_) {
+            pddctrl_->Step(&estim_state,  &param,
+                    pddest_->GetMeasuresTimeInterval());
+        }
+
+        pddctrl_->getControls(pwm_ctrls_); 
+    }
+
+    if (setpoint_type_ == "stop") {
+        for (int i = 0; i < DDCTRL_OUTPUTSIZE; i++) {
+            pwm_ctrls_(i) = 0.0;
+        }
+    }
+
+
+
+    // This controllers needs a startup sequence at the first activation
+    if (!controller_ready_ && pwm_ctrls_.norm() > 0.1) {
+        pwm_ctrls_ << 1.0, 1.0, 1.0, 1.0; 
+        if (--initialization_counter_ <= 0) {
+            controller_ready_ = true;
+        }
+    }
+
+    // Pubblications
     dd_controller::StateEstimateStamped est_msg;
+
     est_msg.pos.x = estim_state.position(0);
     est_msg.pos.y = estim_state.position(1);
     est_msg.pos.z = estim_state.position(2);
-
     est_msg.vel.x = estim_state.velocity(0);
     est_msg.vel.y = estim_state.velocity(1);
     est_msg.vel.z = estim_state.velocity(2);
-
     est_msg.acc.x = estim_state.acceleration(0);
     est_msg.acc.y = estim_state.acceleration(1);
     est_msg.acc.z = estim_state.acceleration(2);
-
     est_msg.attitude.x = estim_state.attitude(0);
     est_msg.attitude.y = estim_state.attitude(1);
     est_msg.attitude.z = estim_state.attitude(2);
-
     est_msg.attitude_d.x = estim_state.attitude_d(0);
     est_msg.attitude_d.y = estim_state.attitude_d(1);
     est_msg.attitude_d.z = estim_state.attitude_d(2);
-
     est_msg.attitude_dd.x = estim_state.attitude_dd(0);
     est_msg.attitude_dd.y = estim_state.attitude_dd(1);
     est_msg.attitude_dd.z = estim_state.attitude_dd(2);
 
-    // Publish it
+    crazyflie_driver::PWM pwm_msg;
+    pwm_msg.pwm0 = pwm_ctrls_(0) * 60000;
+    pwm_msg.pwm1 = pwm_ctrls_(1) * 60000;
+    pwm_msg.pwm2 = pwm_ctrls_(2) * 60000;
+    pwm_msg.pwm3 = pwm_ctrls_(3) * 60000;
+
+    dd_controller::ParamEstimateStamped par_msg;
+    par_msg.header.stamp = msg->header.stamp;
+    par_msg.alpha_x = param.alpha_x;
+    par_msg.alpha_y = param.alpha_y;
+    par_msg.beta_x = param.beta_x;
+    par_msg.beta_y = param.beta_y;
+
+    for (int i = 0; i < DDESTPAR_ALPHA2DSIZE; i++) {
+        par_msg.alpha2d[i] = param.alpha2d(i);  
+    }
+
+    // Publish 
     state_estimate_pub_.publish(est_msg);
+    motor_ctrls_pub_.publish(pwm_msg);
+    param_estimate_pub_.publish(par_msg);
 
     return;
+}
+
+
+void DDControllerROS::onNewControl(const crazyflie_driver::PWM::ConstPtr& msg) {
+    // In case I need to take inputs from outside or I decide to split the components
+    // into different nodes. (I should...)
+    return;
+}
+
+// Process an incoming setpoint point change.
+void DDControllerROS::onNewSetpoint(
+        const testbed_msgs::ControlSetpoint::ConstPtr& msg) {
+
+    setpoint_type_ = msg->setpoint_type; 
+
+    setpoint_t ctrl_setpoint;
+    ctrl_setpoint.position(0) = msg->p.x;
+    ctrl_setpoint.position(1) = msg->p.y;
+    ctrl_setpoint.position(2) = msg->p.z;
+    ctrl_setpoint.velocity(0) = msg->v.x;
+    ctrl_setpoint.velocity(1) = msg->v.y;
+    ctrl_setpoint.velocity(2) = msg->v.z;
+    ctrl_setpoint.acceleration(0) = msg->a.x;
+    ctrl_setpoint.acceleration(1) = msg->a.y;
+    ctrl_setpoint.acceleration(2) = msg->a.z;
+    ctrl_setpoint.attitude(0) = msg->rpy.x;
+    ctrl_setpoint.attitude(1) = msg->rpy.y;
+    ctrl_setpoint.attitude(2) = msg->rpy.z;
+    ctrl_setpoint.attitude_d(0) = msg->brates.x;
+    ctrl_setpoint.attitude_d(1) = msg->brates.y;
+    ctrl_setpoint.attitude_d(2) = msg->brates.z;
+
+    // Copy the setpoint structure into the controller class
+    pddctrl_->SetSetpoint(&ctrl_setpoint);
+
+    // Set the flag about the setpoint
+    received_setpoint_ = true;
 }
 
 
@@ -344,7 +440,6 @@ void thread_fnc(void* p) {
         timespec_sum(time, period_tms, next_activation);
 
         // Do something
-
         clock_nanosleep(CLOCK_MONOTONIC,
                 TIMER_ABSTIME, &next_activation, NULL);
     }

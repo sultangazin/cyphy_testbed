@@ -17,13 +17,16 @@
 
 // Messages
 #include <geometry_msgs/PoseStamped.h>
-#include <dd_controller/MotorsCtrlStamped.h>
+#include <crazyflie_driver/PWM.h>
+#include <testbed_msgs/ControlSetpoint.h>
+
 
 #include "dd_controller/dd_controller.hpp"
 #include "dd_controller/dd_estimator.hpp"
 #include "dd_controller/dd_estimator_param.hpp"
 
 #include "utilities/network_parser/network_parser.hpp"
+
 
 struct TopicData {
     std::string topic_name;
@@ -60,12 +63,19 @@ class DDControllerROS {
 
         // Initialized flag and name.
         bool received_reference_;
+        bool received_setpoint_;
+        bool estimator_ready_;
+        bool controller_ready_;
+        int initialization_counter_;
+
         bool initialized_;
+
+        std::string setpoint_type_;
 
         // Name of the area where the controller is located 
         std::string area_name_;
         // Name of the vehicle controlled
-        std::string target_name_;
+        std::string vehicle_name_;
 
         // Network Parser
         NetworkParser network_parser;
@@ -83,10 +93,15 @@ class DDControllerROS {
 
         // Callback on Pose 
         void onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamped const>& msg, void* arg);
-
+        // Callback on Control
+        void onNewControl(const crazyflie_driver::PWM::ConstPtr& msg);
+        // Callback on Setpoint
+        void onNewSetpoint(const testbed_msgs::ControlSetpoint::ConstPtr& msg);
+        
         // Services for controlling the controller
         bool dd_controller_tune(dd_controller::DDControllerTune::Request& req,
                 dd_controller::DDControllerTune::Response& res);
+
         ros::ServiceServer dd_controller_service;
 
         // Publishers and subscribers.
@@ -97,14 +112,14 @@ class DDControllerROS {
 
         // Input Topics names
         std::string pose_meas_topic_;
+        std::string setpoint_topic_;
 
         // Output Topics names
         std::string motor_ctrls_topic_;
         std::string state_estimate_topic_;
         std::string param_estimate_topic_;
 
-        // Messages 
-        dd_controller::MotorsCtrlStamped motor_ctrls_msg_;
+        Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> pwm_ctrls_;
 
         /**
          * MAP containing sensor topic information
@@ -118,12 +133,16 @@ class DDControllerROS {
          */
         std::unordered_map<std::string, ros::Subscriber> active_subscriber;
 
+        ros::Subscriber setpoint_sub_;
+        ros::Subscriber controller_sub;
 
-        // DATA ------------------------------------------------------------
+
+        // DATA -------------------------------------------------------
+        
+
         // THREAD OBJECTS 
         Thread_arg periodic_thread_arg_;
         std::thread periodic_thread_;
-
         std::thread net_disc_thr_;
 
         // ===========================================================
