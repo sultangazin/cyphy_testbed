@@ -87,6 +87,16 @@
     </node>
 
 
+    <node name="datadriver_controller"
+        pkg="dd_controller"
+        type="dd_controller"
+        output="screen">
+        <param name="param/vehicle_name" value="$(arg vehicle_frame)" />
+    </node>
+
+    <!-- I would like to remove these namespace in the future and do
+         everything with the topic names
+         -->
     <group ns="$(arg vehicle_frame)"> 
 
         <!-- CONTROLLER 1 -->
@@ -123,4 +133,9 @@
     </node>
 </group>
 
+
+<node pkg="rosbag" name="dd_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_ddctrl  /$(arg vehicle_frame)/motor_ctrls /$(arg vehicle_frame)/dd_estimate /$(arg vehicle_frame)/dd_param_estimate "/>
+
 </launch>
+
+
