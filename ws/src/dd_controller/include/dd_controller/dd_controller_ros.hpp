@@ -138,7 +138,15 @@ class DDControllerROS {
 
 
         // DATA -------------------------------------------------------
-        
+        std::array<double, 2> gains_x;
+        std::array<double, 2> gains_y;
+        std::array<double, 4> gains_alpha2d;
+        std::array<double, 16> gains_beta2d;
+
+        std::array<double, 2> bbeta_x;
+        std::array<double, 2> bbeta_y;
+        std::array<double, 16> blbounds;
+        std::array<double, 16> bubounds;
 
         // THREAD OBJECTS 
         Thread_arg periodic_thread_arg_;

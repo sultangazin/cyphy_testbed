@@ -92,6 +92,8 @@
         type="dd_controller"
         output="screen">
         <param name="param/vehicle_name" value="$(arg vehicle_frame)" />
+        <param name="param/Kgains" value = "[0.1, 0.3, 2]" />
+        <rosparam file="$(find dd_controller)/config/dd_controller_params.yaml" />
     </node>
 
     <!-- I would like to remove these namespace in the future and do
