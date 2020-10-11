@@ -303,7 +303,7 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
                 qd_.coeffs()(i) = (q_.coeffs()(i) - q_old_.coeffs()(i)) / dt;
             }
             Eigen::Quaterniond tempq = q_.inverse() * qd_;
-            www = 0.99 * www + (0.01) * 2.0 * tempq.vec();
+            www = 0.5 * www + (0.5) * 2.0 * tempq.vec();
             w_ = www;
             //std::cout << "dt = " << dt << "dq: " << qd_.vec().transpose() << "| w : " << www.transpose() << std::endl;
         }
