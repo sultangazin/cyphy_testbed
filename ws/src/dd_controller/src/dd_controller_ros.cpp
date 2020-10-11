@@ -77,7 +77,10 @@ bool DDControllerROS::Initialize(const ros::NodeHandle& n) {
     net_disc_thr_ = std::thread(&DDControllerROS::net_discovery, this,
             500);
 
+
     initialized_ = true;
+
+    ROS_INFO("[%s] Initialized!", node_name_.c_str());
 
     return true;
 }
@@ -404,7 +407,8 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
         // 2) Parameter Estimation
         pddest_->GetState(&estim_state);
         if (pwm_ctrls_.norm() > 0.1) {
-            pddparest_->Step(&estim_state, pwm_ctrls_, pddest_->GetMeasuresTimeInterval());
+            double dT = pddest_->GetMeasuresTimeInterval();
+            pddparest_->Step(&estim_state, pwm_ctrls_, dT);
         }
 
         // 3) Run the controller

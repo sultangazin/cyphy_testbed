@@ -79,6 +79,8 @@ class DDMeas {
         buffer_t get_meas() const;
         buffer_t get_timestamps() const;
         double get_last_timestamp() const;
+        double get_timeinterval() const;
+        buffer_t get_deltas() const;
 
         // Check if the buffer is filled
         bool is_filled() const;
@@ -92,7 +94,12 @@ class DDMeas {
         // Number of measurement effectively in the buffer
         int num_elements;
 
+        unsigned int head;
+
+        unsigned int tail;
+
         bool filled;
+        bool empty;
 };
 
 
@@ -120,6 +127,7 @@ class DDEstimator1D {
         // Return the timevectot of the measurements
         buffer_t get_timestamps();
         double get_last_timestamp();
+        double get_timeinterval();
 
         bool is_ready();
 

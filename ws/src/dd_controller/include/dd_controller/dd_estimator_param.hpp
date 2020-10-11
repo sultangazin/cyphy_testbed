@@ -28,9 +28,6 @@
 #define DDESTPAR_BETA2DSIZE (DDESTPAR_INPUT2DSIZE * DDESTPAR_INPUT2DSIZE)
 #define DDESTPAR_GAINS2DSIZE (DDESTPAR_ALPHA2DSIZE + DDESTPAR_BETA2DSIZE)
 
-typedef Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, 1>  alpha2d_t;
-typedef Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, DDESTPAR_INPUT2DSIZE>  beta2d_t; 
-
 
 /**
  * Data structure for a better export 
@@ -46,8 +43,8 @@ struct DDParams_s {
 	double beta_x;
 	double beta_y;
 
-	alpha2d_t alpha2d;
-	beta2d_t beta2d;
+	Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, 1> alpha2d;
+	Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, DDESTPAR_INPUT2DSIZE, Eigen::RowMajor> beta2d;
 };
 
 
@@ -118,12 +115,15 @@ class DDParamEstimator2D {
 				/**
 				 * Get estimated params
 				 */
-				void GetParams(alpha2d_t& a, beta2d_t& b);
+				 Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, 1> GetAlphaParams();
+                 Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, DDESTPAR_INPUT2DSIZE> GetBetaParams();;
 
 				/**
 				 * Set params
 				 */
-				void SetParams(const alpha2d_t& a, const beta2d_t& b);
+				void SetParams(
+                        const Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, 1>& a,
+                        const Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, DDESTPAR_INPUT2DSIZE>& b);
 
 				/**
 				 * Set Bounds
@@ -134,11 +134,11 @@ class DDParamEstimator2D {
 
 
 		private:
-				alpha2d_t alpha_;
-				beta2d_t beta_;
+				Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, 1> alpha_;
+				Eigen::Matrix<double, DDESTPAR_ALPHA2DSIZE, DDESTPAR_INPUT2DSIZE, Eigen::RowMajor> beta_;
 
 				Eigen::Array<double, DDESTPAR_ALPHA2DSIZE, 1>  kest_alpha;
-				Eigen::Array<double, DDESTPAR_ALPHA2DSIZE, DDESTPAR_INPUT2DSIZE> kest_beta;
+				Eigen::Array<double, DDESTPAR_ALPHA2DSIZE, DDESTPAR_INPUT2DSIZE, Eigen::RowMajor> kest_beta;
 
 				std::array<double, DDESTPAR_BETA2DSIZE> beta_lbounds_;
 				std::array<double, DDESTPAR_BETA2DSIZE> beta_ubounds_;

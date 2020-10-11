@@ -109,7 +109,6 @@ void ControlRouter::update_control_callback(
         const testbed_msgs::ControlStamped::ConstPtr& msg) {
 
     if (current_controller_ == 1) {
-        std::cout << "Fuck 1!" << std::endl;
         curr_control_.control.thrust = msg->control.thrust;
         curr_control_.control.roll = msg->control.roll;  
         curr_control_.control.pitch = msg->control.pitch;
@@ -127,7 +126,6 @@ void ControlRouter::update_control2_callback(
         const testbed_msgs::ControlStamped::ConstPtr& msg) {
 
     if (current_controller_ == 2) {
-        std::cout << "Fuck 2!" << std::endl;
         curr_control_.control.thrust = msg->control.thrust;
         curr_control_.control.roll = msg->control.roll;  
         curr_control_.control.pitch = msg->control.pitch;

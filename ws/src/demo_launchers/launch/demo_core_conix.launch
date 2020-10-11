@@ -8,21 +8,25 @@
      - Commander + Guidance Nodes
 -->
 <launch>
+
+<!--
     <arg name="vehicle_frame" default="cf3" />
     <arg name="uri" default="radio://0/80/2M/E7E7E7E703" />
-<!--
+
     <arg name="vehicle_frame" default="cf1" />
     <arg name="uri" default="radio://0/121/2M/E7E7E7E7E7" />
 -->
+    <arg name="vehicle_frame" default="cf2" />
+    <arg name="uri" default="radio://0/100/2M/E7E7E7E702" />
     <arg name="target" default="target" />
     <arg name="nodeB" default="nodeB" />
     <arg name="ip" default="192.168.1.198" />
     <arg name="port" default="3883" />
 
     <arg name="server" default="RS2" />
-    <arg name="provide_position" default="True" />
+    <arg name="provide_position" default="False" />
     <arg name="provide_distance" default="False" />
-    <arg name="provide_pose" default="False" />
+    <arg name="provide_pose" default="True" />
 
 
 <!-- ===================================== -->
@@ -71,7 +75,8 @@
     <arg name="provide_position" value="$(arg provide_position)" />
     <arg name="provide_distance" value="$(arg provide_distance)" />
     <arg name="provide_pose" value="$(arg provide_pose)" />
-    <arg name="controller_type" value="Mellinger" />
+    <arg name="controller_type" value="DD" />
+    <arg name="estimator_type" value="DD" />
 </include>
 
 
@@ -86,13 +91,11 @@
         <param name="param/vehicle_name" value="$(arg vehicle_frame)" />
     </node>
 
-
     <node name="datadriver_controller"
         pkg="dd_controller"
         type="dd_controller"
         output="screen">
         <param name="param/vehicle_name" value="$(arg vehicle_frame)" />
-        <param name="param/Kgains" value = "[0.1, 0.3, 2]" />
         <rosparam file="$(find dd_controller)/config/dd_controller_params.yaml" />
     </node>
 
