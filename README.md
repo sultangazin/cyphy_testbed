@@ -67,6 +67,7 @@ The project was developed in *ROS Melodic* and some modules used *Eigen*. Make s
 Dependencies:
 - [Eigen](https://eigen.tuxfamily.org) -- a header-only linear algebra library for C++
 - [python-scipy] -- python library for math computation
+- [rpclib](https://github.com/rpclib/rpclib)
 
 The repository contains submodules, thus, make sure you clone *recursively*.
 To build the framework, navigate to the `ws/` directory (the _workspace_), and run
