@@ -9,6 +9,7 @@ find_package(
 	COMPONENTS
 	roscpp
     testbed_msgs
+    crazyflie_driver
 	message_generation
 )
 
@@ -25,6 +26,7 @@ catkin_package(
 	CATKIN_DEPENDS roscpp
 	message_runtime
     testbed_msgs
+    crazyflie_driver
 	DEPENDS
 	)
 

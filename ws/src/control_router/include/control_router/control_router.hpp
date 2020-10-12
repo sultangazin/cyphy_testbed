@@ -7,6 +7,7 @@
 #include "control_router/SelectController.h"
 #include "control_router/EnableNWController.h"
 #include <testbed_msgs/ControlStamped.h>
+#include <crazyflie_driver/PWM.h>
 
 // =================================================================
 // CLASS
@@ -38,6 +39,7 @@ class ControlRouter {
 
         // Current control signal
         testbed_msgs::ControlStamped curr_control_;
+        crazyflie_driver::PWM curr_pwm_control_;
 
         // Load Parameters
         bool LoadParameters(const ros::NodeHandle& n);
@@ -51,23 +53,35 @@ class ControlRouter {
         // Topic subscription
         ros::Subscriber control_sub_;
         ros::Subscriber control2_sub_;
+        ros::Subscriber dd_control_sub_;
+        ros::Subscriber dd_control2_sub_;
+
 
         // Topic publication
         ros::Publisher control_pub_;
+        ros::Publisher control_pwm_pub_;
         
         // Topics callbacks
         void update_control_callback(
                 const testbed_msgs::ControlStamped::ConstPtr& msg);
         void update_control2_callback(
                 const testbed_msgs::ControlStamped::ConstPtr& msg);
+        void update_dd_control_callback(
+                const crazyflie_driver::PWM::ConstPtr& msg);
+        void update_dd_control2_callback(
+                const crazyflie_driver::PWM::ConstPtr& msg);
 
 
         // Names and topics
         std::string name_;
         std::string vehicle_name_;
         std::string output_control_topic_;
+        std::string output_control_pwm_topic_;
         std::string input_control_topic_;
         std::string input_control2_topic_;
+        std::string input_dd_control_topic_;
+        std::string input_dd_control2_topic_;
+
 
         bool initialized_;
 };

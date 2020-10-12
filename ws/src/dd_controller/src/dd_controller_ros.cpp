@@ -19,7 +19,7 @@ void thread_fnc(void* p);
 //
 DDControllerROS::DDControllerROS():
     received_reference_(false),
-    received_setpoint_(false),
+    active_(false),
     estimator_ready_(false),
     controller_ready_(false),
     initialization_counter_(4),
@@ -27,6 +27,8 @@ DDControllerROS::DDControllerROS():
     last_state_time_(-1.0),
     initialized_(false),
     pwm_ctrls_(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>::Zero()) { 
+        drop_mod_ = 1;
+        ctrl_counter_ = 0;
     };
 
 DDControllerROS::~DDControllerROS() {};
@@ -67,6 +69,8 @@ bool DDControllerROS::Initialize(const ros::NodeHandle& n) {
     setpoint_sub_ = nl.subscribe(setpoint_topic_.c_str(), 1,
             &DDControllerROS::onNewSetpoint, this);
 
+    controller_sub_ = nl.subscribe(actuated_pwm_topic_.c_str(), 1,
+            &DDControllerROS::onNewControl, this);
 
     /*
     // In case I wanted to do something periodically
@@ -90,6 +94,9 @@ bool DDControllerROS::LoadParameters(const ros::NodeHandle& n) {
     ros::NodeHandle np("~");
     std::string key;
 
+    // Controller name
+    np.param<std::string>("param/controller_name", controller_name_, "DD_ctrl");
+
     // Vehicle name
     np.param<std::string>("param/vehicle_name", vehicle_name_,"cf1");
 
@@ -99,18 +106,24 @@ bool DDControllerROS::LoadParameters(const ros::NodeHandle& n) {
     
     // Output Motors 
     np.param<std::string>("topics/out_motors_topic", motor_ctrls_topic_,
+            "/area0/controller/" +
+            controller_name_ + "/" + vehicle_name_ + "/cmd_pwm");
+
+    np.param<std::string>("topics/in_motors_topic", actuated_pwm_topic_,
             "/" + vehicle_name_ + "/cmd_pwm");
+            
 
     // State Estimate 
     np.param<std::string>("topics/out_state_estimate_topic", state_estimate_topic_,
-            "/" + vehicle_name_ + "/dd_estimate");
+            "/" + controller_name_ + "/" + vehicle_name_ + "/dd_estimate");
 
     // Parameters Estimation 
     np.param<std::string>("topics/out_param_estimate_topic", param_estimate_topic_,
-            "/" + vehicle_name_ + "/dd_param_estimate");
+            "/" + controller_name_ + "/" + vehicle_name_ + "/dd_param_estimate");
 
     np.param<std::string>("param/area_name", area_name_, "area0");
 
+    np.param<int>("param/drop_mod", drop_mod_, 1);
 
     // Load the parameter for the dd controller
     // It is a terrible implementation. I should optimize the
@@ -403,39 +416,28 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     estimator_ready_ = pddest_->Step();
 
     if (estimator_ready_) { // If state estimation is ready
-        
-        // 2) Parameter Estimation
-        pddest_->GetState(&estim_state);
-        if (pwm_ctrls_.norm() > 0.1) {
-            double dT = pddest_->GetMeasuresTimeInterval();
-            pddparest_->Step(&estim_state, pwm_ctrls_, dT);
-        }
 
+        pddest_->GetState(&estim_state);
         // 3) Run the controller
         // If state and parameters are ok we can run the controller.
+
+        double dT = pddest_->GetMeasuresTimeInterval();
         param = pddparest_->GetParams();
 
-        if (received_setpoint_) {
-            pddctrl_->Step(&estim_state,  &param,
-                    pddest_->GetMeasuresTimeInterval());
-        }
+        if (active_) {
+            pddctrl_->Step(&estim_state,  &param, dT / 3.0);
 
-        pddctrl_->getControls(pwm_ctrls_); 
-    }
+            pddctrl_->getControls(pwm_ctrls_); 
 
-    if (setpoint_type_ == "stop") {
-        for (int i = 0; i < DDCTRL_OUTPUTSIZE; i++) {
-            pwm_ctrls_(i) = 0.0;
-        }
-    }
-
-
-
-    // This controllers needs a startup sequence at the first activation
-    if (!controller_ready_ && pwm_ctrls_.norm() > 0.1) {
-        pwm_ctrls_ << 1.0, 1.0, 1.0, 1.0; 
-        if (--initialization_counter_ <= 0) {
-            controller_ready_ = true;
+            // Initialization Procedure
+            if (!controller_ready_ && pwm_ctrls_.norm() > 0.1) {
+                pwm_ctrls_ << 1.0, 1.0, 1.0, 1.0; 
+                if (--initialization_counter_ <= 0) {
+                    controller_ready_ = true;
+                }
+            }
+        } else {
+            pwm_ctrls_ << 0, 0, 0, 0;
         }
     }
 
@@ -461,11 +463,6 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     est_msg.attitude_dd.y = estim_state.attitude_dd(1);
     est_msg.attitude_dd.z = estim_state.attitude_dd(2);
 
-    crazyflie_driver::PWM pwm_msg;
-    pwm_msg.pwm0 = pwm_ctrls_(0) * 60000;
-    pwm_msg.pwm1 = pwm_ctrls_(1) * 60000;
-    pwm_msg.pwm2 = pwm_ctrls_(2) * 60000;
-    pwm_msg.pwm3 = pwm_ctrls_(3) * 60000;
 
     dd_controller::ParamEstimateStamped par_msg;
     par_msg.header.stamp = msg->header.stamp;
@@ -478,19 +475,62 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
         par_msg.alpha2d[i] = param.alpha2d(i);  
     }
 
-    // Publish 
     state_estimate_pub_.publish(est_msg);
-    motor_ctrls_pub_.publish(pwm_msg);
     param_estimate_pub_.publish(par_msg);
 
+
+    // Publish  Controls
+    if (setpoint_type_ == "stop") {
+        active_ = false;
+        for (int i = 0; i < DDCTRL_OUTPUTSIZE; i++) {
+            pwm_ctrls_(i) = 0.0;
+        }
+        crazyflie_driver::PWM pwm_msg;
+        pwm_msg.header.stamp = ros::Time::now();
+
+        pwm_msg.pwm0 = 0;
+        pwm_msg.pwm1 = 0;
+        pwm_msg.pwm2 = 0;
+        pwm_msg.pwm3 = 0;
+
+        motor_ctrls_pub_.publish(pwm_msg);
+    }
+
+    if (active_) {
+        crazyflie_driver::PWM pwm_msg;
+        pwm_msg.header.stamp = ros::Time::now();
+        pwm_msg.pwm0 = pwm_ctrls_(0) * 60000;
+        pwm_msg.pwm1 = pwm_ctrls_(1) * 60000;
+        pwm_msg.pwm2 = pwm_ctrls_(2) * 60000;
+        pwm_msg.pwm3 = pwm_ctrls_(3) * 60000;
+
+        ctrl_counter_++;
+        if (ctrl_counter_ % drop_mod_ == 0) {
+            motor_ctrls_pub_.publish(pwm_msg);
+        }
+    }
     return;
 }
 
 
 void DDControllerROS::onNewControl(const crazyflie_driver::PWM::ConstPtr& msg) {
-    // In case I need to take inputs from outside or I decide to split the components
-    // into different nodes. (I should...)
-    return;
+    //Parameter Estimation
+    Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> curr_pwm;
+    state_t estim_state;
+    
+    curr_pwm(0) = msg->pwm0 / 60000.0;
+    curr_pwm(1) = msg->pwm1 / 60000.0;
+    curr_pwm(2) = msg->pwm2 / 60000.0;
+    curr_pwm(3) = msg->pwm3 / 60000.0;   
+
+    if (estimator_ready_) { // If state estimation is ready
+        pddest_->GetState(&estim_state);
+        if (curr_pwm.norm() > 0.1) {
+            double dT = pddest_->GetMeasuresTimeInterval();
+            pddparest_->Step(&estim_state, curr_pwm, dT / 3.0);
+        }
+    }
+        return;
 }
 
 // Process an incoming setpoint point change.
@@ -520,7 +560,7 @@ void DDControllerROS::onNewSetpoint(
     pddctrl_->SetSetpoint(&ctrl_setpoint);
 
     // Set the flag about the setpoint
-    received_setpoint_ = true;
+    active_ = true;
 }
 
 

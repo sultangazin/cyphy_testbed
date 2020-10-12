@@ -36,7 +36,8 @@ bool CommanderInterface::LoadParameters(const ros::NodeHandle& n) {
     ros::NodeHandle np("~");
     np.param<std::string>("param/vehicle_name", vehicle_name_,"cf1");
 
-    np.param<std::string>("topics/vehicle_pos", vehicle_pos_topic_, "/cf1/external_position");
+    np.param<std::string>("topics/vehicle_pos", vehicle_pos_topic_, 
+            "/" + vehicle_name_+ "/external_position");
     return true;
 }
 
@@ -73,17 +74,6 @@ bool CommanderInterface::Initialize(const ros::NodeHandle& n) {
     ctrl_offboard_srv_ = nh.advertiseService("ctrl_offboard_srv",
             &CommanderInterface::ctrl_offboard_callback, this);
 
-    /*
-       track_srv_ = nh.advertiseService("track_srv",
-       &CommanderInterface::track_callback, this);
-
-       impact_srv_ = nh.advertiseService("impact_srv",
-       &CommanderInterface::impact_callback, this);
-
-       stop_srv_ = nh.advertiseService("stop_srv",
-       &CommanderInterface::stop_callback, this);
-       */
-
     // Connect to the service provided by the guidance node.
     // That node will create the guidance (produce reference points) for accomplishing the task
 
@@ -101,6 +91,7 @@ bool CommanderInterface::Initialize(const ros::NodeHandle& n) {
             "stop");
 
     control_router_switch_client_ = ng.serviceClient<control_router::EnableNWController>("/" + vehicle_name_ + "/nw_ctrl_enable"); 
+
     ROS_INFO("%s: Waiting for Control Router Service...\n", name_.c_str());
     control_router_switch_client_.waitForExistence();
     ROS_INFO("%s: Control Router Server ready!\n", name_.c_str());
@@ -160,6 +151,7 @@ bool CommanderInterface::takeoff_callback(
 
         if (cf_ros_takeoff_clnt_.call(srv) == true) {
             res.ack = "Roger!";
+            agent_state_ = AgentState::moving;
             output = true;
         }
         else {
@@ -205,6 +197,7 @@ bool CommanderInterface::land_callback(
 
         if (cf_ros_land_clnt_.call(srv) == true) {
             res.ack = "Roger!";
+            agent_state_ = AgentState::moving;
             output = true;
         }
         else {
@@ -260,6 +253,7 @@ bool CommanderInterface::goto_callback(
 
         if (cf_ros_goto_clnt_.call(srv) == true) {
             res.ack = "Roger!";
+            agent_state_ = AgentState::moving;
             output = true;
         } else {
             res.ack = "Fail!";
@@ -289,13 +283,15 @@ bool CommanderInterface::ctrl_offboard_callback (
             goal.target_v = v;
             goal.target_a = v;
             goal.target_p = current_position_; 
-            goal.tg_time = 2.0;
+            goal.tg_time = 0.0;
 
             // Create a thread to call the action and monitor the outcome.
             std::thread run_action(&CommanderInterface::action_thread, this, goal);
             run_action.detach();
             able_to_switch = true;
         } else {
+            // Temporary the inverse switching is supposed to be done
+            // from landing condition.
             /*
             crazyflie_driver::GoTo srv;
             srv.request.goal.x = current_position_[0];
@@ -332,31 +328,6 @@ bool CommanderInterface::ctrl_offboard_callback (
     return able_to_switch;
 }
 
-
-/*
-   bool CommanderInterface::impact_callback(
-   commander_interface::Impact::Request  &req,
-   commander_interface::Impact::Response &res) {
-
-   guidance::ExeGuidanceTarget srv;
-
-   boost::array<float, 3> v{{0.0, 0.0, 0.0}};
-
-// Relative request to the current point
-srv.request.mission_type = "impact";
-srv.request.target_p = v; 
-srv.request.target_a = v;
-
-srv.request.tg_time = req.duration;
-
-if (guidance_clnt_.call(srv))
-res.ack = "Roger!";
-else
-res.ack = "Fail!";
-
-return true;
-}
-*/
 
 
 bool CommanderInterface::stop_callback(
@@ -404,29 +375,6 @@ void CommanderInterface::action_thread(guidance::GuidanceTargetGoal goal){
             boost::bind(&CommanderInterface::action_feedback_cb, this, _1)
             );
     mx.unlock();
-
-    // I decided to have a pure callback implementation without a waiting thread.
-    //
-    /*
-    std::cout << "[" << std::this_thread::get_id() << "] Waiting for result..." << std::endl;
-    pactc_->waitForResult();
-
-    GoalState curr_goal_state = pactc_->getState(); 
-
-    if (curr_goal_state == AbortState || curr_goal_state == PreemptedState) {
-        std::cout << "[" << std::this_thread::get_id() << "]" <<
-            "[" << goal_type << "] Aborted!" << std::endl;
-        return;
-    }
-
-    if (curr_goal_state == SucceededState) {
-        std::cout << "[" << std::this_thread::get_id() << "]" <<
-            "[" << goal_type << "] Success!" << std::endl;
-        if (goal.mission_type == "goTo" || goal.mission_type == "takeoff") {
-            agent_state_ = AgentState::hovering;
-        }
-    }
-    */
 
     return;
 }

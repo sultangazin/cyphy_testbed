@@ -63,7 +63,7 @@ class DDControllerROS {
 
         // Initialized flag and name.
         bool received_reference_;
-        bool received_setpoint_;
+        bool active_;
         bool estimator_ready_;
         bool controller_ready_;
         int initialization_counter_;
@@ -74,6 +74,9 @@ class DDControllerROS {
 
         // Name of the area where the controller is located 
         std::string area_name_;
+
+        std::string controller_name_;
+
         // Name of the vehicle controlled
         std::string vehicle_name_;
 
@@ -118,6 +121,7 @@ class DDControllerROS {
         std::string motor_ctrls_topic_;
         std::string state_estimate_topic_;
         std::string param_estimate_topic_;
+        std::string actuated_pwm_topic_;
 
         Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> pwm_ctrls_;
 
@@ -134,7 +138,7 @@ class DDControllerROS {
         std::unordered_map<std::string, ros::Subscriber> active_subscriber;
 
         ros::Subscriber setpoint_sub_;
-        ros::Subscriber controller_sub;
+        ros::Subscriber controller_sub_;
 
 
         // DATA -------------------------------------------------------
@@ -147,6 +151,12 @@ class DDControllerROS {
         std::array<double, 2> bbeta_y;
         std::array<double, 16> blbounds;
         std::array<double, 16> bubounds;
+
+        // Drop control packets modulo 'drop_mod_'
+        int drop_mod_;
+
+        // Number of control cycles
+        int ctrl_counter_;
 
         // THREAD OBJECTS 
         Thread_arg periodic_thread_arg_;

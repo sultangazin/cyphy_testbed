@@ -25,9 +25,14 @@ bool ControlRouter::LoadParameters(const ros::NodeHandle& n) {
     // XXX I should make a search online like for the state_aggregator
     // XXX I temporarily hard code things here
     np.param<std::string>("topics/input_ctrl", input_control_topic_, "/area0/controller/geometric_ctrl/" + vehicle_name_ + "/control");
-    np.param<std::string>("topics/input_ctrl", input_control2_topic_, "/area0/controller/geometric_ctrl2/" + vehicle_name_ + "/control");
+    np.param<std::string>("topics/input_ctrl2", input_control2_topic_, "/area0/controller/geometric_ctrl2/" + vehicle_name_ + "/control");
+    
+    np.param<std::string>("topics/input_dd_ctrl", input_dd_control_topic_, "/area0/controller/DD_ctrl1/" + vehicle_name_ + "/cmd_pwm");
+    np.param<std::string>("topics/input_dd_ctrl2", input_dd_control2_topic_, "/area0/controller/DD_ctrl2/" + vehicle_name_ + "/cmd_pwm");
 
+    // Output
     np.param<std::string>("topics/output_ctrl", output_control_topic_, "/" + vehicle_name_ + "/control");
+    np.param<std::string>("topics/output_ctrl_pwm", output_control_pwm_topic_, "/" + vehicle_name_ + "/cmd_pwm");
     return true;
 }
 
@@ -50,6 +55,11 @@ bool ControlRouter::Initialize(const ros::NodeHandle& n) {
     control2_sub_ = ng.subscribe(
         input_control2_topic_.c_str(), 1, &ControlRouter::update_control2_callback, this);
 
+    dd_control_sub_ = ng.subscribe(
+        input_dd_control_topic_.c_str(), 1, &ControlRouter::update_dd_control_callback, this);
+    dd_control2_sub_ = ng.subscribe(
+        input_dd_control2_topic_.c_str(), 1, &ControlRouter::update_dd_control2_callback, this);
+
 
     // Advertise topics/Services
     // I want to advertise service in the node namespace
@@ -60,10 +70,12 @@ bool ControlRouter::Initialize(const ros::NodeHandle& n) {
     ctrl_enable_srv_ = nh.advertiseService("/" + vehicle_name_ + "/nw_ctrl_enable",
             &ControlRouter::enable_network_controllers, this);
 
-    
     // Publishers.
     control_pub_ = ng.advertise<testbed_msgs::ControlStamped>(
                 output_control_topic_.c_str(), 1, false);
+
+    control_pwm_pub_ = ng.advertise<crazyflie_driver::PWM>(
+                output_control_pwm_topic_.c_str(), 1, false);
 
     initialized_ = true; 
 
@@ -135,6 +147,42 @@ void ControlRouter::update_control2_callback(
             testbed_msgs::ControlStamped out_msg;
             out_msg = *msg;
             control_pub_.publish(out_msg);
+        }
+    }
+}
+
+//XXX There will be a more complex selection...now, I just want to have 
+//simple to test the control switching between onboard/offboard
+void ControlRouter::update_dd_control_callback(
+        const crazyflie_driver::PWM::ConstPtr& msg) {
+
+    if (current_controller_ == 3) {
+        curr_pwm_control_.pwm0 = msg->pwm0;
+        curr_pwm_control_.pwm1 = msg->pwm1;
+        curr_pwm_control_.pwm2 = msg->pwm2;
+        curr_pwm_control_.pwm3 = msg->pwm3;
+
+        if (enabled_) {
+            crazyflie_driver::PWM out_msg;
+            out_msg = *msg;
+            control_pwm_pub_.publish(out_msg);
+        }
+    }
+}
+
+void ControlRouter::update_dd_control2_callback(
+        const crazyflie_driver::PWM::ConstPtr& msg) {
+
+    if (current_controller_ == 4) {
+        curr_pwm_control_.pwm0 = msg->pwm0;
+        curr_pwm_control_.pwm1 = msg->pwm1;
+        curr_pwm_control_.pwm2 = msg->pwm2;
+        curr_pwm_control_.pwm3 = msg->pwm3;
+
+        if (enabled_) {
+            crazyflie_driver::PWM out_msg;
+            out_msg = *msg;
+            control_pwm_pub_.publish(out_msg);
         }
     }
 }

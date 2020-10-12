@@ -108,20 +108,17 @@ class GuidanceClass:
         rospy.loginfo("Start Point = [%.3f, %.3f, %.3f]" % (start_pos[0], start_pos[1], start_pos[2]))
         rospy.loginfo("End Point = [%.3f, %.3f, %.3f]" % (tg_p[0], tg_p[1], tg_p[2]))
 
-        # Check whether there is an intersection with the obstacle.
-        if (t2go == 0.0):
-            goto_vel = 0.5
-            T = np.linalg.norm(tg_prel) / goto_vel
-        else:
-            T = t2go
+        trj_obj = None
+        Tend = 0
 
-        (trj_obj, Tend) = self.gen_MissionAuto(
-                ndeg, start_vel, 
-                start_pos, 
-                tg_p,
-                tg_v, 
-                np.zeros(3, dtype=float), 
-                T)
+        if (t2go > 0.0):
+            (trj_obj, Tend) = self.gen_MissionAuto(
+                    ndeg, start_vel, 
+                    start_pos, 
+                    tg_p,
+                    tg_v, 
+                    np.zeros(3, dtype=float), 
+                    T)
 
         return (trj_obj, Tend) 
 
@@ -274,9 +271,8 @@ class GuidanceClass:
 
 
     def handle_guidance_action(self, goal):
-
         start_point = posFromOdomMsg(self.current_odometry)
-        frequency = 200;
+        frequency = 100;
 
         trajectory = None
 
@@ -303,30 +299,11 @@ class GuidanceClass:
             (trajectory, Tend) = self.gen_takeoff(h, t2go)
 
 
-        if (trajectory is not None):
-            self.action_thread(goal.mission_type, trajectory, start_point, frequency)
-        else:
-            print("Trajectory not generated!")
-       # 
-       # if (req.mission_type == "impact"):
-       #     (trjectory, Tend) = self.handle_genImpTrjDet
-       #     t = Thread(target = action_thread, args = (trajectory, start_point, frequency)).start()
+        self.action_thread(goal.mission_type, trajectory, start_point, frequency)
 
         return True
     
     def action_thread(self, trj_type, trajectory, start_position, freq):
-        timeSpan = trajectory.get_duration(); 
-
-        r = rospy.Rate(freq)
-
-        start_time = rospy.get_time() 
-        end_time = start_time + trajectory.get_duration()
-
-        curr_time = start_time
-        #print("Start time: ", start_time)
-        #print("Expected end time: ", end_time)
-
-        result = GuidanceTargetResult()
 
         X = np.zeros(4)
         Y = np.zeros(4)
@@ -335,61 +312,72 @@ class GuidanceClass:
         R = np.eye(3)
         Omega = np.zeros((3,3))
 
-        # Publishing Loop
-        while (curr_time < end_time):
-            # Check for preemptions
-            if (self.action_server.is_preempt_requested()):
-                result = GuidanceTargetResult()
-                result.ret_status = 1
-                result.mission_type = trj_type
-                print("Action Server preempted!")
-                self.action_server.set_preempted(result, "Action Preempted")
-                return 
+        r = rospy.Rate(freq)
+        start_time = rospy.get_time() 
+        curr_time = start_time
 
+        result = GuidanceTargetResult()
 
-            if (self.action_server.is_new_goal_available()):
-                result = GuidanceTargetResult()
-                print("Action Server preempted!")
-                result.mission_type = trj_type
-                result.ret_status = 1
-                print("Action Server serving new goal!")
-                self.action_server.accept_new_goal()
-                return
+        if (trajectory is not None):
+            timeSpan = trajectory.get_duration(); 
+            end_time = start_time + trajectory.get_duration()
 
-            output_msg = ControlSetpoint()
-            output_msg.setpoint_type = "active"
-            output_msg.header.stamp = rospy.Time.now()
+            # Publishing Loop
+            while (curr_time < end_time):
+                # Check for preemptions
+                if (self.action_server.is_preempt_requested()):
+                    result = GuidanceTargetResult()
+                    result.ret_status = 1
+                    result.mission_type = trj_type
+                    print("Action Server preempted!")
+                    self.action_server.set_preempted(result, "Action Preempted")
+                    return 
 
-            # Evaluate the trajectory
-            trj_time = curr_time - start_time
-            (X, Y, Z, W, R, Omega) = trajectory.eval(trj_time, [0,1,2,3]) 
-             
-            # Fill  the trajectory object
-            output_msg.p.x = start_position[0] + X[0]
-            output_msg.p.y = start_position[1] + Y[0]
-            output_msg.p.z = start_position[2] + Z[0]
+                if (self.action_server.is_new_goal_available()):
+                    result = GuidanceTargetResult()
+                    print("Action Server preempted!")
+                    result.mission_type = trj_type
+                    result.ret_status = 1
+                    print("Action Server serving new goal!")
+                    self.action_server.accept_new_goal()
+                    return
 
-            output_msg.v.x = X[1] 
-            output_msg.v.y = Y[1]
-            output_msg.v.z = Z[1]
+                output_msg = ControlSetpoint()
+                output_msg.setpoint_type = "active"
+                output_msg.header.stamp = rospy.Time.now()
 
-            output_msg.a.x = X[2]
-            output_msg.a.y = Y[2]
-            output_msg.a.z = Z[2]
-            
-            # Action Feedback
-            fb_data = GuidanceTargetFeedback()
-            fb_data.curr_pos = [output_msg.p.x, output_msg.p.y, output_msg.p.z]
-            fb_data.curr_status = 1;
-            self.action_server.publish_feedback(fb_data)
+                # Evaluate the trajectory
+                trj_time = curr_time - start_time
+                (X, Y, Z, W, R, Omega) = trajectory.eval(trj_time, [0,1,2,3]) 
+                 
+                # Fill  the trajectory object
+                output_msg.p.x = start_position[0] + X[0]
+                output_msg.p.y = start_position[1] + Y[0]
+                output_msg.p.z = start_position[2] + Z[0]
 
-            # Pubblish the evaluated trajectory
-            self.ctrl_setpoint_pub.publish(output_msg)
+                output_msg.v.x = X[1] 
+                output_msg.v.y = Y[1]
+                output_msg.v.z = Z[1]
 
-            # Wait the next loop
-            r.sleep()
-            # Take the time
-            curr_time = rospy.get_time()
+                output_msg.a.x = X[2]
+                output_msg.a.y = Y[2]
+                output_msg.a.z = Z[2]
+                
+                # Action Feedback
+                fb_data = GuidanceTargetFeedback()
+                fb_data.curr_pos = [output_msg.p.x, output_msg.p.y, output_msg.p.z]
+                fb_data.curr_status = 1;
+                self.action_server.publish_feedback(fb_data)
+
+                # Pubblish the evaluated trajectory
+                self.ctrl_setpoint_pub.publish(output_msg)
+
+                # Wait the next loop
+                r.sleep()
+                # Take the time
+                curr_time = rospy.get_time()
+        else:
+            print("Hower point")
 
         # End Setpoint
         output_msg = ControlSetpoint()

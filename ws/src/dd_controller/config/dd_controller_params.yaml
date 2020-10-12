@@ -1,9 +1,9 @@
 param: {
     # Controller parameters
-    k_ctrl_xy: [-4.0, -4.0],
+    k_ctrl_xy: [-3.5, -3.5],
     k_ctrl_z: [-25.0, -10.0],
-    k_ctrl_att: [-16.0, -8.0],
-    k_ctrl_yaw: [36.0, 12.0],
+    k_ctrl_att: [-15.0, -7.0],
+    k_ctrl_yaw: [48.0, 12.0],
 
     # Parameter Estimator
     a_x0: 0,

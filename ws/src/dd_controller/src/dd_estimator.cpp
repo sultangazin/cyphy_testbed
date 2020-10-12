@@ -54,7 +54,7 @@ void DDMeas::AddMeas(double m, double stamp) {
 }
 
 buffer_t DDMeas::get_meas() const {
-    buffer_t out;
+    buffer_t out {};
 
     unsigned int cind = head; 
     int counter = 0;
