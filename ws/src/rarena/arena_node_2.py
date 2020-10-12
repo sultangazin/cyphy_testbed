@@ -14,10 +14,11 @@ import arena
 
 from commander_interface.srv import GoTo
 
-from rosarena2 import RosArenaObject, DroneArenaObject, SurfaceArenaObject, LinkArenaObject, TrajectoryArenaObject
-
-floor_offset = 0.9
-realm_y_offset = 0
+from rosarena2 import RosArenaObject, \
+                      DroneArenaObject, \
+                      SurfaceArenaObject, \
+                      LinkArenaObject, \
+                      TrajectoryArenaObject
 
 scene = "drone"
 mqtt_broker = "arena.andrew.cmu.edu"
@@ -30,18 +31,20 @@ nodes = {}
 links = {}
         
 # Click on target
-def issue_command(tg_p):
-    if (drones['cf3'] == None and drones['cf2'] == None):
-        print("No drone selected!")
-    else:
-        for (k, v) in drones.items():
-            if (v.isActive()):
-                try:
-                    print("Issuing GOTO command to drone {}".format(k))
-                    y = floor_offset
-                    resp1 = drones[k].goTo([tg_p[0], tg_p[1], y], 3.0)
-                except rospy.ServiceException as exc:
-                    print("Service did not process request: " + str(exc))
+## Need to update
+# def issue_command(tg_p):
+#     if (drones['cf3'] == None and drones['cf2'] == None):
+#         print("No drone selected!")
+#     else:
+#         for (k, v) in drones.items():
+#             if (v.isActive()):
+#                 try:
+#                     print("Issuing GOTO command to drone {}".format(k))
+#                     y = floor_offset
+#                     resp1 = drones[k].goTo([tg_p[0], tg_p[1], y], 3.0)
+#                 except rospy.ServiceException as exc:
+#                     print("Service did not process request: " + str(exc))
+
 
 def got_click(location):
     for name in drones:
@@ -62,15 +65,24 @@ def manage_nodes(objName):
         links[name].deactivate()
     nodes[objName].activate()
     links[objName].activate()
-    
 
 
 def generate_objects():
-    drone = DroneArenaObject(objName="cf3", source=None, location=(0,1,0), clickable=True, opacity=0.6)
+    drone = DroneArenaObject(objName="cf3", 
+                             pose_source=None, 
+                             location=(0,1,0), 
+                             clickable=False, 
+                             opacity=0.6)
     objects.append(drone)
     drones[drone.objName] = drone
 
-    floor = SurfaceArenaObject(objName="floor", color=(100,150,100), location=(0,0,0), scale=(4,0.02,3), opacity=0.6, ros_callback=got_click)
+    floor = SurfaceArenaObject(objName="floor", 
+                               color=(100,150,100),
+                               location=(0,0,0), 
+                               scale=(4,0.02,3), 
+                               opacity=0.6, 
+                               clickable=False)
+                               #ros_callback=got_click)
     objects.append(floor)
 
     camera = RosArenaObject(objName="camera", 
@@ -85,9 +97,9 @@ def generate_objects():
                           location=(1,1,1), 
                           scale=(0.1,0.05,0.1), 
                           color=(200,0,200), 
-                          clickable=True, 
+                          clickable=False, 
                           opacity=0.7,
-                          group_callback=manage_nodes)
+                          group_callback=None)
     objects.append(nuc1)
     nodes[nuc1.objName]=nuc1
 
@@ -95,19 +107,40 @@ def generate_objects():
                           location=(-1,1,-1), 
                           scale=(0.1,0.05,0.1), 
                           color=(200,0,200), 
-                          clickable=True, 
+                          clickable=False, 
                           opacity=0.7,
-                          group_callback=manage_nodes)
+                          group_callback=None)
     objects.append(nuc2)
     nodes[nuc2.objName]=nuc2
 
-    link1 = LinkArenaObject(objName="link1", color=(200,0,0), objects=[drone, nuc1, camera])
+    link1 = LinkArenaObject(objName="link1", 
+                            color=(200,0,0), 
+                            objects=[drone, nuc1, camera])
     objects.append(link1)
     links[nuc1.objName]=link1
 
-    link2 = LinkArenaObject(objName="link2", color=(200,0,0), objects=[drone, nuc2, camera])
+    link2 = LinkArenaObject(objName="link2", 
+                            color=(200,0,0), 
+                            objects=[drone, nuc2, camera])
     objects.append(link2)
     links[nuc2.objName]=link2
+
+    # cow = arena.Object(
+    # objName="model2",
+    # objType=arena.Shape.gltf_model,
+    # location=(-1, 1.8, -2),
+    # scale=(0.02, 0.02, 0.02),
+    # url="models/cow2/scene.gltf",
+    # )
+
+    # cow = arena.Object(
+    # objName="model3",
+    # objType=arena.Shape.gltf_model,
+    # location=(-1, 1.8, -2),
+    # scale=(0.02, 0.02, 0.02),
+    # url="models/Cameras.gltf",
+    # )
+    # objects.append(cow)
 
 def update_objects():
     for entity in objects:
