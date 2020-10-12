@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Temporary implementation of the interface with Arena.
 
@@ -18,7 +18,7 @@ from arena import DroneArenaClass, TargetArenaClass, NodeArenaClass, EdgeArenaCl
 floor_offset = 0.9
 realm_y_offset = 0
 
-scene = "test_cyphy"
+scene = "drone"
 
 entities = []
 
@@ -32,7 +32,7 @@ arena_nuc_list = []
 AnchorEdges_list = []
 
 mqtt_client = mqtt.Client("client-ros", clean_session=True, userdata=None )
-mqtt_broker = "oz.andrew.cmu.edu"
+mqtt_broker = "arena.andrew.cmu.edu"
 #mqtt_broker = "arena-west1.conix.io"
 
 

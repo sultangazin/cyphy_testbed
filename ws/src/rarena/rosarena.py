@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import paho.mqtt.client as mqtt
 import rospy
@@ -7,6 +7,7 @@ import sys
 import time
 import json
 import math
+import arena
 
 from arena_playground.json_arena import *
 

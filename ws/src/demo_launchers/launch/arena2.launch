@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+<!--
+     Launch the Arena Node
+     -->
+<node pkg="rarena" name="arena" type="arena_node_2.py" 
+      output="screen" respawn="true" respawn_delay="10"> 
+</node>
+</launch>
