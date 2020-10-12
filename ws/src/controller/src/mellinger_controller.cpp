@@ -259,9 +259,9 @@ namespace controller {
         fb_thrust(1) = kp_xy * p_error(1) + kd_xy * v_error(1) + ki_xy * i_error_y;
         fb_thrust(2) = kp_z  * p_error(2) + kd_z  * v_error(2) + ki_z  * i_error_z;
 
-        target_thrust(0) = sp_acc_(0);
-        target_thrust(1) = sp_acc_(1);
-        target_thrust(2) = (sp_acc_(2) + GRAVITY_MAGNITUDE);
+        target_thrust(0) = g_vehicleMass * sp_acc_(0);
+        target_thrust(1) = g_vehicleMass * sp_acc_(1);
+        target_thrust(2) = g_vehicleMass * (sp_acc_(2) + GRAVITY_MAGNITUDE);
 
         ctrl_perf_msg.fb_t.x = fb_thrust(0);
         ctrl_perf_msg.fb_t.y = fb_thrust(1);
@@ -299,7 +299,6 @@ namespace controller {
 
         // [yB_des]
         Vector3d y_axis_desired = (z_axis_desired.cross(x_c_des)).normalized();
-        //Vector3d y_axis_desired = (z_axis_desired.cross(R.col(0))).normalized();
 
         // [xB_des]
         Vector3d x_axis_desired = (y_axis_desired.cross(z_axis_desired)).normalized();
@@ -308,6 +307,8 @@ namespace controller {
         Rdes.col(0) = x_axis_desired;
         Rdes.col(1) = y_axis_desired;
         Rdes.col(2) = z_axis_desired;
+
+        //Rdes = Eigen::Matrix3d::Identity();
 
         if (controlMode_.count(ctrl_mode_) == 0) {
             ROS_ERROR("%s: Unable to select the control mode.", name_.c_str());
@@ -377,23 +378,17 @@ namespace controller {
                     Vector3d M;
                     M(0) = kR_xy * Verr(0) - kw_xy * ang_vel(0);
                     M(1) = kR_xy * Verr(1) - kw_xy * ang_vel(1); 
-                    M(2) = kR_z * Verr(2) - kw_z * ang_vel(1);
+                     // Magic inversion from Crazyflie firmware
+                    M(2) = -1.0 * (kR_z * Verr(2) - kw_z * ang_vel(1));
 
                     M(0) = std::clamp(M(0), -32000.0, 32000.0);
                     M(1) = std::clamp(M(1), -32000.0, 32000.0);
                     M(2) = std::clamp(M(2), -32000.0, 32000.0);
 
                     // On the drone they multiply by 132000...
-                    double pwmt = 40500.0 / 9.81 * current_thrust;
-                    //double pwmt = 132000 * current_thrust;
-
-                    if (ccc % 100 == 0) {
-                        std::cout << "Torque: " << M.transpose() << std::endl;
-                        std::cout << "Ang Err: " << Verr.transpose() << std::endl;
-                        std::cout << "Rdes : " << std::endl << Rdes << std::endl;
-                        std::cout << "R : " << std::endl << R << std::endl;
-                        std::cout << pwmt << std::endl;
-                    }
+                    //double pwmt = 40500.0 / 9.81 * current_thrust;
+                    double pwmt = 132000 * current_thrust;
+                    pwmt = 132000 * 0.040 * 9.81;
 
                     int16_t r = M(0) / 2.0;
                     int16_t p = M(1) / 2.0;
@@ -403,6 +398,15 @@ namespace controller {
                     pwm_msg.pwm1 = std::clamp((int)(pwmt - r + p - M(2)), 0, UINT16_MAX);
                     pwm_msg.pwm2 = std::clamp((int)(pwmt + r + p + M(2)), 0, UINT16_MAX);
                     pwm_msg.pwm3 = std::clamp((int)(pwmt + r - p - M(2)), 0, UINT16_MAX);
+                    if (ccc % 80 == 0) {
+                        //std::cout << "Rdes : " << std::endl << Rdes << std::endl;
+                        //std::cout << "R : " << std::endl << R << std::endl;
+                        std::cout << "Torque: " << M.transpose() << std::endl;
+                        std::cout << "Ang Err: " << Verr.transpose() << std::endl;
+                        std::cout << "PWM: " << pwm_msg.pwm0 << " " <<
+                            pwm_msg.pwm1 << " " << pwm_msg.pwm2 << " " << pwm_msg.pwm3 <<  std::endl;
+                        std::cout << "Thrust: " << pwmt << std::endl << std::endl;
+                    }
                     break;
                 }
             default:
@@ -424,10 +428,6 @@ namespace controller {
         if (current_mode == ControlMode::PWM) {
             if (++ccc % 1 == 0) {
                 control_pwm_pub_.publish(pwm_msg);
-                /*
-                std::cout  << pwm_msg.pwm0 << " | " << pwm_msg.pwm1 << " | "<< pwm_msg.pwm2 <<
-                    " | " << pwm_msg.pwm3 << std::endl;
-                 */
             }
         } else {
             control_pub_.publish(control_msg);

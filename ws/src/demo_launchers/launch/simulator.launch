@@ -3,7 +3,7 @@
      Launcher for the dummy nodes 
 -->
 <launch>
-<arg name="vehicle_frame" default="cf3" />
+<arg name="vehicle_frame" default="cf2" />
 
 <group ns="$(arg vehicle_frame)">
     <node pkg="simulator"

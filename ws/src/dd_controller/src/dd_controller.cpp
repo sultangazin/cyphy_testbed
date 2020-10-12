@@ -26,61 +26,61 @@
 
 // Limit values
 double boundval(double input, double llim, double ulim) {
-		return fmaxf(fminf(input, ulim), llim);
+	return fmaxf(fminf(input, ulim), llim);
 }
 
 // Split the setpoint in different components
 void setpoint2arrays(const setpoint_t* sp,
-				double xsp[2],
-				double ysp[2],
-				double zsp[2],
-				double yawsp[2]) {
+		double xsp[2],
+		double ysp[2],
+		double zsp[2],
+		double yawsp[2]) {
 
-		xsp[0] = sp->position(0);
-		xsp[1] = sp->velocity(0);
+	xsp[0] = sp->position(0);
+	xsp[1] = sp->velocity(0);
 
-		ysp[0] = sp->position(1);
-		ysp[1] = sp->velocity(1);
+	ysp[0] = sp->position(1);
+	ysp[1] = sp->velocity(1);
 
-		zsp[0] = sp->position(2);
-		zsp[1] = sp->velocity(2);
+	zsp[0] = sp->position(2);
+	zsp[1] = sp->velocity(2);
 
-		yawsp[0] = sp->attitude(2);
-		yawsp[1] = sp->attitude_d(2);
+	yawsp[0] = sp->attitude(2);
+	yawsp[1] = sp->attitude_d(2);
 }
 
 // Split the state estimate structure in different components
 void state2arrays(const state_t* sp,
-				double xest[2],
-				double yest[2],
-				double zest[2],
-				double rollest[2],
-				double pitchest[2],
-				double yawest[2]) {
+		double xest[2],
+		double yest[2],
+		double zest[2],
+		double rollest[2],
+		double pitchest[2],
+		double yawest[2]) {
 
-		xest[0] = sp->position(0);
-		xest[1] = sp->velocity(0);
+	xest[0] = sp->position(0);
+	xest[1] = sp->velocity(0);
 
-		yest[0] = sp->position(1);
-		yest[1] = sp->velocity(1);
+	yest[0] = sp->position(1);
+	yest[1] = sp->velocity(1);
 
-		zest[0] = sp->position(2);
-		zest[1] = sp->velocity(2);
+	zest[0] = sp->position(2);
+	zest[1] = sp->velocity(2);
 
-		rollest[0] = sp->attitude(0);
-		rollest[1] = boundval(sp->attitude_d(0),
-						-MAXANGULARSPEED,
-						MAXANGULARSPEED);
+	rollest[0] = sp->attitude(0);
+	rollest[1] = boundval(sp->attitude_d(0),
+			-MAXANGULARSPEED,
+			MAXANGULARSPEED);
 
-		pitchest[0] = sp->attitude(1);
-		pitchest[1] = boundval(sp->attitude_d(1),
-						-MAXANGULARSPEED,
-						MAXANGULARSPEED);
+	pitchest[0] = sp->attitude(1);
+	pitchest[1] = boundval(sp->attitude_d(1),
+			-MAXANGULARSPEED,
+			MAXANGULARSPEED);
 
-		yawest[0] = sp->attitude(2);
-		yawest[1] = boundval(sp->attitude_d(2),
-						-MAXANGULARSPEED,
-						MAXANGULARSPEED);
+	yawest[0] = sp->attitude(2);
+	yawest[1] = boundval(sp->attitude_d(2),
+			-MAXANGULARSPEED,
+			MAXANGULARSPEED);
 }
 
 
@@ -88,140 +88,141 @@ void state2arrays(const state_t* sp,
 
 // PUBLIC
 DDController::DDController() : 
-    inputs_(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>::Zero()) {
-	SetKxy({-0.25, -1.0});
-	SetKz({-100.0, -20.0});
-	SetKatt({-80.0, -20.0});
-	SetKyaw({-100, -20});
-    memset(&ctrl_setpoint, 0, sizeof(setpoint_t));
-}
+	inputs_(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>::Zero()) {
+		SetKxy({-4.25, -4.0});
+		SetKz({-25.0, -10.0});
+		SetKatt({-16.0, -8.0});
+		SetKyaw({64, 16});
+		memset(&ctrl_setpoint, 0, sizeof(setpoint_t));
+	}
 
 DDController::~DDController() {
 }
 
 void DDController::SetSetpoint(setpoint_t* ps) {
-		memcpy(&ctrl_setpoint, ps, sizeof(setpoint_t));
+	memcpy(&ctrl_setpoint, ps, sizeof(setpoint_t));
 }
 
 void DDController::SetKxy(const std::array<double, 2>  k) {
-		for (int i = 0; i < 2; i++) {
-				Kxy_[i] = k[i];
-		}
+	for (int i = 0; i < 2; i++) {
+		Kxy_[i] = k[i];
+	}
 }
 
 void DDController::SetKz(const std::array<double, 2>  k) {
-		for (int i = 0; i < 2; i++) {
-				Kz_[i] = k[i];
-		}
+	for (int i = 0; i < 2; i++) {
+		Kz_[i] = k[i];
+	}
 }
 
 void DDController::SetKatt(const std::array<double, 2>  k) {
-		for (int i = 0; i < 2; i++) {
-				Katt_[i] = k[i];
-		}
+	for (int i = 0; i < 2; i++) {
+		Katt_[i] = k[i];
+	}
 }
 
 void DDController::SetKyaw(const std::array<double, 2>  k) {
-		for (int i = 0; i < 2; i++) {
-				Kyaw_[i] = k[i];
-		}
+	for (int i = 0; i < 2; i++) {
+		Kyaw_[i] = k[i];
+	}
 }
 
 
 void DDController::Step(const state_t *state, DDParams* par,
-				double deltaT) {
+		double deltaT) {
 
-		// Get the current state estimates
-		double x_est[2];
-		double y_est[2];
-		double z_est[2];
-		double roll_est[2];
-		double pitch_est[2];
-		double yaw_est[2];
-		state2arrays(state, x_est, y_est, z_est,
-						roll_est, pitch_est, yaw_est);
+	// Get the current state estimates
+	double x_est[2];
+	double y_est[2];
+	double z_est[2];
+	double roll_est[2];
+	double pitch_est[2];
+	double yaw_est[2];
+	state2arrays(state, x_est, y_est, z_est,
+			roll_est, pitch_est, yaw_est);
 
-		// Get the current setpoint
-		double x_setpoint[2];
-		double y_setpoint[2];
-		double z_setpoint[2];
-		double yaw_setpoint[2];
-		setpoint2arrays(&ctrl_setpoint,
-						x_setpoint, y_setpoint, z_setpoint, yaw_setpoint);
+	// Get the current setpoint
+	double x_setpoint[2];
+	double y_setpoint[2];
+	double z_setpoint[2];
+	double yaw_setpoint[2];
+	setpoint2arrays(&ctrl_setpoint,
+			x_setpoint, y_setpoint, z_setpoint, yaw_setpoint);
 
-		// Compute along Z
-		double phatz = Kz_.at(0) * (z_est[0] - z_setpoint[0]) +
-				Kz_.at(1) * (z_est[1] - z_setpoint[1]);
+	// Compute along Z
+	double phatz = Kz_.at(0) * (z_est[0] - z_setpoint[0]) +
+		Kz_.at(1) * (z_est[1] - z_setpoint[1]);
 
-		// Compute the Yaw part 
-		double phatyaw = Kyaw_.at(0)* (yaw_est[0] - yaw_setpoint[0]) +
-				Kyaw_.at(1) * (yaw_est[1] - yaw_setpoint[1]);
+	// Compute the Yaw part 
+	double phatyaw = Kyaw_.at(0)* (yaw_est[0] - yaw_setpoint[0]) +
+		Kyaw_.at(1) * (yaw_est[1] - yaw_setpoint[1]);
 
-		// Compute the mapping position error --> demanded_correction --> demanded_angle
-		double phatpitch = lin2angle(x_setpoint, x_est, pitch_est,
-						par->alpha_x, par->beta_x, deltaT);
+	// Compute the mapping position error --> demanded_correction --> demanded_angle
+	double phatpitch = lin2angle(x_setpoint, x_est, pitch_est,
+			par->alpha_x, par->beta_x, deltaT);
 
-		double phatroll = lin2angle(y_setpoint, y_est, roll_est,
-						par->alpha_y, par->beta_y, deltaT);
+	double phatroll = lin2angle(y_setpoint, y_est, roll_est,
+			par->alpha_y, par->beta_y, deltaT);
 
+	Eigen::Matrix<double, 4, 1> phat(phatz, phatroll, phatpitch, phatyaw);
 
-		Eigen::Matrix<double, 4, 1> phat(phatz, phatroll, phatpitch, phatyaw);
+	// Inputs = Beta^-1 * (Phat  - Alpha) 
+	Eigen::Matrix<double, 4, 1> temp = phat - par->alpha2d;
 
-		// Inputs = Beta^-1 * (Phat  - Alpha) 
-		inputs_ = par->beta2d.inverse() * (phat - par->alpha2d);
+	inputs_ = par->beta2d.inverse() * temp;
 
-		for (int i = 0; i < DDCTRL_OUTPUTSIZE; i++) {
-            inputs_(i) = std::clamp(inputs_(i), 0.0, 1.0);
-		}
+	for (int i = 0; i < DDCTRL_OUTPUTSIZE; i++) {
+		inputs_(i) = std::clamp(inputs_(i), 0.0, 1.0);
+	}
 }
 
 /**
  * Control Action along a single axis
  */
 double DDController::lin2angle(
-				const double setpoint[2],
-				const double state_posvel[2],
-				const double state_att[2],
-				double alpha, double beta,
-				double deltaT) {
+		const double setpoint[2],
+		const double state_posvel[2],
+		const double state_att[2],
+		double alpha, double beta,
+		double deltaT) {
 
-		double angle_output = 0;
+	double angle_output = 0;
 
-		double pos = state_posvel[0];
-		double vel = state_posvel[1];
+	double pos = state_posvel[0];
+	double vel = state_posvel[1];
 
-		double angle = state_att[0];
-		double angle_vel = state_att[1];
+	double angle = state_att[0];
+	double angle_vel = state_att[1];
 
-		// Compute the acc = Kp * (ep) + Kd * (ev)
-		double x[2] = {
-				pos - setpoint[0],
-				vel - setpoint[1]
-		};
-		double acc_dem = Kxy_.at(0) * x[0] + Kxy_.at(1) * x[1];
+	// Compute the acc = Kp * (ep) + Kd * (ev)
+	double x[2] = {
+		pos - setpoint[0],
+		vel - setpoint[1]
+	};
+	double acc_dem = Kxy_.at(0) * x[0] + Kxy_.at(1) * x[1];
 
-		// Compute the u to get the acceleration along this axis
-		double phix = (-alpha + acc_dem) / beta;
-		phix = boundval(phix, -MAXTILT, MAXTILT);
+	// Compute the u to get the acceleration along this axis
+	double phix = (-alpha + acc_dem) / beta;
+	phix = boundval(phix, -MAXTILT, MAXTILT);
 
-		// That is related to the angle
-		double ex[2] = {
-				angle - phix,
-				angle_vel - 
-						(Kxy_.at(0) * vel + Kxy_.at(1) * (alpha + beta * angle)) / beta
-		};
+	// That is related to the angle
+	double ex[2] = {
+		angle - phix,
+		angle_vel - 
+			(Kxy_.at(0) * vel + Kxy_.at(1) * (alpha + beta * angle)) / beta
+	};
 
-		angle_output = Katt_.at(0) * ex[0] +
-				Katt_.at(1) * ex[1] +
-				deltaT * (Kxy_.at(0) * (alpha/beta + angle) + Kxy_.at(1)* angle_vel);
+	angle_output = Katt_.at(0) * ex[0] +
+		Katt_.at(1) * ex[1] +
+		deltaT * (Kxy_.at(0) * (alpha/beta + angle) + Kxy_.at(1)* angle_vel);
 
-		return angle_output;
+	return angle_output;
 }
 
 void DDController::getControls(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>& ctrls) {
-		ctrls = inputs_;
+	ctrls = inputs_;
 }
 
 const Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> DDController::getControls() {
-    return inputs_;
+	return inputs_;
 }

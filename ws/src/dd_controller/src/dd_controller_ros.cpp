@@ -56,6 +56,10 @@ bool DDControllerROS::Initialize(const ros::NodeHandle& n) {
     pddest_ = new DDEstimator();
     pddparest_ = new DDParamEstimator();
 
+    pddparest_->SetGains(gains_x, gains_y, gains_alpha2d,  gains_beta2d);
+	pddparest_->SetBounds(bbeta_x, bbeta_y, blbounds, bubounds);
+    //pddparest_->SetParams(DDParams& pa);
+
     // Setup output publications and services
     SetUpPublications(nl);
 
@@ -73,7 +77,10 @@ bool DDControllerROS::Initialize(const ros::NodeHandle& n) {
     net_disc_thr_ = std::thread(&DDControllerROS::net_discovery, this,
             500);
 
+
     initialized_ = true;
+
+    ROS_INFO("[%s] Initialized!", node_name_.c_str());
 
     return true;
 }
@@ -104,20 +111,131 @@ bool DDControllerROS::LoadParameters(const ros::NodeHandle& n) {
 
     np.param<std::string>("param/area_name", area_name_, "area0");
 
-    /*
-    // Params
-    if (np.searchParam("sigmax", key)) {
-        ROS_INFO("Found parameter %s!", key.c_str());
-        n.getParam(key, _sigmax);
-        ROS_INFO("Setting parameter %s = %f", 
-                "sigmax", _sigmax);
+
+    // Load the parameter for the dd controller
+    // It is a terrible implementation. I should optimize the
+    // code replications :-D.
+    std::string param_name;
+    if (np.searchParam("param/k_par_x", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), 2, gains_x.begin());
+        
+        std::cout << "gain_x: ";
+        for (auto el : gains_x) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
     } else {
-        _sigmax = 0.1;
-        ROS_INFO("No param 'sigmax' found!"); 
-        ROS_INFO("Setting default parameter %s = %f", 
-                "sigmax", _sigmax);
-    } 
-    */
+        ROS_INFO("No param 'param/k_par_x' found in an upward search");
+    }
+
+    if (np.searchParam("param/k_par_y", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), 2, gains_y.begin());
+        
+        std::cout << "gain_y: ";
+        for (auto el : gains_y) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
+    } else {
+        ROS_INFO("No param 'param/k_par_y' found in an upward search");
+    }
+
+    if (np.searchParam("param/k_par_a2", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), gains_alpha2d.size(), gains_alpha2d.begin());
+
+        std::cout << "gain_alpha2d: ";
+        for (auto el : gains_alpha2d) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
+    } else {
+        ROS_INFO("No param 'param/k_par_a2' found in an upward search");
+    }
+
+    if (np.searchParam("param/k_par_b2", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), gains_beta2d.size(), gains_beta2d.begin());
+
+        std::cout << "gain_beta2d: ";
+        for (auto el : gains_beta2d) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
+    } else {
+        ROS_INFO("No param 'param/k_par_b2' found in an upward search");
+    }
+
+    if (np.searchParam("param/betax_lim", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), bbeta_x.size(), bbeta_x.begin());
+
+        std::cout << "bbeta_x: ";
+        for (auto el : bbeta_x) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
+    } else {
+        ROS_INFO("No param 'param/betax_lim' found in an upward search");
+    }
+
+    if (np.searchParam("param/betay_lim", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), bbeta_y.size(), bbeta_y.begin());
+
+        std::cout << "bbeta_y: ";
+        for (auto el : bbeta_y) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
+    } else {
+        ROS_INFO("No param 'param/betay_lim' found in an upward search");
+    }
+
+    if (np.searchParam("param/b2d_lbound", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), blbounds.size(), blbounds.begin());
+
+        std::cout << "b2d_lbound: ";
+        for (auto el : blbounds) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
+    } else {
+        ROS_INFO("No param 'param/b2d_lbound' found in an upward search");
+    }
+    
+    if (np.searchParam("param/b2d_ubound", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), bubounds.size(), bubounds.begin());
+
+        std::cout << "b2d_ubound: ";
+        for (auto el : bubounds) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
+    } else {
+        ROS_INFO("No param 'param/b2d_ubound' found in an upward search");
+    }
+
     return true;
 }
 
@@ -143,7 +261,6 @@ int DDControllerROS::UpdateSensorPublishers() {
     // I need to fetch information from the network.
     // I will save the information in a data structure indicized
     // with the name of the sensors.
-    // The State aggregator knows the name of the vehicle which is tracking. 
     // The State aggregator knows the name of the area in which is tracking.
     // The following query will get the name of the sensors that are in the 
     // current area and that are providing information regarding the target
@@ -290,7 +407,8 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
         // 2) Parameter Estimation
         pddest_->GetState(&estim_state);
         if (pwm_ctrls_.norm() > 0.1) {
-            pddparest_->Step(&estim_state, pwm_ctrls_, pddest_->GetMeasuresTimeInterval());
+            double dT = pddest_->GetMeasuresTimeInterval();
+            pddparest_->Step(&estim_state, pwm_ctrls_, dT);
         }
 
         // 3) Run the controller
