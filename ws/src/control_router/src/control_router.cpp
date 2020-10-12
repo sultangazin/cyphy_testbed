@@ -4,12 +4,13 @@
  */
 #include "control_router/control_router.hpp"
 
-
 // =================================================================
 // =================================================================
 ControlRouter::ControlRouter() {
         current_controller_ = 1;
-
+        for (int i = 0; i < 3; i++) {
+            probes.push_back(AveragingFilter());
+        }
         enabled_ = false;
 }
 
@@ -24,15 +25,23 @@ bool ControlRouter::LoadParameters(const ros::NodeHandle& n) {
 
     // XXX I should make a search online like for the state_aggregator
     // XXX I temporarily hard code things here
-    np.param<std::string>("topics/input_ctrl", input_control_topic_, "/area0/controller/geometric_ctrl/" + vehicle_name_ + "/control");
-    np.param<std::string>("topics/input_ctrl2", input_control2_topic_, "/area0/controller/geometric_ctrl2/" + vehicle_name_ + "/control");
+    np.param<std::string>("topics/input_ctrl", input_control_topic_,
+            "/area0/controller/geometric_ctrl/" + vehicle_name_ + "/control");
+    np.param<std::string>("topics/input_ctrl2", input_control2_topic_,
+            "/area0/controller/geometric_ctrl2/" + vehicle_name_ + "/control");
     
-    np.param<std::string>("topics/input_dd_ctrl", input_dd_control_topic_, "/area0/controller/DD_ctrl1/" + vehicle_name_ + "/cmd_pwm");
-    np.param<std::string>("topics/input_dd_ctrl2", input_dd_control2_topic_, "/area0/controller/DD_ctrl2/" + vehicle_name_ + "/cmd_pwm");
+    np.param<std::string>("topics/input_dd_ctrl", input_dd_control_topic_,
+            "/area0/controller/DD_ctrl1/" + vehicle_name_ + "/cmd_pwm");
+    np.param<std::string>("topics/input_dd_ctrl2", input_dd_control2_topic_,
+            "/area0/controller/DD_ctrl2/" + vehicle_name_ + "/cmd_pwm");
 
     // Output
-    np.param<std::string>("topics/output_ctrl", output_control_topic_, "/" + vehicle_name_ + "/control");
-    np.param<std::string>("topics/output_ctrl_pwm", output_control_pwm_topic_, "/" + vehicle_name_ + "/cmd_pwm");
+    np.param<std::string>("topics/output_ctrl", output_control_topic_,
+            "/" + vehicle_name_ + "/control");
+    np.param<std::string>("topics/output_ctrl_pwm", output_control_pwm_topic_,
+            "/" + vehicle_name_ + "/cmd_pwm");
+    np.param<std::string>("topics/output_network_status", network_status_topic_,
+            "/" + vehicle_name_ + "/network_ctrl_status");
     return true;
 }
 
@@ -77,6 +86,9 @@ bool ControlRouter::Initialize(const ros::NodeHandle& n) {
     control_pwm_pub_ = ng.advertise<crazyflie_driver::PWM>(
                 output_control_pwm_topic_.c_str(), 1, false);
 
+    network_status_pub_ = ng.advertise<control_router::NetworkStatusMsg>(
+            network_status_topic_.c_str(), 1, false);
+
     initialized_ = true; 
 
     return true;
@@ -94,6 +106,10 @@ bool ControlRouter::ctrl_select_callback(
 
     std::cout << "Selected Network Controller: " <<
         current_controller_ << std::endl;
+
+    control_router::NetworkStatusMsg msg = generate_network_status_msg();
+
+    network_status_pub_.publish(msg);
 
     return true;
 }
@@ -156,6 +172,8 @@ void ControlRouter::update_control2_callback(
 void ControlRouter::update_dd_control_callback(
         const crazyflie_driver::PWM::ConstPtr& msg) {
 
+    ros::Time now = ros::Time::now();
+    probes.at(0).addMeas(now.toSec());
     if (current_controller_ == 3) {
         curr_pwm_control_.pwm0 = msg->pwm0;
         curr_pwm_control_.pwm1 = msg->pwm1;
@@ -163,16 +181,23 @@ void ControlRouter::update_dd_control_callback(
         curr_pwm_control_.pwm3 = msg->pwm3;
 
         if (enabled_) {
+            probes.at(2).addMeas(now.toSec());
             crazyflie_driver::PWM out_msg;
             out_msg = *msg;
             control_pwm_pub_.publish(out_msg);
         }
     }
+
+    control_router::NetworkStatusMsg net_msg = generate_network_status_msg();
+    network_status_pub_.publish(net_msg);
+
 }
 
 void ControlRouter::update_dd_control2_callback(
         const crazyflie_driver::PWM::ConstPtr& msg) {
 
+    ros::Time now = ros::Time::now();
+    probes.at(1).addMeas(now.toSec());
     if (current_controller_ == 4) {
         curr_pwm_control_.pwm0 = msg->pwm0;
         curr_pwm_control_.pwm1 = msg->pwm1;
@@ -180,9 +205,27 @@ void ControlRouter::update_dd_control2_callback(
         curr_pwm_control_.pwm3 = msg->pwm3;
 
         if (enabled_) {
+            probes.at(2).addMeas(now.toSec());
             crazyflie_driver::PWM out_msg;
             out_msg = *msg;
             control_pwm_pub_.publish(out_msg);
         }
     }
+    control_router::NetworkStatusMsg net_msg = generate_network_status_msg();
+    network_status_pub_.publish(net_msg);
+}
+
+control_router::NetworkStatusMsg ControlRouter::generate_network_status_msg() {
+    control_router::NetworkStatusMsg msg;
+
+    msg.header.stamp = ros::Time::now();
+
+    msg.network_ctrl_active = enabled_;
+    msg.active_controller_id = current_controller_;
+
+    for (int i = 0; i < probes.size(); i++) {
+        msg.msgs_freq.push_back(probes.at(i).getAvgFreq()); 
+    }
+
+    return msg;
 }

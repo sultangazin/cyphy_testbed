@@ -9,6 +9,7 @@ find_package(
 	COMPONENTS
 	roscpp
     testbed_msgs
+    std_msgs
     crazyflie_driver
 	message_generation
 )
@@ -20,11 +21,20 @@ add_service_files(
     SelectController.srv
 	)
 
-generate_messages()
+add_message_files(
+    DIRECTORY msg
+    FILES
+    NetworkStatusMsg.msg
+    )
+
+generate_messages(
+    DEPENDENCIES
+    std_msgs)
 
 catkin_package(
 	CATKIN_DEPENDS roscpp
 	message_runtime
+    std_msgs
     testbed_msgs
     crazyflie_driver
 	DEPENDS
