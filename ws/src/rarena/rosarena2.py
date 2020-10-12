@@ -110,18 +110,20 @@ class RosArenaObject(arena.Object):
                  hoverColor=(0,200,0),
                  activeColor=(200,200,0),
                  opacity=1,
-                 clickable=False, 
-                 source=None,
+                 pose_source=None,
+                 active_source=None,
                  ros_callback=None,
-                 group_callback=None):
+                 group_callback=None,
+                 clickable=False):
 
         self.location=location
-        self.rotation=None
+        self.rotation=rotation
         self.baseColor=color
-        self.activeColor=activeColor
         self.hoverColor=hoverColor
+        self.activeColor=activeColor
         self.opacity=opacity
-        self.source=source
+        self.pose_source=pose_source
+        self.active_source=active_source
         self.ros_callback=ros_callback
         self.group_callback=group_callback
         self.hover=False
@@ -138,22 +140,29 @@ class RosArenaObject(arena.Object):
 
         self.update(transparency=arena.Transparency(True, self.opacity))
 
-        self.register_source()
+        self.register_sources()
         self.register_services()
 
-    def register_source(self):
-        if self.source:
+    def register_sources(self):
+        if self.pose_source:
             # Subscribe to some pose topic
-            rospy.Subscriber(self.source, PoseStamped, self.source_callback)
-            rospy.loginfo("Subscribed to: {}".format(self.source))
+            rospy.Subscriber(self.pose_source, PoseStamped, self.pose_callback)
+            rospy.loginfo("Subscribed to: {}".format(self.pose_source))
+        if self.active_source:
+            pass
+            #register source        
 
     def register_services(self):
         pass
 
-    def source_callback(self, pose_msg):
+    def pose_callback(self, pose_msg):
         # Update pose information
         self.location = posFromPoseMsg(pose_msg)
         self.rotation = quatFromPoseMsg(pose_msg)
+
+    def active_callback(self, active_msg):
+        pass
+        # activate/deactivate
 
     def activate(self):
         self.active = True
@@ -206,8 +215,11 @@ class DroneArenaObject(RosArenaObject):
                  color=(200,200,200),
                  opacity=1,
                  clickable=True, 
-                 source=None,
-                 ros_callback=None):
+                 pose_source=None,
+                 active_source=None,
+                 ros_callback=None,
+                 group_callback=None,):
+
 
         super().__init__(objName=objName, 
                          objType=objType, 
@@ -217,8 +229,10 @@ class DroneArenaObject(RosArenaObject):
                          color=color,
                          opacity=opacity,
                          clickable=clickable,
-                         source=source,
-                         ros_callback=ros_callback)
+                         pose_source=pose_source,
+                         active_source=active_source,
+                         ros_callback=ros_callback,
+                         group_callback=group_callback)
 
 
 class SurfaceArenaObject(RosArenaObject):
@@ -231,8 +245,10 @@ class SurfaceArenaObject(RosArenaObject):
                  color=(200,200,200),
                  opacity=1,
                  clickable=True, 
-                 source=None,
-                 ros_callback=None):
+                 pose_source=None,
+                 active_source=None,
+                 ros_callback=None,
+                 group_callback=None):
 
         self.offset = (0,0,0)
 
@@ -244,8 +260,10 @@ class SurfaceArenaObject(RosArenaObject):
                          color=color,
                          opacity=opacity,
                          clickable=clickable,
-                         source=source,
-                         ros_callback=ros_callback)
+                         pose_source=pose_source,
+                         active_source=active_source,
+                         ros_callback=ros_callback,
+                         group_callback=group_callback)
 
     def arena_update(self):
         if self.hover:
@@ -281,17 +299,14 @@ class LinkArenaObject(arena.Object):
                  line_width=5,
                  color=(200,0,0),
                  activeColor=(0,200,200),
-                 objects = None,
+                 objects = None
                 #  opacity=1,
-                 source=None,
-                 ros_callback=None):
+                 ):
 
         self.line_width=line_width
-        self.objects=objects
-        self.source=source
         self.baseColor=color
         self.activeColor=activeColor
-        self.ros_callback=ros_callback
+        self.objects=objects
         self.active=False
 
         path = self.get_path() if self.objects else [(0,1,1),(0,1,-1)]
@@ -304,17 +319,17 @@ class LinkArenaObject(arena.Object):
                                                    path=path))
         # self.update(transparency=arena.Transparency(True, opacity))
 
-        self.register_source()
+        # self.register_source()
 
     def get_path(self):
         path = [obj.location for obj in self.objects]
         return path
 
-    def register_source(self):
-        if self.source:
-            # Subscribe to some pose topic
-            rospy.Subscriber(self.source, PoseStamped, self.source_callback)
-            rospy.loginfo("Subscribed to: {}".format(self.source))
+    # def register_source(self):
+        # if self.pose_source:
+        #     # Subscribe to some pose topic
+        #     rospy.Subscriber(self.pose_source, PoseStamped, self.source_callback)
+        #     rospy.loginfo("Subscribed to: {}".format(self.pose_source))
 
     def source_callback(self, pose_msg):
         pass
@@ -350,8 +365,10 @@ class TrajectoryArenaObject(RosArenaObject):
                  color=(200,200,200),
                  opacity=1,
                  clickable=True, 
-                 source=None,
-                 ros_callback=None):
+                 pose_source=None,
+                 active_source=None,
+                 ros_callback=None,
+                 group_callback=None):
 
         self.offset = (0,0,0)
 
@@ -363,5 +380,7 @@ class TrajectoryArenaObject(RosArenaObject):
                          color=color,
                          opacity=opacity,
                          clickable=clickable,
-                         source=source,
-                         ros_callback=ros_callback)
+                         pose_source=pose_source,
+                         active_source=active_source,
+                         ros_callback=ros_callback,
+                         group_callback=group_callback)
