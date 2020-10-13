@@ -32,21 +32,19 @@ void DDMeas::Reset() {
 
 
 void DDMeas::AddMeas(double m, double stamp) {
-    if (empty) {
-        meas[head] = m;
-        timestamps[head] = stamp;
-        empty = false;
-        num_elements++;
-    } else {
-        num_elements = 
-            (num_elements >= DDEST_BUFFERSIZE) ? DDEST_BUFFERSIZE : (num_elements + 1);
-        head = (head + 1) % DDEST_BUFFERSIZE;
-        meas[head] = m;
-        timestamps[head] = stamp;
-        if (head == tail) {
-            tail = (tail + 1) % DDEST_BUFFERSIZE;
-        }
+    for (int index = 1; index < DDEST_BUFFERSIZE; index++) {
+        meas[DDEST_BUFFERSIZE-index] = 
+            meas[DDEST_BUFFERSIZE-index-1];
+        
+        timestamps[DDEST_BUFFERSIZE-index] =
+            timestamps[DDEST_BUFFERSIZE-index-1];
     }
+
+    meas[0] = m;
+    timestamps[0] = stamp;
+    empty = false;
+    num_elements = 
+            (num_elements >= DDEST_BUFFERSIZE) ? DDEST_BUFFERSIZE : (num_elements + 1);
 
     if (num_elements == DDEST_BUFFERSIZE) {
         filled = true;
@@ -54,24 +52,7 @@ void DDMeas::AddMeas(double m, double stamp) {
 }
 
 buffer_t DDMeas::get_meas() const {
-    buffer_t out {};
-
-    int cind = head; 
-    int counter = 0;
-    while (1) { 
-        double m = meas[cind];
-        out[counter++] = m;
-        cind = (cind - 1);
-        if (cind < 0) {
-            cind = DDEST_BUFFERSIZE - 1;
-        }
-
-        if (cind == head) {
-            break;
-        }
-    }
-
-    return out;
+    return meas;
 }
 
 buffer_t DDMeas::get_timestamps() const{
@@ -79,12 +60,12 @@ buffer_t DDMeas::get_timestamps() const{
 }
 
 double DDMeas::get_last_timestamp() const {
-    return timestamps[head];
+    return timestamps[0];
 }
 
 double DDMeas::get_timeinterval() const {
     if (!empty)
-        return (timestamps[head] - timestamps[tail]);
+        return (timestamps[0] - timestamps[DDEST_BUFFERSIZE - 1]);
     else
         return 0;
 }
@@ -92,31 +73,14 @@ double DDMeas::get_timeinterval() const {
 buffer_t DDMeas::get_deltas() const {
     buffer_t out;
 
-    int cind = head; 
-    int counter = 0;
-    double dT_old = 0;
-    while (1) { 
-        double dT = timestamps[head] - timestamps[cind];
+    for (int i = 0; i < DDEST_BUFFERSIZE; i++) {
+        double dT = timestamps[0] - timestamps[i];
+        double dT_old = dT;
         if (dT < 0 || dT < dT_old) {
             std::cout << "DD Estimator-ERROR in deltaT vector!" << std::endl;
-            double stdas = timestamps[head];
-            for (auto el : timestamps) {
-                std::cout << -el + stdas << " ";
-            }
-            std::cout << std::endl;
         }
+        out[i] = dT;
         dT_old = dT;
-        out[counter++] = dT;
-
-        cind = (cind - 1);
-
-        if (cind < 0) {
-            cind = DDEST_BUFFERSIZE - 1;
-        }
-
-        if (cind == head) {
-            break;
-        }
     }
 
     return out;
