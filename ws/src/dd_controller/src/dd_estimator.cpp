@@ -10,22 +10,22 @@
 // DDMEAS DATA STRUCTURE
 //
 DDMeas::DDMeas() : 
-	meas(buffer_t {}),
-	timestamps(buffer_t {}) {
-		filled = false;
+    meas(buffer_t {}),
+    timestamps(buffer_t {}) {
+        filled = false;
         empty = true;
-		num_elements = 0;
+        num_elements = 0;
         head = 0;
         tail = 0;
-	}
+    }
 
 DDMeas::~DDMeas() {
 }
 
 void DDMeas::Reset() {
-	filled = false;
+    filled = false;
     empty = true;
-	num_elements = 0;
+    num_elements = 0;
     head = 0;
     tail = 0;
 }
@@ -56,12 +56,16 @@ void DDMeas::AddMeas(double m, double stamp) {
 buffer_t DDMeas::get_meas() const {
     buffer_t out {};
 
-    unsigned int cind = head; 
+    int cind = head; 
     int counter = 0;
     while (1) { 
         double m = meas[cind];
         out[counter++] = m;
-        cind = (cind - 1) % DDEST_BUFFERSIZE;
+        cind = (cind - 1);
+        if (cind < 0) {
+            cind = DDEST_BUFFERSIZE - 1;
+        }
+
         if (cind == head) {
             break;
         }
@@ -71,11 +75,11 @@ buffer_t DDMeas::get_meas() const {
 }
 
 buffer_t DDMeas::get_timestamps() const{
-	return timestamps;
+    return timestamps;
 }
 
 double DDMeas::get_last_timestamp() const {
-	return timestamps[head];
+    return timestamps[head];
 }
 
 double DDMeas::get_timeinterval() const {
@@ -88,12 +92,28 @@ double DDMeas::get_timeinterval() const {
 buffer_t DDMeas::get_deltas() const {
     buffer_t out;
 
-    unsigned int cind = head; 
+    int cind = head; 
     int counter = 0;
+    double dT_old = 0;
     while (1) { 
         double dT = timestamps[head] - timestamps[cind];
+        if (dT < 0 || dT < dT_old) {
+            std::cout << "DD Estimator-ERROR in deltaT vector!" << std::endl;
+            double stdas = timestamps[head];
+            for (auto el : timestamps) {
+                std::cout << -el + stdas << " ";
+            }
+            std::cout << std::endl;
+        }
+        dT_old = dT;
         out[counter++] = dT;
-        cind = (cind - 1) % DDEST_BUFFERSIZE;
+
+        cind = (cind - 1);
+
+        if (cind < 0) {
+            cind = DDEST_BUFFERSIZE - 1;
+        }
+
         if (cind == head) {
             break;
         }
@@ -103,7 +123,7 @@ buffer_t DDMeas::get_deltas() const {
 }
 
 bool DDMeas::is_filled() const {
-	return filled;
+    return filled;
 }
 
 
@@ -111,179 +131,179 @@ bool DDMeas::is_filled() const {
 // DDESTIMATOR1D DATA STRUCTURE
 //
 DDEstimator1D::DDEstimator1D() {
-	ready = false;
+    ready = false;
 }
 
 DDEstimator1D::~DDEstimator1D() {
 }
 
 void DDEstimator1D::Reset() {
-	meas_data.Reset();
-	Obs = Eigen::Matrix<double, DDEST_BUFFERSIZE, DDEST_STATESIZE1D>::Zero();
-	state_est = Eigen::Matrix<double, DDEST_STATESIZE1D, 1>::Zero();
-	ready = false;
+    meas_data.Reset();
+    Obs = Eigen::Matrix<double, DDEST_BUFFERSIZE, DDEST_STATESIZE1D>::Zero();
+    state_est = Eigen::Matrix<double, DDEST_STATESIZE1D, 1>::Zero();
+    ready = false;
 }
 
 void DDEstimator1D::AddMeas(double m, double t) {
-	meas_data.AddMeas(m, t);
+    meas_data.AddMeas(m, t);
 
-	ready = meas_data.is_filled();
+    ready = meas_data.is_filled();
 }
 
 
 bool DDEstimator1D::Step() {
 
-	if (!ready) {
-		return false;
-	}
+    if (!ready) {
+        return false;
+    }
 
-	buffer_t deltaT = meas_data.get_deltas();
+    buffer_t deltaT = meas_data.get_deltas();
 
-	// Fill the Obs Matrix
-	for (int i = 0; i < DDEST_BUFFERSIZE; i++) {
-		double T = deltaT[i];
-		Obs(i, 0) = 1;
-		Obs(i, 1) = -T;
-		Obs(i, 2) = 0.5f * (T * T);
-	}
+    // Fill the Obs Matrix
+    for (int i = 0; i < DDEST_BUFFERSIZE; i++) {
+        double T = deltaT[i];
+        Obs(i, 0) = 1;
+        Obs(i, 1) = -T;
+        Obs(i, 2) = 0.5 * (T * T);
+    }
 
-	// Map the measurements array into an Eigen structure
-	Eigen::Matrix<double, DDEST_BUFFERSIZE, 1> b(meas_data.get_meas().data());
+    // Map the measurements array into an Eigen structure
+    Eigen::Matrix<double, DDEST_BUFFERSIZE, 1> b(meas_data.get_meas().data());
 
-	state_est = Obs.colPivHouseholderQr().solve(b);
+    state_est = Obs.colPivHouseholderQr().solve(b);
 
-	return true;
+    return true;
 }
 
 void DDEstimator1D::get_state(std::array<double, DDEST_STATESIZE1D> s) {
-	for (int i = 0; i < DDEST_STATESIZE1D; i++) {
-		s[i] = state_est(i);
-	}
+    for (int i = 0; i < DDEST_STATESIZE1D; i++) {
+        s[i] = state_est(i);
+    }
 }
 
 std::array<double, DDEST_STATESIZE1D> DDEstimator1D::get_state() {
-	std::array<double, DDEST_STATESIZE1D> out;
-	for (int i = 0; i < DDEST_STATESIZE1D; i++) {
-		out[i] = state_est(i);
-	}
+    std::array<double, DDEST_STATESIZE1D> out;
+    for (int i = 0; i < DDEST_STATESIZE1D; i++) {
+        out[i] = state_est(i);
+    }
 
-	return out;
+    return out;
 }
 
 
 buffer_t DDEstimator1D::get_timestamps() {
-	return meas_data.get_timestamps();
+    return meas_data.get_timestamps();
 }
 
 
 double DDEstimator1D::get_last_timestamp() {
-	double out = meas_data.get_last_timestamp();
-	return out;
+    double out = meas_data.get_last_timestamp();
+    return out;
 }
 
 double DDEstimator1D::get_timeinterval() {
-	double out = meas_data.get_timeinterval();
-	return out;
+    double out = meas_data.get_timeinterval();
+    return out;
 }
 
 bool DDEstimator1D::is_ready() {
-	return ready;
+    return ready;
 }
 
 // 
 // DDESTIMATOR DATA STRUCTURE
 //
 DDEstimator::DDEstimator() {
-	sensors_mrt = 0.0;
-	ready = false;
+    sensors_mrt = 0.0;
+    ready = false;
 }
 
 DDEstimator::~DDEstimator() {
 }
 
 void DDEstimator::Reset() {
-	for (auto& el : estimators) {
-		el.Reset();
-	}
-	sensors_mrt = 0.0;
-	ready = false;
+    for (auto& el : estimators) {
+        el.Reset();
+    }
+    sensors_mrt = 0.0;
+    ready = false;
 }
 
 void DDEstimator::AddMeas(
-		const std::array<double, DDEST_NUMOFCHANNELS> m,
-                double tstamp) {
+        const std::array<double, DDEST_NUMOFCHANNELS> m,
+        double tstamp) {
 
-	for (int i = 0; i < DDEST_NUMOFCHANNELS; i++) {
-		estimators[i].AddMeas(m[i], tstamp);
+    for (int i = 0; i < DDEST_NUMOFCHANNELS; i++) {
+        estimators[i].AddMeas(m[i], tstamp);
     }
 
-	if (estimators[0].is_ready())
-		ready = true;
+    if (estimators[0].is_ready())
+        ready = true;
 }
 
 
 bool DDEstimator::Step() {
-	if (ready) {
-		// Check whether there are new measurements
-		double mrt = estimators[0].get_last_timestamp();
-		if (mrt <= sensors_mrt) {
-			return false;
-		}
-		sensors_mrt = mrt;
+    if (ready) {
+        // Check whether there are new measurements
+        double mrt = estimators[0].get_last_timestamp();
+        if (mrt <= sensors_mrt) {
+            return false;
+        }
+        sensors_mrt = mrt;
 
-		// Run the estimation on each channel
-		for (int i = 0; i < DDEST_NUMOFCHANNELS; i++) {
-			estimators[i].Step();
-		}
-	} else {
-		return false;
-	}
+        // Run the estimation on each channel
+        for (int i = 0; i < DDEST_NUMOFCHANNELS; i++) {
+            estimators[i].Step();
+        }
+    } else {
+        return false;
+    }
 
-	return true;
+    return true;
 }
 
 double DDEstimator::GetMeasuresTimeInterval() {
-	double out = 0.0;
+    double out = 0.0;
     out = estimators[0].get_timeinterval();
-	return out;
+    return out;
 }
 
 
 void DDEstimator::GetState(state_t* ps) {
-	for (int i = 0; i < DDEST_NUMOFCHANNELS; i++) {
-		state1d_t state1d = estimators[i].get_state();
+    for (int i = 0; i < DDEST_NUMOFCHANNELS; i++) {
+        state1d_t state1d = estimators[i].get_state();
 
-		double rpy[3] = {0,0,0};
-		uint32_t osTick = 0;
-		switch (i) {
-			case DDEST_XCHANNEL:
-			case DDEST_YCHANNEL:
-			case DDEST_ZCHANNEL:
-				ps->position(i - DDEST_XCHANNEL) = state1d[0];
-				ps->velocity(i - DDEST_XCHANNEL) = state1d[1];
-				ps->acceleration(i - DDEST_XCHANNEL) = state1d[2];
-				break;
-			case DDEST_ROLLCHANNEL:
-			case DDEST_PITCHCHANNEL:
-			case DDEST_YAWCHANNEL:
-                		rpy[i - DDEST_ROLLCHANNEL] = state1d[0]; 
-				ps->attitude(i - DDEST_ROLLCHANNEL) = state1d[0];
-				ps->attitude_d(i - DDEST_ROLLCHANNEL) = state1d[1];
-				ps->attitude_dd(i - DDEST_ROLLCHANNEL) = state1d[2];
-				break;
-			default:
-				puts("Something queer is going on here\n");
-				break;
-		}
+        double rpy[3] = {0,0,0};
+        uint32_t osTick = 0;
+        switch (i) {
+            case DDEST_XCHANNEL:
+            case DDEST_YCHANNEL:
+            case DDEST_ZCHANNEL:
+                ps->position(i - DDEST_XCHANNEL) = state1d[0];
+                ps->velocity(i - DDEST_XCHANNEL) = state1d[1];
+                ps->acceleration(i - DDEST_XCHANNEL) = state1d[2];
+                break;
+            case DDEST_ROLLCHANNEL:
+            case DDEST_PITCHCHANNEL:
+            case DDEST_YAWCHANNEL:
+                rpy[i - DDEST_ROLLCHANNEL] = state1d[0]; 
+                ps->attitude(i - DDEST_ROLLCHANNEL) = state1d[0];
+                ps->attitude_d(i - DDEST_ROLLCHANNEL) = state1d[1];
+                ps->attitude_dd(i - DDEST_ROLLCHANNEL) = state1d[2];
+                break;
+            default:
+                puts("Something queer is going on here\n");
+                break;
+        }
 
-		// Update the quaternion
-		ps->attitudeQuaternion =
-			Eigen::AngleAxisd(rpy[2], Eigen::Vector3d::UnitZ()) * 
-			Eigen::AngleAxisd(rpy[1], Eigen::Vector3d::UnitY()) *
-			Eigen::AngleAxisd(rpy[0], Eigen::Vector3d::UnitX());
+        // Update the quaternion
+        ps->attitudeQuaternion =
+            Eigen::AngleAxisd(rpy[2], Eigen::Vector3d::UnitZ()) * 
+            Eigen::AngleAxisd(rpy[1], Eigen::Vector3d::UnitY()) *
+            Eigen::AngleAxisd(rpy[0], Eigen::Vector3d::UnitX());
 
-		// Update the timestamps
-		ps->timestamp.tv_sec = 0;
-		ps->timestamp.tv_nsec = 0;
-	}
+        // Update the timestamps
+        ps->timestamp.tv_sec = 0;
+        ps->timestamp.tv_nsec = 0;
+    }
 }

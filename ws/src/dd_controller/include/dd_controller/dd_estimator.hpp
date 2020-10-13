@@ -20,7 +20,7 @@
 #include <Eigen/Dense>
 #include <time.h>
 
-#define DDEST_BUFFERSIZE (4)
+#define DDEST_BUFFERSIZE (5)
 #define DDEST_NUMOFCHANNELS (6)
 #define DDEST_NUMOFINPUTS (6)
 #define DDEST_STATESIZE1D (3)

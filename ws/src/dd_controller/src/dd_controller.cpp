@@ -87,14 +87,13 @@ void state2arrays(const state_t* sp,
 
 
 // PUBLIC
-DDController::DDController() : 
-	inputs_(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>::Zero()) {
-		SetKxy({-4.25, -4.0});
-		SetKz({-25.0, -10.0});
-		SetKatt({-16.0, -8.0});
-		SetKyaw({64, 16});
-		memset(&ctrl_setpoint, 0, sizeof(setpoint_t));
-	}
+DDController::DDController() :
+    inputs_(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>::Zero()),
+    phat_(Eigen::Matrix<double, 4, 1>::Zero()),
+    Kxy_{-9.0, -6.0}, Kz_{-25.0, -10.0}, Katt_{-9.0, -6.0}, 
+    Kyaw_{64, 16}{
+        memset(&ctrl_setpoint, 0, sizeof(setpoint_t));
+    }
 
 DDController::~DDController() {
 }
@@ -104,27 +103,41 @@ void DDController::SetSetpoint(setpoint_t* ps) {
 }
 
 void DDController::SetKxy(const std::array<double, 2>  k) {
-	for (int i = 0; i < 2; i++) {
-		Kxy_[i] = k[i];
-	}
+    std::cout << "DD controller-setting Kxy: [ ";
+    for (int i = 0; i < 2; i++) {
+        Kxy_[i] = k[i];
+        std::cout << Kxy_[i] << " ";
+    }
+    std::cout << "]" << std::endl;
 }
 
 void DDController::SetKz(const std::array<double, 2>  k) {
-	for (int i = 0; i < 2; i++) {
-		Kz_[i] = k[i];
-	}
+    std::cout << "DD controller-setting Kz: [ ";
+    for (int i = 0; i < 2; i++) {
+        Kz_[i] = k[i];
+        std::cout << Kz_[i] << " ";
+    }
+    std::cout << "]" << std::endl;
+
 }
 
 void DDController::SetKatt(const std::array<double, 2>  k) {
-	for (int i = 0; i < 2; i++) {
-		Katt_[i] = k[i];
-	}
+    std::cout << "DD controller-setting Katt: [ ";
+    for (int i = 0; i < 2; i++) {
+        Katt_[i] = k[i];
+        std::cout << Katt_[i] << " ";
+    }
+    std::cout << "]" << std::endl;
 }
 
 void DDController::SetKyaw(const std::array<double, 2>  k) {
-	for (int i = 0; i < 2; i++) {
-		Kyaw_[i] = k[i];
-	}
+    std::cout << "DD controller-setting Kyaw: [ ";
+    for (int i = 0; i < 2; i++) {
+        Kyaw_[i] = k[i];
+        std::cout << Kyaw_[i] << " ";
+
+    }
+    std::cout << "]" << std::endl;
 }
 
 
@@ -164,10 +177,13 @@ void DDController::Step(const state_t *state, DDParams* par,
 	double phatroll = lin2angle(y_setpoint, y_est, roll_est,
 			par->alpha_y, par->beta_y, deltaT);
 
-	Eigen::Matrix<double, 4, 1> phat(phatz, phatroll, phatpitch, phatyaw);
+	phat_(0) = phatz;
+    phat_(1) = phatroll;
+    phat_(2) = phatpitch;
+    phat_(3) = phatyaw;
 
 	// Inputs = Beta^-1 * (Phat  - Alpha) 
-	Eigen::Matrix<double, 4, 1> temp = phat - par->alpha2d;
+	Eigen::Matrix<double, 4, 1> temp = phat_ - par->alpha2d;
 
 	inputs_ = par->beta2d.inverse() * temp;
 
@@ -225,4 +241,8 @@ void DDController::getControls(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>& ctrl
 
 const Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> DDController::getControls() {
 	return inputs_;
+}
+
+const Eigen::Matrix<double, 4, 1> DDController::getPhat() {
+    return phat_;
 }

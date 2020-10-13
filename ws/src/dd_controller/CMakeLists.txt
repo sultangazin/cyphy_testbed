@@ -27,6 +27,7 @@ add_message_files(
     MotorsCtrlStamped.msg
     ParamEstimateStamped.msg
     StateEstimateStamped.msg
+    PerformanceMsg.msg
 	)
 
 generate_messages(

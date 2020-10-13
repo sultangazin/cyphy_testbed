@@ -7,11 +7,12 @@
 // Messages include
 #include <dd_controller/StateEstimateStamped.h>
 #include <dd_controller/ParamEstimateStamped.h>
+#include <dd_controller/PerformanceMsg.h>
 
 
 #include "utilities/timeutils/timeutils.hpp"
 #include "utilities/custom_conversion/custom_conversion.hpp"
-#include <std::mutex>
+#include <mutex>
 
 void thread_fnc(void* p);
 std::mutex mx;
@@ -63,6 +64,11 @@ bool DDControllerROS::Initialize(const ros::NodeHandle& n) {
     pddparest_->SetGains(gains_x, gains_y, gains_alpha2d,  gains_beta2d);
 	pddparest_->SetBounds(bbeta_x, bbeta_y, blbounds, bubounds);
     //pddparest_->SetParams(DDParams& pa);
+    
+    pddctrl_->SetKxy(Kxy);
+    pddctrl_->SetKz(Kz);
+    pddctrl_->SetKatt(Katt);
+    pddctrl_->SetKyaw(Kyaw);
 
     // Setup output publications and services
     SetUpPublications(nl);
@@ -122,6 +128,9 @@ bool DDControllerROS::LoadParameters(const ros::NodeHandle& n) {
     // Parameters Estimation 
     np.param<std::string>("topics/out_param_estimate_topic", param_estimate_topic_,
             "/" + controller_name_ + "/" + vehicle_name_ + "/dd_param_estimate");
+
+    np.param<std::string>("topics/out_perf_topic", performance_topic_,
+            "/" + controller_name_ + "/" + vehicle_name_ + "/dd_perf");
 
     np.param<std::string>("param/area_name", area_name_, "area0");
 
@@ -251,6 +260,66 @@ bool DDControllerROS::LoadParameters(const ros::NodeHandle& n) {
         ROS_INFO("No param 'param/b2d_ubound' found in an upward search");
     }
 
+    if (np.searchParam("param/k_ctrl_xy", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), Kxy.size(), Kxy.begin());
+
+        std::cout << "Kxy: ";
+        for (auto el : Kxy) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
+    } else {
+        ROS_INFO("No param 'param/k_ctrl_xy' found in an upward search");
+    }
+
+    if (np.searchParam("param/k_ctrl_z", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), Kz.size(), Kz.begin());
+
+        std::cout << "Kz: ";
+        for (auto el : Kz) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
+    } else {
+        ROS_INFO("No param 'param/k_ctrl_z' found in an upward search");
+    }
+
+    if (np.searchParam("param/k_ctrl_att", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), Katt.size(), Katt.begin());
+
+        std::cout << "Katt: ";
+        for (auto el : Katt) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
+    } else {
+        ROS_INFO("No param 'param/k_ctrl_att' found in an upward search");
+    }
+
+    if (np.searchParam("param/k_ctrl_yaw", param_name)) {
+        std::cout << "Found " << param_name << std::endl; 
+        std::vector<double> p_vec;
+        n.getParam(param_name, p_vec);
+        std::copy_n(p_vec.begin(), Kyaw.size(), Kyaw.begin());
+
+        std::cout << "Kyaw: ";
+        for (auto el : Kyaw) {
+            std::cout << el << " ";
+        }
+        std::cout << std::endl;
+    } else {
+        ROS_INFO("No param 'param/k_ctrl_yaw' found in an upward search");
+    }
+
     return true;
 }
 
@@ -262,6 +331,7 @@ bool DDControllerROS::SetUpPublications(const ros::NodeHandle& n) {
     motor_ctrls_pub_ = nl.advertise<crazyflie_driver::PWM> (motor_ctrls_topic_.c_str(), 5);
     state_estimate_pub_= nl.advertise<dd_controller::StateEstimateStamped> (state_estimate_topic_.c_str(), 5);
     param_estimate_pub_ = nl.advertise<dd_controller::ParamEstimateStamped> (param_estimate_topic_.c_str(), 5);
+    performance_pub_ = nl.advertise<dd_controller::PerformanceMsg> (performance_topic_.c_str(), 5);
 
     // Advertise Services
     dd_controller_service = node_.advertiseService(
@@ -372,6 +442,7 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     timespec t;
 
     state_t estim_state;
+    Eigen::Matrix<double, 4, 1> phat;
     DDParams param;
 
     std::string sensor_name = *(std::string*) arg;
@@ -429,8 +500,8 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
         param = pddparest_->GetParams();
 
         if (active_) {
-            pddctrl_->Step(&estim_state,  &param, dT / 3.0);
-
+            pddctrl_->Step(&estim_state,  &param, dT);
+            phat = pddctrl_->getPhat();
             Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> new_ctrl = pddctrl_->getControls(); 
             
             double alpha = 1.0;
@@ -472,6 +543,11 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     est_msg.attitude_dd.y = estim_state.attitude_dd(1);
     est_msg.attitude_dd.z = estim_state.attitude_dd(2);
 
+    dd_controller::PerformanceMsg perf_msg;
+    perf_msg.header.stamp = msg->header.stamp;
+    for (int i = 0; i < 4; i++) {
+        perf_msg.phat[i] = phat(i);
+    }
 
     dd_controller::ParamEstimateStamped par_msg;
     par_msg.header.stamp = msg->header.stamp;
@@ -490,6 +566,7 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 
     state_estimate_pub_.publish(est_msg);
     param_estimate_pub_.publish(par_msg);
+    performance_pub_.publish(perf_msg);
 
 
     // Publish  Controls
@@ -543,7 +620,7 @@ void DDControllerROS::onNewControl(const crazyflie_driver::PWM::ConstPtr& msg) {
         pddest_->GetState(&estim_state);
         if (curr_pwm.norm() > 0.1) {
             double dT = pddest_->GetMeasuresTimeInterval();
-            pddparest_->Step(&estim_state, curr_pwm, dT / 3.0);
+            pddparest_->Step(&estim_state, curr_pwm, dT);
         }
     }
 

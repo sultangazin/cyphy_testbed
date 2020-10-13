@@ -49,6 +49,7 @@ class DDController {
 
 		void getControls(Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1>& ctrls);
         const Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> getControls();
+        const Eigen::Matrix<double, 4, 1> getPhat();
 	private:
 		setpoint_t ctrl_setpoint;
 
@@ -58,6 +59,8 @@ class DDController {
 		std::array<double, 2> Kyaw_;
 
 		Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> inputs_;
+
+        Eigen::Matrix<double, 4, 1> phat_;
 
 		double lin2angle(const double setpoint[2],
 						const double state_lin[2], const double state_ang[2],

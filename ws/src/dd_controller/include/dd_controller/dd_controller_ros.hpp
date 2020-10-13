@@ -112,6 +112,7 @@ class DDControllerROS {
         ros::Publisher motor_ctrls_pub_;
         ros::Publisher state_estimate_pub_;
         ros::Publisher param_estimate_pub_;
+        ros::Publisher performance_pub_;
 
         // Input Topics names
         std::string pose_meas_topic_;
@@ -121,6 +122,7 @@ class DDControllerROS {
         std::string motor_ctrls_topic_;
         std::string state_estimate_topic_;
         std::string param_estimate_topic_;
+        std::string performance_topic_;
         std::string actuated_pwm_topic_;
 
         Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> pwm_ctrls_;
@@ -151,6 +153,11 @@ class DDControllerROS {
         std::array<double, 2> bbeta_y;
         std::array<double, 16> blbounds;
         std::array<double, 16> bubounds;
+
+        std::array<double, 2> Kxy;
+		std::array<double, 2> Kz;
+		std::array<double, 2> Katt;
+		std::array<double, 2> Kyaw;
 
         // Drop control packets modulo 'drop_mod_'
         int drop_mod_;
