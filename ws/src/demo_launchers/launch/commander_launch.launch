@@ -39,11 +39,13 @@
     Run the node publishing the setpoint value as odometry message which can be visualized in
     rviz
     -->
+    <!--
     <node name="ctrlsetpoint_odometry_pub" pkg='monitors' type="ctrl_setpoint_odometry_publisher" output="screen">
         <param name="tg_frame_id" value="$(arg vehicle_frame)" type='str' />
         <param name="topics/out_ghost_topic" value="ghost_odom" type="str" />
         <param name="topics/in_ctrlsetpoint_topic" value="setpoint" type="str" />
     </node>	
+    -->
 
 
 
@@ -54,9 +56,5 @@ Bag recording
 
 - /setpoint: Trajectory setpoint for the crazyflie 
 -->
-<node pkg="rosbag" name="record_cmd_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg commander_id)_$(arg vehicle_frame)_cmd $(arg vehicle_frame)/setpoint $(arg vehicle_frame)/ghost_odom" />
-
-<node pkg="rosbag" name="record_perf_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_perf /vrpn_client_node/$(arg vehicle_frame)/pose /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/setpoint /$(arg vehicle_frame)/pose /$(arg vehicle_frame)/logMotors" /> 
-
 
 </launch>

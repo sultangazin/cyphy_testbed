@@ -24,9 +24,9 @@
     <arg name="port" default="3883" />
 
     <arg name="server" default="RS2" />
-    <arg name="provide_position" default="True" />
+    <arg name="provide_position" default="False" />
     <arg name="provide_distance" default="False" />
-    <arg name="provide_pose" default="False" />
+    <arg name="provide_pose" default="True" />
 
 
 <!-- ===================================== -->
@@ -75,8 +75,8 @@
     <arg name="provide_position" value="$(arg provide_position)" />
     <arg name="provide_distance" value="$(arg provide_distance)" />
     <arg name="provide_pose" value="$(arg provide_pose)" />
-    <arg name="controller_type" value="Mellinger" />
-    <arg name="estimator_type" value="EKF" />
+    <arg name="controller_type" value="DD" />
+    <arg name="estimator_type" value="DD" />
 </include>
 
 
@@ -148,6 +148,12 @@
 
 
 <node pkg="rosbag" name="dd_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_ddctrl  /$(arg vehicle_frame)/cmd_pwm  /area0/controller/DD_ctrl1/$(arg vehicle_frame)/cmd_pwm /area0/controller/DD_ctrl2/$(arg vehicle_frame)/cmd_pwm /DD_ctrl1/$(arg vehicle_frame)/dd_estimate /DD_ctrl2/$(arg vehicle_frame)/dd_estimate /DD_ctrl1/$(arg vehicle_frame)/dd_param_estimate /DD_ctrl2/$(arg vehicle_frame)/dd_param_estimate /$(arg vehicle_frame)/setpoint"/>
+
+<node pkg="rosbag" name="record_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_crazyflie /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/extPwm /$(arg vehicle_frame)/ddCtrl /$(arg vehicle_frame)/phat /$(arg vehicle_frame)/network"/>
+
+<!--
+<node pkg="rosbag" name="mocap_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_mocap  /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/external_pose_rpy /area0/sensors/optitrack/$(arg vehicle_frame)/data"/>
+-->
 
 </launch>
 

@@ -29,8 +29,6 @@ sensors and provides an estimator of the drone state.
 </group>
 
 
-<node pkg="rosbag" name="mocap_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_mocap  /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/external_pose_rpy /area0/sensors/gtrack/cf3/data /area0/sensors/optitrack/cf3/data"/>
-
 </launch>
 
 

@@ -29,11 +29,12 @@
             <param name="enable_provide_distance" value="$(arg provide_distance)" type="bool" />
             <param name="enable_provide_pose" value="$(arg provide_pose)" type="bool" />
             <rosparam>
-                genericLogTopics: ["ddCtrl", "extPwm", "phat"]
-                genericLogTopicFrequencies: [0, 100, 0]
+                genericLogTopics: ["ddCtrl", "extPwm", "phat", "network"]
+                genericLogTopicFrequencies: [100, 0, 0, 100]
                 genericLogTopic_ddCtrl_Variables: ["ctrlDD_log.mpower0", "ctrlDD_log.mpower1", "ctrlDD_log.mpower2", "ctrlDD_log.mpower3"]
                 genericLogTopic_extPwm_Variables: ["external_pwm.mPower0", "external_pwm.mPower1", "external_pwm.mPower2", "external_pwm.mPower3"]
                 genericLogTopic_phat_Variables: ["ctrlDDExtra_log.phat_r", "ctrlDDExtra_log.phat_p", "ctrlDDExtra_log.phat_y"]
+                genericLogTopic_network_Variables: ["networkdt.ext_msg_dt"]
             </rosparam>
 	    <!--
             <rosparam>
@@ -100,5 +101,4 @@ Bag recording
 <!--
 <node pkg="rosbag" name="record_$(arg frame)" type="record" args="-O /tmp/$(arg frame)_crazyflie /$(arg frame)/logPos /$(arg frame)/external_codom /$(arg frame)/XXX1 /$(arg frame)/XXX2" />
 -->
-<node pkg="rosbag" name="record_$(arg frame)" type="record" args="-O /tmp/$(arg frame)_crazyflie /$(arg frame)/logPos /$(arg frame)/external_codom /$(arg frame)/extPwm /$(arg frame)/ddCtrl /$(arg frame)/phat"/>
 </launch>
