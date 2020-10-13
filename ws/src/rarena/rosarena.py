@@ -98,8 +98,6 @@ def quat2Rot(q):
     R = np.matmul(np.matmul(Rz(eul[2]), Ry(eul[1])), Rx(eul[0]))
     return R
 
-
-
 ################# ROS ARENA CLASS #####################
 class RArenaClass(object):
     """

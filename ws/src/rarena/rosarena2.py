@@ -11,16 +11,11 @@ import arena
 
 from arena_playground.json_arena import *
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../guidance/trjgen')))
-
-from commander_interface.srv import GoTo, Land
-from guidance.srv import GenImpTrajectoryAuto
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../guidance/trjgen')))
 
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Vector3
-
-from testbed_msgs.msg import MissionMsg
-from trjgen.class_bz import Bezier
+from control_router.msg import NetworkStatusMsg
 
 import numpy as np
 
@@ -40,62 +35,11 @@ def quatFromPoseMsg(pose_msg):
                      pose_msg.pose.orientation.w])
     return quat 
 
-# Convert from quaternion to euler angles
-def ToEulerAngles(q):
-    # roll (x-axis rotation)
-    sinr_cosp = 2.0 * (q[0] * q[1] + q[2] * q[3]);
-    cosr_cosp = 1.0 - 2.0 * (q[1] * q[1] + q[2] * q[2]);
-    roll = math.atan2(sinr_cosp, cosr_cosp);
-
-    # pitch (y-axis rotation)
-    sinp = 2.0 * (q[0] * q[2] - q[3] * q[1]);
-
-    pitch = math.asin(sinp);
-
-    # yaw (z-axis rotation)
-    siny_cosp = 2.0 * (q[0] * q[3] + q[1] * q[2]);
-    cosy_cosp = 1.0 - 2.0 * (q[2] * q[2] + q[3] * q[3]);
-
-    yaw = math.atan2(siny_cosp, cosy_cosp);
-
-    return np.array([roll, pitch, yaw])
-
-def Rx(a):
-    # Roll Matrix
-    R = np.eye(3)
-    R[1][1] = math.cos(a)
-    R[1][2] = -math.sin(a)
-    R[2][1] = math.sin(a)
-    R[2][2] = math.cos(a)
-    return R
-    
-def Ry(a):
-    # Pitch Matrix
-    R = np.eye(3)
-    R[0][0] = math.cos(a)
-    R[0][2] = math.sin(a)
-    R[2][0] = -math.sin(a)
-    R[2][2] = math.cos(a)
-    return R
-
-def Rz(a):
-    # Yaw Matrix
-    R = np.eye(3)
-    R[0][0] = math.cos(a)
-    R[0][1] = -math.sin(a)
-    R[1][0] = math.sin(a)
-    R[1][1] = math.cos(a)
-    return R
-
-
-def quat2Rot(q):
-    # Quaternion to Rotation matrix
-    R = np.zeros((3,3))
-    eul = ToEulerAngles(q)
-
-    # Yaw * Pitch * Roll (Robotic convention)
-    R = np.matmul(np.matmul(Rz(eul[2]), Ry(eul[1])), Rx(eul[0]))
-    return R
+def statusFromMsg(status_msg):
+    active = status_msg.network_ctrl_active
+    id = status_msg.active_controller_id
+    freq = 10
+    return active, id, freq
 
 
 ################# ROS ARENA CLASS #####################

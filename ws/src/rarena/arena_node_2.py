@@ -18,7 +18,9 @@ from rosarena2 import RosArenaObject, \
                       DroneArenaObject, \
                       SurfaceArenaObject, \
                       LinkArenaObject, \
-                      TrajectoryArenaObject
+                      TrajectoryArenaObject, statusFromMsg
+
+from control_router.msg import NetworkStatusMsg
 
 scene = "drone"
 mqtt_broker = "arena.andrew.cmu.edu"
@@ -30,20 +32,30 @@ drones = {}
 nodes = {}
 links = {}
         
-# Click on target
-## Need to update
-# def issue_command(tg_p):
-#     if (drones['cf3'] == None and drones['cf2'] == None):
-#         print("No drone selected!")
-#     else:
-#         for (k, v) in drones.items():
-#             if (v.isActive()):
-#                 try:
-#                     print("Issuing GOTO command to drone {}".format(k))
-#                     y = floor_offset
-#                     resp1 = drones[k].goTo([tg_p[0], tg_p[1], y], 3.0)
-#                 except rospy.ServiceException as exc:
-#                     print("Service did not process request: " + str(exc))
+status_topic = None
+
+if status_topic:
+    rospy.Subscriber(status_topic, NetworkStatusMsg, status_callback)
+    rospy.loginfo("Subscribed to: {}".format(status_topic))
+
+def status_callback(msg):
+    active, id, freq = statusFromMsg(msg)
+    if active:
+        if id==3:
+            nodes["nuc1"].activate()
+            links["nuc1"].activate()
+            nodes["nuc2"].deactivate()
+            links["nuc2"].deactivate()
+        if id==4:
+            nodes["nuc2"].activate()
+            links["nuc2"].activate()
+            nodes["nuc1"].deactivate()
+            links["nuc1"].deactivate()
+    else:
+        nodes["nuc1"].deactivate()
+        links["nuc1"].deactivate()
+        nodes["nuc2"].deactivate()
+        links["nuc2"].deactivate()
 
 
 def got_click(location):
