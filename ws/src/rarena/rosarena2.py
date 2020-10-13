@@ -16,6 +16,7 @@ from arena_playground.json_arena import *
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Vector3
 from control_router.msg import NetworkStatusMsg
+from std_srvs.srv import Empty
 
 import numpy as np
 
@@ -150,7 +151,7 @@ class RosArenaObject(arena.Object):
             color = self.baseColor
 
         location = self.location + self.location_offset
-        rotation = quatMult(self.rotation,self. rotation_offset)
+        rotation = quatMult(self. rotation_offset,self.rotation)
 
         self.update(location=location, rotation=rotation, color=color)
         # self.update(rotation=self.rotation)
@@ -322,6 +323,7 @@ class LinkArenaObject(arena.Object):
         self.active = False
 
     def arena_update(self):
+        # Weird squence is due to arena.Object implementation
         if self.active:
             self.thickline=arena.Thickline(line_width=self.line_width, 
                                                    color=self.activeColor, 
@@ -332,6 +334,82 @@ class LinkArenaObject(arena.Object):
                                                    color=self.baseColor, 
                                                    path=self.get_path())
             self.update()
+                                                
+        # self.update(path=self.location)
+
+class ErrorArenaObject(RosArenaObject):
+    def __init__(self, 
+                 objName="error", 
+                 objType=arena.Shape.sphere, 
+                 color=(200,0,0),
+                 scale=(0.2,0.2,0.2),
+                 opacity=0.7,
+                 pose_source=None,
+                 target_source=None
+                 ):
+
+        self.base_opacity=opacity
+        self.target_source = target_source
+        self.target_location = (0,0,0)
+        self.active=False
+        
+        self.service = rospy.Service(objName + "/toggle", Empty, self.toggle_viz)
+
+        super().__init__(objName=objName, 
+                         objType=objType, 
+                         color=color,
+                         scale=scale,
+                         pose_source=pose_source)
+
+        self.update(transparency=arena.Transparency(True, 0))
+
+        self.register_sources()
+
+
+    def register_sources(self):
+        if self.pose_source:
+            # Subscribe to some pose topic
+            rospy.Subscriber(self.pose_source, PoseStamped, self.pose_callback)
+            rospy.loginfo("Subscribed to: {}".format(self.pose_source))
+        if self.target_source:
+            rospy.Subscriber(self.target_source, PoseStamped, self.target_callback)
+            rospy.loginfo("Subscribed to: {}".format(self.target_source))
+
+    def pose_callback(self, pose_msg):
+        # Update pose information
+        self.location = posFromPoseMsg(pose_msg)
+        # self.rotation = quatFromPoseMsg(pose_msg)
+
+    def target_callback(self, pose_msg):
+        # Update pose information
+        self.target_location = posFromPoseMsg(target_msg)
+
+    def activate(self):
+        self.active = True
+        self.update(transparency=arena.Transparency(True, self.base_opacity))
+
+    def deactivate(self):
+        self.active = False
+        self.update(transparency=arena.Transparency(True, 0))
+
+    def toggle_viz(self, msg):
+        if self.active:
+            self.deactivate()
+        else:
+            self.activate()
+
+    def arena_update(self):
+        location = self.location + self.location_offset
+        if self.pose_source and self.target_source:
+            # calculate abs difference of location and target
+            self.scale = tuple(map(lambda i,j:abs(i-j), self.target_location, self.location))
+        # rotation = quatMult(self.rotation,self. rotation_offset)
+        rotation = self.rotation
+
+        self.update(location=location, rotation=rotation, color=self.color, scale=self.scale)
+
+    def arena_callback(self, msg):
+        pass
                                                 
         # self.update(path=self.location)
 

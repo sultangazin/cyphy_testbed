@@ -18,7 +18,9 @@ from rosarena2 import RosArenaObject, \
                       DroneArenaObject, \
                       SurfaceArenaObject, \
                       LinkArenaObject, \
-                      TrajectoryArenaObject, statusFromMsg
+                      ErrorArenaObject, \
+                      TrajectoryArenaObject, \
+                      statusFromMsg
 
 from control_router.msg import NetworkStatusMsg
 
@@ -86,6 +88,14 @@ def generate_objects():
                              clickable=False)
     objects.append(drone)
     drones[drone.objName] = drone
+
+    error = ErrorArenaObject(objName="cf3_error",
+                             color=(50,50,200),
+                             scale=(0.08,0.08,0.08),
+                             opacity=0.7,
+                             pose_source="/cf3/external_pose",
+                             target_source=None)
+    objects.append(error)
 
     floor = SurfaceArenaObject(objName="floor", 
                                color=(50,100,50),
