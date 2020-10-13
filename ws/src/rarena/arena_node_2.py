@@ -35,17 +35,17 @@ links = {}
 
 def status_callback(msg):
     active, id, freq = statusFromMsg(msg)
-    if True:
-        if id==3:
-            nodes["nuc1"].activate()
-            links["nuc1"].activate()
-            nodes["nuc2"].deactivate()
-            links["nuc2"].deactivate()
-        if id==4:
-            nodes["nuc2"].activate()
-            links["nuc2"].activate()
-            nodes["nuc1"].deactivate()
-            links["nuc1"].deactivate()
+    # if True:
+    if id==3:
+        nodes["nuc1"].activate()
+        links["nuc1"].activate()
+        nodes["nuc2"].deactivate()
+        links["nuc2"].deactivate()
+    elif id==4:
+        nodes["nuc2"].activate()
+        links["nuc2"].activate()
+        nodes["nuc1"].deactivate()
+        links["nuc1"].deactivate()
     else:
         nodes["nuc1"].deactivate()
         links["nuc1"].deactivate()
@@ -79,34 +79,35 @@ def generate_objects():
                             #  objType=arena.Shape.triangle,
                              pose_source="/cf3/external_pose", 
                              location=(0,1,0),
-                             scale=(.8,.8,.8), 
+                             rotation_offset=(0,0.713,0,-0.713),
+                             scale=(.05,.05,.05), 
                              color=(0,50,50),
-                             url="models/Drone.glb",
-                             clickable=False, 
-                             opacity=0.8)
+                             url="store/users/ucla/models/s9_mini_drone/scene.gltf",
+                             clickable=False)
     objects.append(drone)
     drones[drone.objName] = drone
 
     floor = SurfaceArenaObject(objName="floor", 
-                               color=(100,150,100),
+                               color=(50,100,50),
                                location=(0,0,0), 
-                               scale=(4,0.02,3), 
+                               scale=(6,0.02,3), 
                                opacity=0.6, 
                                clickable=False)
                                #ros_callback=got_click)
     objects.append(floor)
 
     camera = RosArenaObject(objName="camera", 
-                          location=(2,2,-2), 
-                          scale=(0.5,0.5,0.5), 
-                          color=(50,50,50), 
-                          clickable=False, 
-                          opacity=1)
+                          objType=arena.Shape.gltf_model,
+                          location=(2, 2, -2),
+                          rotation=(0,0.924,0,-0.381),
+                          scale=(.002, .002, .002),
+                          url="store/users/ucla/models/security_camera/scene.gltf",
+                          clickable=False)
     objects.append(camera)
 
     nuc1 = RosArenaObject(objName="nuc1", 
-                          location=(1,1,1), 
-                          scale=(0.1,0.05,0.1), 
+                          location=(2.5,1,1), 
+                          scale=(0.2,0.1,0.2), 
                           color=(200,0,200), 
                           clickable=False, 
                           opacity=0.7,
@@ -115,8 +116,8 @@ def generate_objects():
     nodes[nuc1.objName]=nuc1
 
     nuc2 = RosArenaObject(objName="nuc2", 
-                          location=(-1,1,-1), 
-                          scale=(0.1,0.05,0.1), 
+                          location=(-2.5,1,-1), 
+                          scale=(0.2,0.1,0.2), 
                           color=(200,0,200), 
                           clickable=False, 
                           opacity=0.7,
@@ -140,8 +141,9 @@ def generate_objects():
     # objName="model2",
     # objType=arena.Shape.gltf_model,
     # location=(0, 2, 0),
-    # scale=(1, 1, 1),
-    # url="models/Head2.glb",
+    # rotation=(0,0.924,0,-0.381),
+    # scale=(.002, .002, .002),
+    # url="store/users/ucla/models/security_camera/scene.gltf",
     # )
 
     # cow = arena.Object(

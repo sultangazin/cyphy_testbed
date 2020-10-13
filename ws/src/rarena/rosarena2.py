@@ -37,6 +37,24 @@ def quatFromPoseMsg(pose_msg):
                      -pose_msg.pose.orientation.w])
     return quat 
 
+def quatMult(quat1, quat2):
+    x1 = quat1[0]
+    y1 = quat1[1]
+    z1 = quat1[2]
+    w1 = quat1[3]
+
+    x2 = quat2[0]
+    y2 = quat2[1]
+    z2 = quat2[2]
+    w2 = quat2[3]
+
+    w = (w1*w2 - x1*x2 - y1*y2 - z1*z2)
+    x = (w1*x2 + x1*w2 - y1*z2 + z1*y2)
+    y = (w1*y2 + x1*z2 + y1*w2 - z1*x2)
+    z = (w1*z2 - x1*y2 + y1*x2 + z1*w2)
+
+    return (x,y,z,w)
+
 def statusFromMsg(status_msg):
     active = status_msg.network_ctrl_active
     id = status_msg.active_controller_id
@@ -51,6 +69,8 @@ class RosArenaObject(arena.Object):
                  objType=arena.Shape.cube, 
                  location=(0,0,0),
                  rotation=(0,0,0,0),
+                 location_offset=(0,0,0),
+                 rotation_offset=(0,0,0,1),
                  scale=(1,1,1),
                  color=(200,200,200),
                  hoverColor=(0,200,0),
@@ -65,6 +85,8 @@ class RosArenaObject(arena.Object):
 
         self.location=location
         self.rotation=rotation
+        self.location_offset=location_offset
+        self.rotation_offset=rotation_offset
         self.baseColor=color
         self.hoverColor=hoverColor
         self.activeColor=activeColor
@@ -126,7 +148,11 @@ class RosArenaObject(arena.Object):
             color=self.hoverColor
         else:
             color = self.baseColor
-        self.update(location=self.location, rotation=self.rotation, color=color)
+
+        location = self.location + self.location_offset
+        rotation = quatMult(self.rotation,self. rotation_offset)
+
+        self.update(location=location, rotation=rotation, color=color)
         # self.update(rotation=self.rotation)
 
     def arena_callback(self, msg):
@@ -160,6 +186,8 @@ class DroneArenaObject(RosArenaObject):
                  objType=arena.Shape.sphere, 
                  location=(0,0,0),
                  rotation=(0,0,0,0),
+                 location_offset=(0,0,0),
+                 rotation_offset=(0,0,0,0),
                  scale=(.1,.1,.1),
                  color=(200,200,200),
                  opacity=1,
@@ -175,6 +203,8 @@ class DroneArenaObject(RosArenaObject):
                          objType=objType, 
                          location=location, 
                          rotation=rotation,
+                         location_offset=location_offset,
+                         rotation_offset=rotation_offset,
                          scale=scale,
                          color=color,
                          opacity=opacity,
