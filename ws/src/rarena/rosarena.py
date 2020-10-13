@@ -28,16 +28,16 @@ y_offset=0
 
 ###### HELPERS #####
 def posFromPoseMsg(pose_msg):
-    pos = np.array([pose_msg.pose.position.x, 
+    pos = np.array([-pose_msg.pose.position.x, 
                 pose_msg.pose.position.y + y_offset, 
                 pose_msg.pose.position.z])
     return pos
 
 def quatFromPoseMsg(pose_msg):
     quat = np.array([pose_msg.pose.orientation.x, 
-                     pose_msg.pose.orientation.y,
                      pose_msg.pose.orientation.z,
-                     pose_msg.pose.orientation.w])
+                     pose_msg.pose.orientation.y,
+                     -pose_msg.pose.orientation.w])
     return quat 
 
 # Convert from quaternion to euler angles

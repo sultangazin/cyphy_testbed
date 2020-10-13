@@ -23,16 +23,18 @@ y_offset=0
 
 ###### HELPERS #####
 def posFromPoseMsg(pose_msg):
+    # Z-up to Y-up
     pos = np.array([pose_msg.pose.position.x, 
-                pose_msg.pose.position.y + y_offset, 
-                pose_msg.pose.position.z])
+                pose_msg.pose.position.z + y_offset, 
+                pose_msg.pose.position.y])
     return pos
 
 def quatFromPoseMsg(pose_msg):
+    # Z-up to Y-up
     quat = np.array([pose_msg.pose.orientation.x, 
-                     pose_msg.pose.orientation.y,
-                     pose_msg.pose.orientation.z,
-                     pose_msg.pose.orientation.w])
+                     -pose_msg.pose.orientation.z,
+                     -pose_msg.pose.orientation.y,
+                     -pose_msg.pose.orientation.w])
     return quat 
 
 def statusFromMsg(status_msg):
@@ -54,6 +56,7 @@ class RosArenaObject(arena.Object):
                  hoverColor=(0,200,0),
                  activeColor=(200,200,0),
                  opacity=1,
+                 url=None,
                  pose_source=None,
                  active_source=None,
                  ros_callback=None,
@@ -79,6 +82,8 @@ class RosArenaObject(arena.Object):
                          rotation=rotation,
                          scale=scale,
                          color=color,
+                         url=url,
+                         ttl=2,
                          clickable=clickable,
                          callback=self.arena_callback)
 
@@ -127,16 +132,16 @@ class RosArenaObject(arena.Object):
     def arena_callback(self, msg):
         # active_opacity=0.5
         if self.clickable:
-            if msg.event_action != arena.arena.EventAction.clientEvent:
+            if msg.event_action != arena.EventAction.clientEvent:
                 return
 
-            if msg.event_type  == arena.arena.EventType.mouseenter:
+            if msg.event_type  == arena.EventType.mouseenter:
                 self.hover=True
                     
-            elif msg.event_type == arena.arena.EventType.mouseleave:
+            elif msg.event_type == arena.EventType.mouseleave:
                 self.hover=False
 
-            elif msg.event_type  == arena.arena.EventType.mouseup:
+            elif msg.event_type  == arena.EventType.mouseup:
                 if self.active:
                     self.active = False
                     print("deactivate ({})".format(self.objName))
@@ -158,11 +163,12 @@ class DroneArenaObject(RosArenaObject):
                  scale=(.1,.1,.1),
                  color=(200,200,200),
                  opacity=1,
+                 url=None,
                  clickable=True, 
                  pose_source=None,
                  active_source=None,
                  ros_callback=None,
-                 group_callback=None,):
+                 group_callback=None):
 
 
         super().__init__(objName=objName, 
@@ -172,6 +178,7 @@ class DroneArenaObject(RosArenaObject):
                          scale=scale,
                          color=color,
                          opacity=opacity,
+                         url=url,
                          clickable=clickable,
                          pose_source=pose_source,
                          active_source=active_source,
@@ -217,16 +224,16 @@ class SurfaceArenaObject(RosArenaObject):
         self.update(location=self.location, rotation=self.rotation, color=color)
 
     def arena_callback(self, msg):
-        if msg.event_action != arena.arena.EventAction.clientEvent:
+        if msg.event_action != arena.EventAction.clientEvent:
             return
 
-        if msg.event_type  == arena.arena.EventType.mouseenter:
+        if msg.event_type  == arena.EventType.mouseenter:
             self.hover=True
 
-        elif msg.event_type == arena.arena.EventType.mouseleave:
+        elif msg.event_type == arena.EventType.mouseleave:
             self.hover=False
 
-        elif msg.event_type  == arena.arena.EventType.mouseup:
+        elif msg.event_type  == arena.EventType.mouseup:
             location = tuple(float(num) for num in msg.position)
             arena.Object(location=location + self.offset, 
                          objType=arena.Shape.cylinder, 

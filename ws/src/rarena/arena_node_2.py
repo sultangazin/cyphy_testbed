@@ -25,22 +25,17 @@ from control_router.msg import NetworkStatusMsg
 scene = "drone"
 mqtt_broker = "arena.andrew.cmu.edu"
 #mqtt_broker = "arena-west1.conix.io"
+status_topic = "/cf3/network_ctrl_status"
 
 objects = []
 
 drones = {}
 nodes = {}
 links = {}
-        
-status_topic = None
-
-if status_topic:
-    rospy.Subscriber(status_topic, NetworkStatusMsg, status_callback)
-    rospy.loginfo("Subscribed to: {}".format(status_topic))
 
 def status_callback(msg):
     active, id, freq = statusFromMsg(msg)
-    if active:
+    if True:
         if id==3:
             nodes["nuc1"].activate()
             links["nuc1"].activate()
@@ -56,7 +51,6 @@ def status_callback(msg):
         links["nuc1"].deactivate()
         nodes["nuc2"].deactivate()
         links["nuc2"].deactivate()
-
 
 def got_click(location):
     for name in drones:
@@ -81,10 +75,15 @@ def manage_nodes(objName):
 
 def generate_objects():
     drone = DroneArenaObject(objName="cf3", 
-                             pose_source=None, 
-                             location=(0,1,0), 
+                             objType=arena.Shape.gltf_model,
+                            #  objType=arena.Shape.triangle,
+                             pose_source="/cf3/external_pose", 
+                             location=(0,1,0),
+                             scale=(.8,.8,.8), 
+                             color=(0,50,50),
+                             url="models/Drone.glb",
                              clickable=False, 
-                             opacity=0.6)
+                             opacity=0.8)
     objects.append(drone)
     drones[drone.objName] = drone
 
@@ -137,12 +136,12 @@ def generate_objects():
     objects.append(link2)
     links[nuc2.objName]=link2
 
-    # cow = arena.Object(
+    # drone = arena.Object(
     # objName="model2",
     # objType=arena.Shape.gltf_model,
-    # location=(-1, 1.8, -2),
-    # scale=(0.02, 0.02, 0.02),
-    # url="models/cow2/scene.gltf",
+    # location=(0, 2, 0),
+    # scale=(1, 1, 1),
+    # url="models/Head2.glb",
     # )
 
     # cow = arena.Object(
@@ -168,16 +167,18 @@ def remove_objects():
 
 if __name__ == '__main__':
     rospy.init_node('RArena_node')
-    rospy.on_shutdown(remove_objects)
+    # rospy.on_shutdown(remove_objects)
 
     # # Instatiate the MQTT client class
     print("Connecting to broker: ", mqtt_broker)
-    arena.init(mqtt_broker, "realm", "drone")
+    arena.init(mqtt_broker, "realm", "drone", cleanup=remove_objects)
     remove_objects()
     generate_objects()
-    # mqtt_client.loop_start() #start loop to process received mqtt messages
 
-    #rospy.spin()
+    if status_topic:
+        rospy.Subscriber(status_topic, NetworkStatusMsg, status_callback)
+        rospy.loginfo("Subscribed to: {}".format(status_topic))
+
     rate = rospy.Rate(10)
     while not rospy.is_shutdown():
         # Hack to deal with areana.handle_events blocking.
