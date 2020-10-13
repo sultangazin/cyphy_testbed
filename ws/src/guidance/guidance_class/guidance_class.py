@@ -109,7 +109,7 @@ class GuidanceClass:
         rospy.loginfo("End Point = [%.3f, %.3f, %.3f]" % (tg_p[0], tg_p[1], tg_p[2]))
 
         trj_obj = None
-        Tend = 0
+        Tend = 0;
 
         if (t2go > 0.0):
             (trj_obj, Tend) = self.gen_MissionAuto(
@@ -118,7 +118,7 @@ class GuidanceClass:
                     tg_p,
                     tg_v, 
                     np.zeros(3, dtype=float), 
-                    T)
+                    t2go)
 
         return (trj_obj, Tend) 
 
@@ -168,6 +168,93 @@ class GuidanceClass:
         return (traj_obj, t_end)
  
 
+    def gen_eight(self, rx, ry, rz, t2go):
+        X = np.zeros(4)
+        Y = np.zeros(4)
+        Z = np.zeros(4)
+        W = np.zeros(4)
+        R = np.eye(3)
+        Omega = np.zeros((3,3))
+
+        r = rospy.Rate(freq)
+        start_time = rospy.get_time() 
+        curr_time = start_time
+
+        result = GuidanceTargetResult()
+
+        timeSpan = t2go; 
+        end_time = start_time + timeSpan 
+
+        # Publishing Loop
+        while (curr_time < end_time):
+            # Check for preemptions
+            if (self.action_server.is_preempt_requested()):
+                result = GuidanceTargetResult()
+                result.ret_status = 1
+                result.mission_type = trj_type
+                print("Action Server preempted!")
+                self.action_server.set_preempted(result, "Action Preempted")
+                return 
+
+            if (self.action_server.is_new_goal_available()):
+                result = GuidanceTargetResult()
+                print("Action Server preempted!")
+                result.mission_type = trj_type
+                result.ret_status = 1
+                print("Action Server serving new goal!")
+                self.action_server.accept_new_goal()
+                return
+
+            output_msg = ControlSetpoint()
+            output_msg.setpoint_type = "active"
+            output_msg.header.stamp = rospy.Time.now()
+
+            # Evaluate the trajectory
+            trj_time = curr_time - start_time
+            (X, Y, Z, W, R, Omega) = trajectory.eval(trj_time, [0,1,2,3]) 
+             
+            # Fill  the trajectory object
+            output_msg.p.x = start_position[0] + rx * sin(4.0 * pi / t2go * (curr_time - start_time))
+            output_msg.p.y = start_position[1] + ry * sin(2.0 * pi / t2go * (curr_time - start_time))
+            output_msg.p.z = rz
+
+            output_msg.v.x = 4.0 * rx * pi / t2go * cos(4.0 * pi / t2go * (curr_time - start_time))
+            output_msg.v.y = 2.0 * ry * pi / t2go * cos(4.0 * pi / t2go * (curr_time - start_time))
+            output_msg.v.z = 0.0 
+
+            output_msg.a.x = -16.0 * rx * (pi / t2go) * (pi / t2go) * sin(4.0 * pi / t2go * (curr_time - start_time))
+            output_msg.a.y = -4.0 * ry * (pi / t2go) * (pi / t2go) * sin(2.0 * pi / t2go * (curr_time - start_time))
+            output_msg.a.z = 0.0
+            
+            # Action Feedback
+            fb_data = GuidanceTargetFeedback()
+            fb_data.curr_pos = [output_msg.p.x, output_msg.p.y, output_msg.p.z]
+            fb_data.curr_status = 1;
+            self.action_server.publish_feedback(fb_data)
+
+            # Pubblish the evaluated trajectory
+            self.ctrl_setpoint_pub.publish(output_msg)
+
+            # Wait the next loop
+            r.sleep()
+            # Take the time
+            curr_time = rospy.get_time()
+
+        # End Setpoint
+        output_msg = ControlSetpoint()
+        output_msg.header.stamp = rospy.Time.now()
+
+        output_msg.setpoint_type = "active"
+        output_msg.p.x = start_position[0] + X[0]
+        output_msg.p.y = start_position[1] + Y[0]
+        output_msg.p.z = start_position[2] + Z[0]
+
+        self.ctrl_setpoint_pub.publish(output_msg)
+
+        result = GuidanceTargetResult()
+        result.ret_status = 0;
+        result.mission_type = trj_type
+        self.action_server.set_succeeded(result, "Mission completed succesfully")
 
     def gen_takeoff(self, h, t2go=None):
         """
@@ -281,11 +368,17 @@ class GuidanceClass:
         tg_v = goal.target_v
         tg_a = goal.target_a
 
-
         # If the goal is relative compute the absolute before requesting 
         # the trajectory: the functions think in absolute position
         if (goal.relative):
             tg_p = tg_p + start_point
+
+        if (goal.mission_type == "eight"):
+            radius_x = tg_p[0]
+            radius_y = tg_p[1]
+            trj_z = tg_p[2]
+            (trajectory, Tend) = self.gen_eight(radius_x, radius_y, trj_z, t2go)
+            return True
 
         # Call the specific trajectory generation
         if (goal.mission_type == "goTo"):
@@ -298,6 +391,7 @@ class GuidanceClass:
             h = tg_p[2]
             (trajectory, Tend) = self.gen_takeoff(h, t2go)
 
+                    
 
         self.action_thread(goal.mission_type, trajectory, start_point, frequency)
 

@@ -8,25 +8,24 @@
      - Commander + Guidance Nodes
 -->
 <launch>
-
 <!--
     <arg name="vehicle_frame" default="cf3" />
     <arg name="uri" default="radio://0/80/2M/E7E7E7E703" />
-
     <arg name="vehicle_frame" default="cf1" />
     <arg name="uri" default="radio://0/121/2M/E7E7E7E7E7" />
 -->
     <arg name="vehicle_frame" default="cf2" />
     <arg name="uri" default="radio://0/100/2M/E7E7E7E702" />
+
     <arg name="target" default="target" />
     <arg name="nodeB" default="nodeB" />
     <arg name="ip" default="192.168.1.198" />
     <arg name="port" default="3883" />
 
     <arg name="server" default="RS2" />
-    <arg name="provide_position" default="False" />
+    <arg name="provide_position" default="True" />
     <arg name="provide_distance" default="False" />
-    <arg name="provide_pose" default="True" />
+    <arg name="provide_pose" default="False" />
 
 
 <!-- ===================================== -->
@@ -75,8 +74,8 @@
     <arg name="provide_position" value="$(arg provide_position)" />
     <arg name="provide_distance" value="$(arg provide_distance)" />
     <arg name="provide_pose" value="$(arg provide_pose)" />
-    <arg name="controller_type" value="DD" />
-    <arg name="estimator_type" value="DD" />
+    <arg name="controller_type" value="Mellinger" />
+    <arg name="estimator_type" value="EKF" />
 </include>
 
 
@@ -107,7 +106,7 @@
         output="screen">
         <param name="param/controller_name" value="DD_ctrl2"/>
         <param name="param/vehicle_name" value="$(arg vehicle_frame)" />
-        <param name="param/drop_mod" value="3" />
+        <param name="param/drop_mod" value="2" />
         <param name="topics/out_motors_topic" value="/area0/controller/DD_ctrl2/$(arg vehicle_frame)/cmd_pwm"/>
         <rosparam file="$(find dd_controller)/config/dd_controller_params.yaml" />
     </node>
@@ -147,7 +146,7 @@
     -->
 
 
-<node pkg="rosbag" name="dd_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_ddctrl  /$(arg vehicle_frame)/cmd_pwm  /area0/controller/DD_ctrl1/$(arg vehicle_frame)/cmd_pwm /area0/controller/DD_ctrl2/$(arg vehicle_frame)/cmd_pwm /DD_ctrl1/$(arg vehicle_frame)/dd_estimate /DD_ctrl2/$(arg vehicle_frame)/dd_estimate /DD_ctrl1/$(arg vehicle_frame)/dd_param_estimate /DD_ctrl2/$(arg vehicle_frame)/dd_param_estimate /$(arg vehicle_frame)/setpoint"/>
+<node pkg="rosbag" name="dd_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_ddctrl  /$(arg vehicle_frame)/cmd_pwm  /area0/controller/DD_ctrl1/$(arg vehicle_frame)/cmd_pwm /area0/controller/DD_ctrl2/$(arg vehicle_frame)/cmd_pwm /DD_ctrl1/$(arg vehicle_frame)/dd_perf /DD_ctrl1/$(arg vehicle_frame)/dd_estimate /DD_ctrl2/$(arg vehicle_frame)/dd_estimate /DD_ctrl1/$(arg vehicle_frame)/dd_param_estimate /DD_ctrl2/$(arg vehicle_frame)/dd_param_estimate /$(arg vehicle_frame)/setpoint "/>
 
 <node pkg="rosbag" name="record_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_crazyflie /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/extPwm /$(arg vehicle_frame)/ddCtrl /$(arg vehicle_frame)/phat /$(arg vehicle_frame)/network"/>
 

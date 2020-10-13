@@ -30,7 +30,7 @@
             <param name="enable_provide_pose" value="$(arg provide_pose)" type="bool" />
             <rosparam>
                 genericLogTopics: ["ddCtrl", "extPwm", "phat", "network"]
-                genericLogTopicFrequencies: [100, 0, 0, 100]
+                genericLogTopicFrequencies: [0, 0, 0, 100]
                 genericLogTopic_ddCtrl_Variables: ["ctrlDD_log.mpower0", "ctrlDD_log.mpower1", "ctrlDD_log.mpower2", "ctrlDD_log.mpower3"]
                 genericLogTopic_extPwm_Variables: ["external_pwm.mPower0", "external_pwm.mPower1", "external_pwm.mPower2", "external_pwm.mPower3"]
                 genericLogTopic_phat_Variables: ["ctrlDDExtra_log.phat_r", "ctrlDDExtra_log.phat_p", "ctrlDDExtra_log.phat_y"]
