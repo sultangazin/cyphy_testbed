@@ -6,4 +6,4 @@ float64 beta_x
 float64 beta_y
 
 float64[4] alpha2d
-float64[4] beta2d
+float64[16] beta2d

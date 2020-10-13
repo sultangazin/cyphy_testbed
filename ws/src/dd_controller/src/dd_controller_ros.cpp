@@ -11,8 +11,10 @@
 
 #include "utilities/timeutils/timeutils.hpp"
 #include "utilities/custom_conversion/custom_conversion.hpp"
+#include <std::mutex>
 
 void thread_fnc(void* p);
+std::mutex mx;
 
 // =================================================================
 // CLASS
@@ -21,7 +23,7 @@ DDControllerROS::DDControllerROS():
     received_reference_(false),
     active_(false),
     estimator_ready_(false),
-    controller_ready_(false),
+    controller_ready_(true),
     initialization_counter_(4),
     setpoint_type_("stop"),
     last_state_time_(-1.0),
@@ -409,6 +411,8 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
         pitch,
         yaw
     };
+
+    mx.lock();
     // Feed the data into the DD estimator
     pddest_->AddMeas(meas, ros::Time::now().toSec());
     // Trigger an estimation step
@@ -427,7 +431,10 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
         if (active_) {
             pddctrl_->Step(&estim_state,  &param, dT / 3.0);
 
-            pddctrl_->getControls(pwm_ctrls_); 
+            Eigen::Matrix<double, DDCTRL_OUTPUTSIZE, 1> new_ctrl = pddctrl_->getControls(); 
+            
+            double alpha = 1.0;
+            pwm_ctrls_ = alpha * new_ctrl.array() + (1.0 - alpha) * pwm_ctrls_.array();
 
             // Initialization Procedure
             if (!controller_ready_ && pwm_ctrls_.norm() > 0.1) {
@@ -440,6 +447,8 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
             pwm_ctrls_ << 0, 0, 0, 0;
         }
     }
+
+    mx.unlock();
 
     // Pubblications
     dd_controller::StateEstimateStamped est_msg;
@@ -475,6 +484,10 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
         par_msg.alpha2d[i] = param.alpha2d(i);  
     }
 
+    for (int i = 0; i < DDESTPAR_BETA2DSIZE; i++) {
+        par_msg.beta2d[i] = param.beta2d(i);
+    }
+
     state_estimate_pub_.publish(est_msg);
     param_estimate_pub_.publish(par_msg);
 
@@ -482,9 +495,11 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     // Publish  Controls
     if (setpoint_type_ == "stop") {
         active_ = false;
+        mx.unlock();
         for (int i = 0; i < DDCTRL_OUTPUTSIZE; i++) {
             pwm_ctrls_(i) = 0.0;
         }
+        mx.unlock();
         crazyflie_driver::PWM pwm_msg;
         pwm_msg.header.stamp = ros::Time::now();
 
@@ -523,6 +538,7 @@ void DDControllerROS::onNewControl(const crazyflie_driver::PWM::ConstPtr& msg) {
     curr_pwm(2) = msg->pwm2 / 60000.0;
     curr_pwm(3) = msg->pwm3 / 60000.0;   
 
+    mx.lock();
     if (estimator_ready_) { // If state estimation is ready
         pddest_->GetState(&estim_state);
         if (curr_pwm.norm() > 0.1) {
@@ -530,7 +546,9 @@ void DDControllerROS::onNewControl(const crazyflie_driver::PWM::ConstPtr& msg) {
             pddparest_->Step(&estim_state, curr_pwm, dT / 3.0);
         }
     }
-        return;
+
+    mx.unlock();
+    return;
 }
 
 // Process an incoming setpoint point change.
