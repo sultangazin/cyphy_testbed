@@ -18,33 +18,41 @@ from rosarena2 import RosArenaObject, \
                       DroneArenaObject, \
                       SurfaceArenaObject, \
                       LinkArenaObject, \
-                      TrajectoryArenaObject
+                      ErrorArenaObject, \
+                      TrajectoryArenaObject, \
+                      statusFromMsg
+
+from control_router.msg import NetworkStatusMsg
 
 scene = "drone"
 mqtt_broker = "arena.andrew.cmu.edu"
 #mqtt_broker = "arena-west1.conix.io"
+status_topic = "/cf3/network_ctrl_status"
 
 objects = []
 
 drones = {}
 nodes = {}
 links = {}
-        
-# Click on target
-## Need to update
-# def issue_command(tg_p):
-#     if (drones['cf3'] == None and drones['cf2'] == None):
-#         print("No drone selected!")
-#     else:
-#         for (k, v) in drones.items():
-#             if (v.isActive()):
-#                 try:
-#                     print("Issuing GOTO command to drone {}".format(k))
-#                     y = floor_offset
-#                     resp1 = drones[k].goTo([tg_p[0], tg_p[1], y], 3.0)
-#                 except rospy.ServiceException as exc:
-#                     print("Service did not process request: " + str(exc))
 
+def status_callback(msg):
+    active, id, freq = statusFromMsg(msg)
+    # if True:
+    if id==3:
+        nodes["nuc1"].activate()
+        links["nuc1"].activate()
+        nodes["nuc2"].deactivate()
+        links["nuc2"].deactivate()
+    elif id==4:
+        nodes["nuc2"].activate()
+        links["nuc2"].activate()
+        nodes["nuc1"].deactivate()
+        links["nuc1"].deactivate()
+    else:
+        nodes["nuc1"].deactivate()
+        links["nuc1"].deactivate()
+        nodes["nuc2"].deactivate()
+        links["nuc2"].deactivate()
 
 def got_click(location):
     for name in drones:
@@ -69,33 +77,47 @@ def manage_nodes(objName):
 
 def generate_objects():
     drone = DroneArenaObject(objName="cf3", 
-                             pose_source=None, 
-                             location=(0,1,0), 
-                             clickable=False, 
-                             opacity=0.6)
+                             objType=arena.Shape.gltf_model,
+                            #  objType=arena.Shape.triangle,
+                             pose_source="/cf3/external_pose", 
+                             location=(0,1,0),
+                             rotation_offset=(0,0.713,0,-0.713),
+                             scale=(.05,.05,.05), 
+                             color=(0,50,50),
+                             url="store/users/ucla/models/s9_mini_drone/scene.gltf",
+                             clickable=False)
     objects.append(drone)
     drones[drone.objName] = drone
 
+    error = ErrorArenaObject(objName="cf3_error",
+                             color=(50,50,200),
+                             scale=(0.08,0.08,0.08),
+                             opacity=0.7,
+                             pose_source="/cf3/external_pose",
+                             target_source=None)
+    objects.append(error)
+
     floor = SurfaceArenaObject(objName="floor", 
-                               color=(100,150,100),
+                               color=(50,100,50),
                                location=(0,0,0), 
-                               scale=(4,0.02,3), 
+                               scale=(6,0.02,3), 
                                opacity=0.6, 
                                clickable=False)
                                #ros_callback=got_click)
     objects.append(floor)
 
     camera = RosArenaObject(objName="camera", 
-                          location=(2,2,-2), 
-                          scale=(0.5,0.5,0.5), 
-                          color=(50,50,50), 
-                          clickable=False, 
-                          opacity=1)
+                          objType=arena.Shape.gltf_model,
+                          location=(2, 2, -2),
+                          rotation=(0,0.924,0,-0.381),
+                          scale=(.002, .002, .002),
+                          url="store/users/ucla/models/security_camera/scene.gltf",
+                          clickable=False)
     objects.append(camera)
 
     nuc1 = RosArenaObject(objName="nuc1", 
-                          location=(1,1,1), 
-                          scale=(0.1,0.05,0.1), 
+                          location=(2.5,1,1), 
+                          scale=(0.2,0.1,0.2), 
                           color=(200,0,200), 
                           clickable=False, 
                           opacity=0.7,
@@ -104,8 +126,8 @@ def generate_objects():
     nodes[nuc1.objName]=nuc1
 
     nuc2 = RosArenaObject(objName="nuc2", 
-                          location=(-1,1,-1), 
-                          scale=(0.1,0.05,0.1), 
+                          location=(-2.5,1,-1), 
+                          scale=(0.2,0.1,0.2), 
                           color=(200,0,200), 
                           clickable=False, 
                           opacity=0.7,
@@ -125,12 +147,13 @@ def generate_objects():
     objects.append(link2)
     links[nuc2.objName]=link2
 
-    # cow = arena.Object(
+    # drone = arena.Object(
     # objName="model2",
     # objType=arena.Shape.gltf_model,
-    # location=(-1, 1.8, -2),
-    # scale=(0.02, 0.02, 0.02),
-    # url="models/cow2/scene.gltf",
+    # location=(0, 2, 0),
+    # rotation=(0,0.924,0,-0.381),
+    # scale=(.002, .002, .002),
+    # url="store/users/ucla/models/security_camera/scene.gltf",
     # )
 
     # cow = arena.Object(
@@ -156,16 +179,18 @@ def remove_objects():
 
 if __name__ == '__main__':
     rospy.init_node('RArena_node')
-    rospy.on_shutdown(remove_objects)
+    # rospy.on_shutdown(remove_objects)
 
     # # Instatiate the MQTT client class
     print("Connecting to broker: ", mqtt_broker)
-    arena.init(mqtt_broker, "realm", "drone")
+    arena.init(mqtt_broker, "realm", "drone", cleanup=remove_objects)
     remove_objects()
     generate_objects()
-    # mqtt_client.loop_start() #start loop to process received mqtt messages
 
-    #rospy.spin()
+    if status_topic:
+        rospy.Subscriber(status_topic, NetworkStatusMsg, status_callback)
+        rospy.loginfo("Subscribed to: {}".format(status_topic))
+
     rate = rospy.Rate(10)
     while not rospy.is_shutdown():
         # Hack to deal with areana.handle_events blocking.

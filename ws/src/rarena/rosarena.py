@@ -28,16 +28,16 @@ y_offset=0
 
 ###### HELPERS #####
 def posFromPoseMsg(pose_msg):
-    pos = np.array([pose_msg.pose.position.x, 
+    pos = np.array([-pose_msg.pose.position.x, 
                 pose_msg.pose.position.y + y_offset, 
                 pose_msg.pose.position.z])
     return pos
 
 def quatFromPoseMsg(pose_msg):
     quat = np.array([pose_msg.pose.orientation.x, 
-                     pose_msg.pose.orientation.y,
                      pose_msg.pose.orientation.z,
-                     pose_msg.pose.orientation.w])
+                     pose_msg.pose.orientation.y,
+                     -pose_msg.pose.orientation.w])
     return quat 
 
 # Convert from quaternion to euler angles
@@ -97,8 +97,6 @@ def quat2Rot(q):
     # Yaw * Pitch * Roll (Robotic convention)
     R = np.matmul(np.matmul(Rz(eul[2]), Ry(eul[1])), Rx(eul[0]))
     return R
-
-
 
 ################# ROS ARENA CLASS #####################
 class RArenaClass(object):
