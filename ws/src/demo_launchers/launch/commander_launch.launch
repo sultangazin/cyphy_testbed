@@ -34,21 +34,6 @@
     </node>
 
 
-    <!-- 
-    ========================================
-    Run the node publishing the setpoint value as odometry message which can be visualized in
-    rviz
-    -->
-    <!--
-    <node name="ctrlsetpoint_odometry_pub" pkg='monitors' type="ctrl_setpoint_odometry_publisher" output="screen">
-        <param name="tg_frame_id" value="$(arg vehicle_frame)" type='str' />
-        <param name="topics/out_ghost_topic" value="ghost_odom" type="str" />
-        <param name="topics/in_ctrlsetpoint_topic" value="setpoint" type="str" />
-    </node>	
-    -->
-
-
-
 </group>
 <!--
 ========================================

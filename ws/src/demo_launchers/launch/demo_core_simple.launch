@@ -35,15 +35,6 @@
 </include>
 
 
-<!--
-<node pkg="gtrack_server"
-    name="gtrack_server_node"
-    type="gtrack_server"
-    output="screen">
-</node>
--->
-
-
 <!-- ===================================== -->
 <!-- Launch the estimator of the object state from
      the VRPN raw data.
@@ -52,12 +43,6 @@
     <arg name="vehicle_frame" value="$(arg vehicle_frame)" />
 </include>
 
-
-<!-- ===================================== -->
-<!-- Launch the Arena Node
-<include file="$(find demo_launchers)/launch/arena.launch">
-</include>
--->
 
 <!-- ======================================== -->
 <!-- Launch the controller/guidance componets -->
@@ -87,6 +72,7 @@
 <!--
     ===================================================
     Control Router 
+    This node manages the control switching on the network
 -->
     <node name="control_router"
         pkg="control_router"
@@ -94,14 +80,5 @@
         output="screen">
         <param name="param/vehicle_name" value="$(arg vehicle_frame)" />
     </node>
-
-
-<!--
-<node pkg="rviz" 
-        type="rviz" 
-        name="rviz" 
-        args="-d $(find state_aggregator)/launch/cyphy_rviz.rviz" > 
-</node>
--->
 
 </launch>
