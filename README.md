@@ -15,7 +15,6 @@ Currently the following modules have been implemented:
 1. **commander_interface**
 This package provides the point of interaction between the vehicle and the user. The *commander\_node* advertises services for requesting task to the drone, such as goto, land, takeoff and full state tracking.
 These request are then managed by the Guidance that created trajectories.
-[ONGOING WORK: This interface is still only connected to the offboard controller]
 2. **controller**
 This package contains the controllers to command the drone offboard.
 3. **crazyflie_ros**
@@ -28,21 +27,20 @@ Currently, the main launchers are
 
     2. "radio_server": Start a crazyflie_server node that provides services to add *Crazyflie*s to the system. It spawns a thread for each connected *Crazyflie*.
 
-    3. "commander_launch": Starts the Commander node and the Guidance node. These nodes are necessary to interact with the vehicles since they generate the reference trajectories followed by the controllers.
+    3. "cf_bridge.launch": Script complementary to the "radio_server". It request the connection to a vehicle and configure it via "setup_vehicle.py" script.
 
-    4. "controller_launch": Launch file that simplifies the startup of the remote controller for the *Crazyflie*. Specifically, it starts the radio bridge with the Crazyflie (cf_bridge.launch) and the ROS remote controller node.
+    4. "commander_launch": Starts the Commander node and the Guidance node. These nodes are necessary to interact with the vehicles since they generate the reference trajectories followed by the controllers.
 
-    5. "estimator_launch": Start the estimator node that aggregates the information provided by the MOCAP to estimate the pose of the vehicle.
+    5. "controller_launch": Launch file that simplifies the startup of the remote controller for the *Crazyflie*. Specifically, it starts the radio bridge with the Crazyflie (cf_bridge.launch) and the ROS remote controller node.
 
-    6. "vrpn_lauch": Starts the acquisition of data from the input sources, such as *Optitrack*. The launch file starts also an instance of *rViz* to visualize the vehicle/trajectory/estimation in a virtual environment.
+    6. "estimator_launch": Start the estimator node that aggregates the information provided by the MOCAP to estimate the pose of the vehicle.
 
-    7. "demo_core": Launch file to simplify the startup of the system. It starts the VRPN node (vrpn_launch), the estimators (estimator_launch), the commanders (commander_launch) and the swarm manager node.
+    7. "vrpn_lauch": Starts the acquisition of data from the input sources, such as *Optitrack*. The launch file starts also an instance of *rViz* to visualize the vehicle/trajectory/estimation in a virtual environment.
 
-    8. "ext_control": Starts the offboard controller node.
+    8. "demo_core_simple": Launch file to simplify the startup of the system. It starts the VRPN node (vrpn_launch), the estimators (estimator_launch), the commanders (commander_launch).
 
     9. "arena": Start the arena/ROS bridge
 
-    10. "setup_vehicle": Start the radio bridge with the Crazyflie (Warps the cf_bridge)
 5. **guidance**
 This package provides the guidance for the drone, that is, given a command and the current status of the drone, it generates the references to achieve the task. 
 6. **monitors**
