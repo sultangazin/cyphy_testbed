@@ -28,6 +28,7 @@
             <param name="enable_provide_position" value="$(arg provide_position)" type="bool" />
             <param name="enable_provide_distance" value="$(arg provide_distance)" type="bool" />
             <param name="enable_provide_pose" value="$(arg provide_pose)" type="bool" />
+	    <!--
             <rosparam>
                 genericLogTopics: ["ddCtrl", "extPwm", "phat", "network"]
                 genericLogTopicFrequencies: [0, 0, 0, 100]
@@ -36,7 +37,6 @@
                 genericLogTopic_phat_Variables: ["ctrlDDExtra_log.phat_r", "ctrlDDExtra_log.phat_p", "ctrlDDExtra_log.phat_y"]
                 genericLogTopic_network_Variables: ["networkdt.ext_msg_dt"]
             </rosparam>
-	    <!--
             <rosparam>
                 genericLogTopics: ["XXX1", "XXX2"]
                 genericLogTopicFrequencies: [100, 100]
