@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
         <!--<arg name="uri" default="radio://0/121/2M/E7E7E7E7E7" />-->
-        <arg name="uri" default="radio://0/121/2M/E7E7E7E7E7" />
+        <arg name="uri" default="radio://0/100/2M/E7E7E7E702" />
         <arg name="frame" default="cf1" />
         <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
         </include>
@@ -30,14 +30,13 @@ Start the server process that connects the CF to the ROS system
         <param name="enable_logging_pressure" value="False" />
         <param name="enable_logging_battery" value="False" />
         <param name="enable_logging_packets" value="False" />
-        <param name="enable_logging_pose" value="False" /> 
+        <param name="enable_logging_pose" value="False" />
         <rosparam>
-                genericLogTopics: ["logDD", "logDDctrl"]
-                genericLogTopicFrequencies: [10, 20]
-                genericLogTopic_logDD_Variables: [ "estimator_dd.est_x", "estimator_dd.est_xd", "estimator_dd.est_xdd", "estimator_dd.est_alpha", "estimator_dd.est_beta", "estimator_dd.sens_dt_ms"]
+                genericLogTopics: ["logDD", "logDDctrl","est"]
+                genericLogTopicFrequencies: [10, 20, 20]
+                genericLogTopic_logDD_Variables: [ "estimator_dd.est_x", "estimator_dd.est_xd", "estimator_dd.est_alpha", "estimator_dd.est_beta", "estimator_dd.sens_dt_ms"]
                 genericLogTopic_logDDctrl_Variables: ["stabilizer.thrust", "stabilizer.dd_thrust", "stabilizer.pid_thrust"]
-                genericLogTopic_logDDctrl2_Variables: ["estimator_dd.est_dt_s"]
-                <!--genericLogTopic_logDDctrl2_Variables: ["controller_dd.up", "controller_dd.ud","estimator_dd.est_dt_s"]-->
+                genericLogTopic_est_Variables: ["stateEstimate.x"]
         </rosparam>
 </node>
 
@@ -79,10 +78,11 @@ Publish the Estimated odometry
 Monitoring
 
 -->
+<!--
 <node pkg="rqt_plot"
     type="rqt_plot" 
     name="RealTime_Monitor" args="/$(arg frame)/logDD/values[4]"/>
-
+-->
 
 
 <!--
@@ -94,6 +94,7 @@ Bag recording
 - /vrpn_client_node/$(arg frame)/pose: This is the ground truth
 - /ghost_trajectory: This is the requested trajectory pose (simulated)
 -->
-<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/$(arg frame)_drone /$(arg frame)/pose /$(arg frame)/logDD /$(arg frame)/logDDctrl"/>	
+
+<node pkg="rosbag" name="record_cf" type="record" args="-O /tmp/$(arg frame)_drone /$(arg frame)/pose /$(arg frame)/logDD /$(arg frame)/logDDctrl /$(arg frame)/est"/>	
 
 </launch>
