@@ -42,43 +42,43 @@ typedef Eigen::Matrix<double, SIGMAY_DIM, 1> SigmaYMat;
  * variables.
  */
 struct TrackerParam {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    double T;
+	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+		double T;
 
 	// Standard deviations of the model uncertainty. 
 	SigmaXMat sigma_x;
 
-    // Variance vector of the measurement noise.
-    SigmaYMat sigma_y;
+	// Variance vector of the measurement noise.
+	SigmaYMat sigma_y;
 
-    // Linearization of the dynamics model
-    DynMat A;
-    QMat Q;
+	// Linearization of the dynamics model
+	DynMat A;
+	QMat Q;
 
-    // Linearization of the measurement model 
-    HMat H;
-    RMat R;
+	// Linearization of the measurement model 
+	HMat H;
+	RMat R;
 
-    // Constructor
-    TrackerParam() : 
-        T(1.0),
-        sigma_x(SigmaXMat::Ones()),
-        sigma_y(SigmaYMat::Ones()),
-        A(DynMat::Identity()),
-        Q(QMat::Identity()), 
-        H(HMat::Zero()),
-        R(RMat::Identity()) {}
+	// Constructor
+	TrackerParam() : 
+		T(1.0),
+		sigma_x(SigmaXMat::Ones()),
+		sigma_y(SigmaYMat::Ones()),
+		A(DynMat::Identity()),
+		Q(QMat::Identity()), 
+		H(HMat::Zero()),
+		R(RMat::Identity()) {}
 };
 
 
 class PolyFilter {
 
 	public:
-        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+		EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-		PolyFilter(const Eigen::Vector3d& p0,
-				const SigmaXMat& sigma_x, const SigmaYMat& sigma_y,
-				double dt);
+			PolyFilter(const Eigen::Vector3d& p0,
+					const SigmaXMat& sigma_x, const SigmaYMat& sigma_y,
+					double dt);
 		~PolyFilter();
 
 		void reset(const XMat& x0, double s0);
@@ -90,9 +90,9 @@ class PolyFilter {
 		void update(const YMat&);
 
 		// Fetchers
-        const Eigen::Vector3d getPos() const;
-        const Eigen::Vector3d getVel() const;
-        const Eigen::Vector3d getAcc() const;
+		const Eigen::Vector3d getPos() const;
+		const Eigen::Vector3d getVel() const;
+		const Eigen::Vector3d getAcc() const;
 
 		const QMat getQ() const;
 		const DynMat getA() const;
@@ -102,8 +102,8 @@ class PolyFilter {
 
 		void updateSigmas(const SigmaXMat& x, const SigmaYMat& y);
 
-    private:
-        mutable std::mutex _mx;
+	private:
+		mutable std::mutex _mx;
 
 		XMat _x;
 		UMat _u;
@@ -111,59 +111,59 @@ class PolyFilter {
 
 		PMat _P;
 
-        TrackerParam _params;
+		TrackerParam _params;
 
 		void updateSampleTime(double dt);
 
 		void  setPos(const Eigen::Vector3d& p);
-        void  setVel(const Eigen::Vector3d& v);
-        void  setAcc(const Eigen::Vector3d& a);
+		void  setVel(const Eigen::Vector3d& v);
+		void  setAcc(const Eigen::Vector3d& a);
 
 		/**
 		 * Fetcher Private
 		 */
 		const Eigen::Vector3d Pos() const;
-        const Eigen::Vector3d Vel() const;
-        const Eigen::Vector3d Acc() const;
+		const Eigen::Vector3d Vel() const;
+		const Eigen::Vector3d Acc() const;
 
-        /**
-         * Compute the covariance matrix of the 
-         * model uncertainties.
-         */
-        QMat computeQ(double dt, SigmaXMat& sigmas);
+		/**
+		 * Compute the covariance matrix of the 
+		 * model uncertainties.
+		 */
+		QMat computeQ(double dt, SigmaXMat& sigmas);
 
-        /**
-         * Compute the matrix of the dynamcs.
-         */
-        DynMat computeA(double dt);
+		/**
+		 * Compute the matrix of the dynamcs.
+		 */
+		DynMat computeA(double dt);
 
-        /**
-         * Compute the kalman gain.
-         */
-        KMat computeK(QMat& P, HMat& H, RMat& R);
+		/**
+		 * Compute the kalman gain.
+		 */
+		KMat computeK(QMat& P, HMat& H, RMat& R);
 
-        /**
-         * Predict the covariance of the process considering
-         * a linear model
-         */
-        PMat predictXcovariance(PMat& Px, QMat& Q, DynMat& A);
+		/**
+		 * Predict the covariance of the process considering
+		 * a linear model
+		 */
+		PMat predictXcovariance(PMat& Px, QMat& Q, DynMat& A);
 
-        /**
-         * Update the covariance matrix
-         */
-        PMat updateXcovariance(PMat& Px, HMat& H, KMat& K, RMat& R);
+		/**
+		 * Update the covariance matrix
+		 */
+		PMat updateXcovariance(PMat& Px, HMat& H, KMat& K, RMat& R);
 
 
-        /**
-         * Update the covariance of the model uncertainty.
-         */
-        void updateSigmaX(const SigmaXMat& s);
+		/**
+		 * Update the covariance of the model uncertainty.
+		 */
+		void updateSigmaX(const SigmaXMat& s);
 
-        /**
-         * Update the covariance of the measurement
-         * uncertainty.
-         **/
-        void updateSigmaY(const SigmaYMat& s);
+		/**
+		 * Update the covariance of the measurement
+		 * uncertainty.
+		 **/
+		void updateSigmaY(const SigmaYMat& s);
 };
 
 #endif

@@ -139,10 +139,8 @@ class StateAggregator {
         // Helper variables
         Eigen::Vector3d p_;
         Eigen::Vector3d v_;
+		Eigen::Vector3d a_;
 
-        Eigen::Vector3d p_pf_;
-        Eigen::Vector3d p_old_;
-        Eigen::Vector3d vel_;
         Eigen::Vector3d euler_;
         Eigen::Vector3d w_;
 
