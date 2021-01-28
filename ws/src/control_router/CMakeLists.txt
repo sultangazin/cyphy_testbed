@@ -12,6 +12,7 @@ find_package(
     std_msgs
     crazyflie_driver
 	message_generation
+	utilities
 )
 
 add_service_files(
@@ -56,4 +57,5 @@ add_dependencies(control_router_node
 
 target_link_libraries(control_router_node
 	${catkin_LIBRARIES}
+	utilities
 	)
