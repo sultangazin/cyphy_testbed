@@ -6,7 +6,7 @@ using namespace std;
 
 void sim_thread_fnc(void* p);
 
-extern bool f1(vector<double>& x_,
+extern bool f2(vector<double>& x_,
         const vector<double>& x,
         const vector<double>& u, 
         double dt, void* param);
@@ -50,11 +50,17 @@ bool XSimulator::Initialize(const ros::NodeHandle& n) {
     old_time_.sec = 0;
     old_time_.nsec = 0; 
 
-    sim_ = new SimDyn(10, 4, 1, 0, &f1, &g1, &h1);
+    sim_ = new SimDyn(10, 4, 1, 0, &f2, &g1, &h1);
+
+	std::vector<double> x0(10, 0);
+	x0[0] = -1.5;
+	x0[1] = 1.1;
+	x0[6] = 1.0;
+	sim_->set_X(x0);
 
     initialized_ = true;
 
-    arg_.period = 0.001;
+    arg_.period = sim_period_;
     arg_.pParam = (void*) &parameters_;
     arg_.pSim = sim_;
 
@@ -82,8 +88,8 @@ bool XSimulator::LoadParameters(const ros::NodeHandle& n) {
 
     // Load Model Parameter of the drone
     nl.param<double>("param/drone_mass", Mass_, 1.0);
-    nl.param<double>("param/lin_drag_coeff", c_drag_, 0.001);
-    nl.param<double>("param/ang_drag_coeff", a_drag_, 0.001);
+    nl.param<double>("param/lin_drag_coeff", c_drag_, 0.00001);
+    nl.param<double>("param/ang_drag_coeff", a_drag_, 0.00001);
     nl.param<double>("param/sim_period", sim_period_, 0.005);
 
     parameters_.Mass = Mass_;
@@ -124,7 +130,7 @@ void XSimulator::ControlCallback(
         double dt = current_time.toSec() - old_time_.toSec();
         old_time_ = current_time;
         vector<double> u_(4);
-        u_[0] = msg->control.thrust * Mass_;
+        u_[0] = msg->control.thrust;
         u_[1] = msg->control.roll;
         u_[2] = msg->control.pitch;
         u_[3] = msg->control.yaw_dot;
@@ -162,9 +168,9 @@ void sim_thread_fnc(void* p) {
     struct timespec period_tms; 
     create_tspec(period_tms, dt);
 
-    std::vector<double> x(10);
-    x[6] = 1.0;
-    psim->set_X(x);
+    //std::vector<double> x(10);
+    //x[6] = 1.0;
+    //psim->set_X(x);
 
     while (ros::ok()) {
         // Get current time
@@ -205,6 +211,7 @@ void XSimulator::pub_thread_fnc(double dt) {
         ext_codometry_msg.p.x = x[0];
         ext_codometry_msg.p.y = x[1];
         ext_codometry_msg.p.z = x[2];
+
         ext_codometry_msg.v.x = x[3];
         ext_codometry_msg.v.y = x[4];
         ext_codometry_msg.v.z = x[5];
@@ -218,21 +225,21 @@ void XSimulator::pub_thread_fnc(double dt) {
         ext_codometry_msg.w.y = 0.0;
         ext_codometry_msg.w.z = 0.0;
 
-        if (counter++ % 5 == 0) {
+        if (counter++ % 1 == 0) {
             sim_vrpn_pose_msg.header.stamp = ext_codometry_msg.header.stamp;
             sim_vrpn_pose_msg.pose.position.x = ext_codometry_msg.p.x;
-            sim_vrpn_pose_msg.pose.position.y = ext_codometry_msg.p.z;
-            sim_vrpn_pose_msg.pose.position.z = -ext_codometry_msg.p.y;
+            sim_vrpn_pose_msg.pose.position.y = ext_codometry_msg.p.y;
+            sim_vrpn_pose_msg.pose.position.z = ext_codometry_msg.p.z;
 
             sim_vrpn_pose_msg.pose.orientation = ext_codometry_msg.q;
-            sim_vrpn_pose_msg.pose.orientation.y = ext_codometry_msg.q.z;
-            sim_vrpn_pose_msg.pose.orientation.z = -ext_codometry_msg.q.y;
+            sim_vrpn_pose_msg.pose.orientation.y = ext_codometry_msg.q.y;
+            sim_vrpn_pose_msg.pose.orientation.z = ext_codometry_msg.q.z;
 
             vrpn_sim_pub_.publish(sim_vrpn_pose_msg);
-        }
 
-        codometry_pub_.publish(ext_codometry_msg);
-        sensor_pub_.publish(ext_codometry_msg);
+	    codometry_pub_.publish(ext_codometry_msg);
+	    sensor_pub_.publish(ext_codometry_msg);
+        }
 
         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_activation, NULL);
     }

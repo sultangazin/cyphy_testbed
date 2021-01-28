@@ -100,6 +100,7 @@ bool SimDyn::sim_step(double dt, void* pparam) {
 		dyn_fun(x_new, X_, U_, dt, pparam);
 		X_ = x_new;
 	}
+
 	if (meas_fun) {
 		meas_fun(Y_, X_, U_);
 	}

@@ -16,9 +16,9 @@
         <param name="topics/output_state_topic" value="external_codom" type='str'/>
         <param name="topics/output_simvrpn_topic" value="/area0/sensors/optitrack/$(arg vehicle_frame)/data" type='str'/>
         <param name="param/drone_mass" value="0.032" type='double'/>
-        <param name="param/lin_drag_coeff" value="0.002" type='double'/>
-        <param name="param/ang_drag_coeff" value="0.001" type='double'/>
-        <param name="param/sim_period" value="0.005" type='double'/>
+        <param name="param/lin_drag_coeff" value="0.0000005" type='double'/>
+        <param name="param/ang_drag_coeff" value="0.0000005" type='double'/>
+        <param name="param/sim_period" value="0.0005" type='double'/>
     </node>
 </group>
 </launch>

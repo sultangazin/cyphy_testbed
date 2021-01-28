@@ -133,7 +133,7 @@ bool f2(vector<double>& x_,
     Xstd2Eigen(x, p, v, q);
 
     // Extract the Control Vector
-    double T = (u[0] > 0.1) ? u[0] : 0.1;
+    double T = (u[0] > 0.05) ? u[0] : 0.05;
     vector<double> omega_(u.begin() + 1, u.end());
     Eigen::Vector3d omega_b(omega_.data());
  
@@ -151,7 +151,7 @@ bool f2(vector<double>& x_,
     q = q * Eigen::AngleAxis<double>(dtheta, n);
 
     // Consider the Ground
-    if (p(2) < 0.0) {
+    if (p(2) < -0.01) {
         p(2) = 0.0;
         v(2) = 0.0;
     }
