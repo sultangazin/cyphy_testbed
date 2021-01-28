@@ -27,19 +27,6 @@
 
 #include "utilities/network_parser/network_parser.hpp"
 
-
-struct TopicData {
-    std::string topic_name;
-    std::string area_name;
-    std::string sensor_name;
-    std::string datatype;
-    double frequency;
-    bool isActive;
-    bool enabled;
-};
-
-
-
 struct Thread_arg {
     double period;
 };

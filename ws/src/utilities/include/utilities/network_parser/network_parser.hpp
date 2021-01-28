@@ -13,6 +13,17 @@
 #include <string>
 #include <unordered_map>
 
+struct TopicData {
+    std::string topic_name;
+    std::string area_name;
+    std::string node_name;
+    std::string datatype;
+    double frequency;
+    bool isActive;
+    bool enabled;
+};
+
+
 class NetworkParser {
     public:
         NetworkParser();
@@ -29,6 +40,12 @@ class NetworkParser {
                 sensors,
                 const std::string& area_name = "",
                 const std::string& agent_name = "");
+
+		int query_controllers(
+				std::unordered_map<std::string,
+				ros::master::TopicInfo>& controllers,
+				const std::string& area_name,
+				const std::string& agent_name);
             
     private: 
         /**

@@ -150,7 +150,7 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 }
 
 
-int StateAggregator::UpdateSensorPublishers() {
+int StateAggregator::UpdatePublishers() {
 
     // In order to automatize the subscription to sensor topics 
     // I need to fetch information from the network.
@@ -173,7 +173,7 @@ int StateAggregator::UpdateSensorPublishers() {
             TopicData str;
             str.topic_name = el.second.name;
             str.area_name = area_name_;
-            str.sensor_name = sname;
+            str.node_name = sname;
             str.datatype = el.second.datatype;
             str.frequency = 0.0;
             str.isActive = true;
@@ -184,6 +184,7 @@ int StateAggregator::UpdateSensorPublishers() {
                     );
         }
     }
+	return sdata.size();
 }
 
 
@@ -202,7 +203,7 @@ bool StateAggregator::AssociateTopicsToCallbacks(const ros::NodeHandle& n) {
                                 topic_name.c_str(),
                                 5, 
                                 boost::bind(&StateAggregator::onNewPose, this, _1,
-                                    (void*)&inchannels_[el.first].sensor_name),
+                                    (void*)&inchannels_[el.first].node_name),
                                 ros::VoidConstPtr(),
                                 ros::TransportHints().tcpNoDelay()
                                 )
@@ -217,7 +218,7 @@ bool StateAggregator::AssociateTopicsToCallbacks(const ros::NodeHandle& n) {
                                 topic_name.c_str(),
                                 5, 
                                 boost::bind(&StateAggregator::onNewPosition, this, _1,
-                                    (void*)&inchannels_[el.first].sensor_name),
+                                    (void*)&inchannels_[el.first].node_name),
                                 ros::VoidConstPtr(),
                                 ros::TransportHints().tcpNoDelay()
                                 )
@@ -241,7 +242,7 @@ bool StateAggregator::RegisterCallbacks() {
 
     // Update the list of sensors publications referring to the 
     // vehicle in the current area.
-    UpdateSensorPublishers();
+    UpdatePublishers();
     AssociateTopicsToCallbacks(node_); 
 
     return true;
@@ -258,7 +259,7 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     static timespec t_old;
     timespec t;
 
-    std::string sensor_name = *(std::string*) arg;
+    std::string node_name = *(std::string*) arg;
 
     // Take the time
     ros::Time current_time = ros::Time::now();
@@ -406,7 +407,7 @@ void StateAggregator::onNewPosition(const boost::shared_ptr<geometry_msgs::Point
     ros::Time current_time = ros::Time::now();
     static timespec told {}; 
 
-    std::string sensor_name = *(std::string*) arg;
+    std::string node_name = *(std::string*) arg;
 
     Eigen::Vector3d p;
     Eigen::Vector3d v;
@@ -455,24 +456,24 @@ bool StateAggregator::control_sensor(
         state_aggregator::ControlSensor::Response& res) {
     bool enabling = req.enable;
     std::cout << "Calling the service " << std::endl;
-    std::string sensor_name = req.name;
+    std::string node_name = req.name;
 
-    if (inchannels_.count(sensor_name) == 0) {
+    if (inchannels_.count(node_name) == 0) {
         std::cout << "No sensor registered with name '" <<
-            sensor_name << "'" << std::endl;
+            node_name << "'" << std::endl;
         res.success = false;
         return false;
     }
     
     if (enabling) {
         std::cout << "[STATE_AGGREGATOR]: Enabling sensor " <<
-            sensor_name << std::endl;
+            node_name << std::endl;
     } else {
         std::cout << "[STATE_AGGREGATOR]: Disabling sensor " <<
-            sensor_name << std::endl;
+            node_name << std::endl;
     }
 
-    inchannels_[sensor_name].enabled = enabling;
+    inchannels_[node_name].enabled = enabling;
     res.success = true;
     return true;
 }

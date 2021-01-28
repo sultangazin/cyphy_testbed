@@ -365,7 +365,7 @@ int DDControllerROS::UpdateSensorPublishers() {
             TopicData tp_data_str;
             tp_data_str.topic_name = el.second.name;
             tp_data_str.area_name = area_name_;
-            tp_data_str.sensor_name = sname;
+            tp_data_str.node_name = sname;
             tp_data_str.datatype = el.second.datatype;
             tp_data_str.frequency = 0.0;
             tp_data_str.isActive = true;
@@ -400,7 +400,7 @@ bool DDControllerROS::AssociateTopicsToCallbacks(const ros::NodeHandle& n) {
                                 topic_name.c_str(),
                                 5, 
                                 boost::bind(&DDControllerROS::onNewPose, this, _1,
-                                    (void*)&inchannels_[el.first].sensor_name),
+                                    (void*)&inchannels_[el.first].node_name),
                                 ros::VoidConstPtr(),
                                 ros::TransportHints().tcpNoDelay()
                                 )
@@ -445,7 +445,7 @@ void DDControllerROS::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
     Eigen::Matrix<double, 4, 1> phat;
     DDParams param;
 
-    std::string sensor_name = *(std::string*) arg;
+    std::string node_name = *(std::string*) arg;
 
     // Take the time
     ros::Time current_time = ros::Time::now();

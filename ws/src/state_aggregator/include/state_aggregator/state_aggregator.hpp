@@ -22,16 +22,6 @@
 #include "filter/polyfilter.hpp"
 #include "utilities/network_parser/network_parser.hpp"
 
-struct TopicData {
-    std::string topic_name;
-    std::string area_name;
-    std::string sensor_name;
-    std::string datatype;
-    double frequency;
-    bool isActive;
-    bool enabled;
-};
-
 
 using namespace Eigen;
 
@@ -76,7 +66,7 @@ class StateAggregator {
         bool LoadParameters(const ros::NodeHandle& n);
         bool RegisterCallbacks();
         bool AssociateTopicsToCallbacks(const ros::NodeHandle& n);
-        int UpdateSensorPublishers();
+        int UpdatePublishers();
         void net_discovery(int ms);
 
         // Remember last time we got a state callback.

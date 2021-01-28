@@ -94,3 +94,55 @@ int NetworkParser::query_sensors(
 
     return counter;
 }
+
+
+int NetworkParser::query_controllers(
+        std::unordered_map<std::string, ros::master::TopicInfo>& controllers,
+        const std::string& area_name,
+        const std::string& agent_name) {
+    int counter = 0;
+
+    std::string req_pattern{"^/"};   
+
+    int index = 1;
+    if(!area_name.empty()) {
+        req_pattern.append(area_name);
+    } else {
+        req_pattern.append("(.*?)");
+        index++;
+    }
+    req_pattern.append("/");
+    req_pattern.append("controller");
+    req_pattern.append("/");
+    req_pattern.append("(.*?)"); // Controller Name
+    req_pattern.append("/");
+    if(!agent_name.empty()) {
+        req_pattern.append(agent_name);
+    } else {
+        req_pattern.append("(.*?)"); // Vehicle name
+    }
+    req_pattern.append("/.*"); // Just "control"
+
+    //std::cout << "Parsing with pattern: " << req_pattern << std::endl;
+    
+    std::regex regex_pattern(req_pattern);
+    std::smatch matches;
+
+    ros::master::V_TopicInfo topics;
+    fetchActiveTopics(topics);
+
+    using namespace ros::master;
+    for (auto el : topics) {
+        bool res = regex_search(el.name, matches, regex_pattern);
+        if (res) {
+            controllers.insert(std::pair<std::string, TopicInfo>(
+                        matches[index],
+                        el 
+                        )
+                    );
+            counter++;
+        }
+    }
+
+    return counter;
+}
