@@ -68,7 +68,7 @@ class GuidanceClass:
 
     def registerServices(self):
         # Services 
-        self.action_server = actionlib.SimpleActionServer('AAAA',
+        self.action_server = actionlib.SimpleActionServer('GuidanceServer',
                 GuidanceTargetAction, self.handle_guidance_action, False)
 
 

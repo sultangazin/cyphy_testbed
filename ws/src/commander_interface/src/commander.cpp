@@ -96,7 +96,7 @@ bool CommanderInterface::Initialize(const ros::NodeHandle& n) {
     control_router_switch_client_.waitForExistence();
     ROS_INFO("%s: Control Router Server ready!\n", name_.c_str());
 
-    std::string guidance_server = "AAAA";
+    std::string guidance_server = "GuidanceServer";
     pactc_ = new ActionClient(guidance_server, true);
 
     ROS_INFO("%s: Waiting for Guidance Server [%s]...\n", name_.c_str(), guidance_server.c_str());
