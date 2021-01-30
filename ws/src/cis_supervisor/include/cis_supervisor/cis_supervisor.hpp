@@ -1,23 +1,24 @@
 /*  Copyright (C) 2020, Tzanis Anevlavis, Luigi Pannocchi.
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See the GNU General Public License for more details.
+	This program is distributed in the hope that it will be useful, but
+	WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+	See the GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program. If not, see <http://www.gnu.org/licenses/>.  */
+	You should have received a copy of the GNU General Public License
+	along with this program. If not, see <http://www.gnu.org/licenses/>.  */
 
 
 #pragma once
 
 #include <Eigen/Dense>
 #include <vector>
+#include <utility> 
 #include "cis_supervisor/cis_supervisor_data.hpp"
 
 #define CISS_OUTPUTSIZE (3)
@@ -61,7 +62,7 @@ class CISSupervisor {
 		std::array<double, CISS_STATESIZE_1D> K_;
 
 		UType ctrl_outputs_;
-	
+
 		// CIS Polytopes
 		unionPoly CISs_;
 
@@ -76,4 +77,16 @@ class CISSupervisor {
 
 		UType ComputeNominalU(const XType& err);
 
+		std::pair<double, UType> callSupervisor(
+				XType x_curr,
+				UType u_des,
+				const model* mdl,
+				const polytope& CIS,
+				const polytope* inputConstr);
+
+		polytope simplify2box(
+				XType x0,
+				const polytope& CIS,
+				const model* mdl,
+				const polytope* inputConstr);
 };

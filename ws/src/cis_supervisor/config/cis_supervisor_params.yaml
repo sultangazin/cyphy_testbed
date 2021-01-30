@@ -1,4 +1,4 @@
 param: {
     # Controller parameters
-    ctrl_gains: [28, 43, 10]
+    ctrl_gains: [48, 43, 10]
 }
