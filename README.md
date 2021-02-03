@@ -66,6 +66,11 @@ Dependencies:
 - [Eigen](https://eigen.tuxfamily.org) -- a header-only linear algebra library for C++
 - [python-scipy] -- python library for math computation
 - [rpclib](https://github.com/rpclib/rpclib)
+- [Gurobi] Install the library and the FindGurobi.cmake file in the cmake Modules folder
+- [libusb-1.0-0-dev] -- to install VRPN
+- [VRPN](https://github.com/vrpn/vrpn.git) -- install vrpn library from source and copy the FindX.cmake to the local cmake Module folder.
+- [scipy, cvxopt] python modules
+
 
 The repository contains submodules, thus, make sure you clone *recursively*.
 To build the framework, navigate to the `ws/` directory (the _workspace_), and run
