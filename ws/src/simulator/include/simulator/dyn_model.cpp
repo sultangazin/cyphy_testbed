@@ -85,8 +85,7 @@ bool f1(vector<double>& x_,
     rpy[2] = 0.0;
      
     Eigen::Vector3d ThrustVect = q * (Eigen::Vector3d::UnitZ() * T);
-    Eigen::Vector3d nv = v.normalized();
-    Eigen::Vector3d acc = (ThrustVect - nv * ldrag) / Mass - 9.81 * Eigen::Vector3d::UnitZ();
+    Eigen::Vector3d acc = (ThrustVect - v * ldrag) / Mass - 9.81 * Eigen::Vector3d::UnitZ();
 
     // Integrate the dynamics
     p = p + v * dt + 0.5 * acc * dt*dt; 
@@ -138,8 +137,7 @@ bool f2(vector<double>& x_,
     Eigen::Vector3d omega_b(omega_.data());
  
     Eigen::Vector3d ThrustVect = q * (Eigen::Vector3d::UnitZ() * T);
-    Eigen::Vector3d nv = v.normalized();
-    Eigen::Vector3d acc = (ThrustVect - nv * ldrag) / Mass - 9.81 * Eigen::Vector3d::UnitZ();
+    Eigen::Vector3d acc = (ThrustVect - v * ldrag) / Mass - 9.81 * Eigen::Vector3d::UnitZ();
 
     // Compute the rotation axis
     Eigen::Vector3d n = omega_b.normalized();
