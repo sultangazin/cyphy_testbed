@@ -30,23 +30,23 @@ using namespace Eigen;
 // Read matrix from CSV to Eigen:
 template<typename M>
 M load_csv (const string& path) {
-    ifstream indata;
-    indata.open(path);
-    string line;
-    vector<double> values;
-    uint rows = 0;
-    while (getline(indata, line)) {
-        stringstream lineStream(line);
-        string cell;
-        while (getline(lineStream, cell, ',')) {
-            values.push_back(stod(cell));
-        }
-        ++rows;
-    }
-    return Map<const Matrix<typename M::Scalar, M::RowsAtCompileTime, M::ColsAtCompileTime, RowMajor>>(values.data(), rows, values.size()/rows);
+	ifstream indata;
+	indata.open(path);
+	string line;
+	vector<double> values;
+	uint rows = 0;
+	while (getline(indata, line)) {
+		stringstream lineStream(line);
+		string cell;
+		while (getline(lineStream, cell, ',')) {
+			values.push_back(stod(cell));
+		}
+		++rows;
+	}
+	return Map<const Matrix<typename M::Scalar, M::RowsAtCompileTime, M::ColsAtCompileTime, RowMajor>>(values.data(), rows, values.size()/rows);
 }
 
-bool check_ineq(XType& x0, const Eigen::MatrixXd& Aineq, const Eigen::VectorXd& bineq) {
+bool check_ineq(const XType& x0, const Eigen::MatrixXd& Aineq, const Eigen::VectorXd& bineq) {
 	bool guard = true;
 	int k = 0;
 	while (guard && k < Aineq.rows()) {
@@ -62,12 +62,12 @@ bool check_ineq(XType& x0, const Eigen::MatrixXd& Aineq, const Eigen::VectorXd& 
 CISSupervisor::CISSupervisor() : ctrl_outputs_(UType::Zero()),
 	K_{58, 43, 10}, active_{false} {}
 
-CISSupervisor::~CISSupervisor() {}
+	CISSupervisor::~CISSupervisor() {}
 
 
-void CISSupervisor::SetInitialState(const XType& x0) {
-	x0_ = x0;	
-}
+	void CISSupervisor::SetInitialState(const XType& x0) {
+		x0_ = x0;	
+	}
 
 
 void CISSupervisor::SetK(const std::array<double, CISS_STATESIZE_1D>& k) {
@@ -131,11 +131,12 @@ void CISSupervisor::Step(double deltaT) {
 	bool cond = isContained(x_next_des);
 
 	if (cond) {
-		x_curr_ = x_next_des;
 		ctrl_outputs_ = u_des;
 		cout << "u_des: " << u_des.transpose() << endl;
 		cout << "curr_in: " << x_curr_.transpose() << endl;
 		cout << "next_in: " << x_next_des.transpose() << endl;
+		cout << endl;
+		x_curr_ = x_next_des;
 	} else {
 		// Check in which CIS the initial state is located
 		vector<int> active_ciss = findCIS(x_curr_);
@@ -144,19 +145,20 @@ void CISSupervisor::Step(double deltaT) {
 		vector<UType> u_cand(Ncis);
 		vector<double> f_cand(Ncis);
 
+		//cout << "It would go out!" << endl;
 		for (int k = 0; k < Ncis; k++) {
 			int cindex = active_ciss[k];
-			cout << "Correcting in [" << cindex << "].." << endl;
+			//cout << "Correcting in [" << cindex << "].." << endl;
 
 			polytope ptope(CISs_.get_polA(cindex), CISs_.get_polb(cindex));
 			std::pair<double, UType> res = callSupervisor(
 					x_curr_, u_des, mdl_, ptope, inputPol_);
 
-            f_cand[k] = res.first;
-            u_cand[k] = res.second;
+			f_cand[k] = res.first;
+			u_cand[k] = res.second;
 
-			cout << f_cand[k] << endl;
-			cout << u_cand[k].transpose() << endl;
+			//cout << f_cand[k] << endl;
+			//cout << u_cand[k].transpose() << endl;
 
 			/*
 			// CIS inequalitites:
@@ -175,11 +177,11 @@ void CISSupervisor::Step(double deltaT) {
 			opt_result res = solveGurobi(H, c, Aineq, bineq, 1);
 
 			if (res.solved){
-				u_cand[k] = res.sol;
-				f_cand[k] = res.objVal;
+			u_cand[k] = res.sol;
+			f_cand[k] = res.objVal;
 			}
 			else{
-				f_cand[k] = __DBL_MAX__;
+			f_cand[k] = __DBL_MAX__;
 			}
 			*/
 		}
@@ -190,13 +192,14 @@ void CISSupervisor::Step(double deltaT) {
 
 		if (min_el_it == f_cand.end() || *min_el_it == __DBL_MAX__) {
 			cout << "All the optimizations failed.." << endl;
-			cout << "curr_corr: " << x_curr_.transpose() << std::endl;
-			cout << "next_corr: " << x_next_des.transpose() << std::endl;
-			cout << "costs: [ ";
+			cout << "[fail] curr_corr: " << x_curr_.transpose() << std::endl;
+			cout << "[fail] next_corr: " << x_next_des.transpose() << std::endl;
+			cout << "[fail] costs: [ ";
 			for (auto& el : f_cand) {
 				cout << el << " "; 
 			}
 			cout << "]" << endl;
+			cout << endl;
 			return;
 		}
 		double fval = *min_el_it;
@@ -216,6 +219,7 @@ void CISSupervisor::Step(double deltaT) {
 			cout << "Corrected!" << endl;
 			cout << "curr_corr: " << x_curr_.transpose() << std::endl;
 			cout << "next_corr: " << x_next.transpose() << std::endl;
+			cout << endl;
 		}
 
 		ctrl_outputs_ = u_corrected;
@@ -231,11 +235,11 @@ const UType CISSupervisor::getControls() const {
 }
 
 void CISSupervisor::SetSetpoint(const XType& xref) {
-		x_ref_ = xref;
+	x_ref_ = xref;
 }
 
 void CISSupervisor::SetState(const XType& x) {
-		x_ = x;
+	x_ = x;
 }
 
 std::pair<double, UType> CISSupervisor::callSupervisor(
@@ -244,69 +248,69 @@ std::pair<double, UType> CISSupervisor::callSupervisor(
 		const model* mdl,
 		const polytope& CIS,
 		const polytope* inputConstr) {
-    double f_cand;
-    VectorXd u_cand(u_des.rows());
-    
-    // CIS inequalitites:
-    MatrixXd cisA = CIS.A;
-    VectorXd cisb = CIS.b;
-    // wrt to u: cisA*Bd* u < cisb - cisA*Ad*x_curr
-    // Simplify to box constraints:
-    polytope box = simplify2box(x_curr, CIS, mdl, inputConstr);
-    MatrixXd Aineq = box.A;
-    VectorXd bineq = box.b.col(0);
-   
-//                // Approach 1: Use Gurobi:
-//                // Original cost: || u - udes ||^2.
-//                MatrixXd H = MatrixXd::Identity(mdl.Nu,mdl.Nu);
-//                VectorXd c = -2 * u_des;
-//
-//                // Call solver:
-//                cout << "CIS: " << k << endl;
-//                opt_result res = solveGurobi(H,c,Aineq,bineq,0);
-//                if (res.solved){
-//                    u_cand = res.sol;
-//                    f_cand = res.objVal;
-//                }
-//                else{
-//                    f_cand = __DBL_MAX__;
-//                }
-    
-    // Approach 2: Analytical solution:
-    UType lb(u_des.rows());
+	double f_cand;
+	VectorXd u_cand(u_des.rows());
+
+	// CIS inequalitites:
+	MatrixXd cisA = CIS.A;
+	VectorXd cisb = CIS.b;
+	// wrt to u: cisA*Bd* u < cisb - cisA*Ad*x_curr
+	// Simplify to box constraints:
+	polytope box = simplify2box(x_curr, CIS, mdl, inputConstr);
+	MatrixXd Aineq = box.A;
+	VectorXd bineq = box.b.col(0);
+
+	//                // Approach 1: Use Gurobi:
+	//                // Original cost: || u - udes ||^2.
+	//                MatrixXd H = MatrixXd::Identity(mdl.Nu,mdl.Nu);
+	//                VectorXd c = -2 * u_des;
+	//
+	//                // Call solver:
+	//                cout << "CIS: " << k << endl;
+	//                opt_result res = solveGurobi(H,c,Aineq,bineq,0);
+	//                if (res.solved){
+	//                    u_cand = res.sol;
+	//                    f_cand = res.objVal;
+	//                }
+	//                else{
+	//                    f_cand = __DBL_MAX__;
+	//                }
+
+	// Approach 2: Analytical solution:
+	UType lb(u_des.rows());
 	UType ub(u_des.rows());
 
-    lb(0) = -bineq(0);
+	lb(0) = -bineq(0);
 	lb(1) = -bineq(1);
 	lb(2) = -bineq(2);
 
-    ub(0) = bineq(3);
+	ub(0) = bineq(3);
 	ub(1) = bineq(4);
 	ub(2) = bineq(5);
 
-    if ((ub-lb).minCoeff() < 0)   // infeasible
-        f_cand = __DBL_MAX__;
-    else{
-        //           lb(j), if x0(j) < lb(j),
-        // x*(k) =   ub(j), if x0(j) > ub(j),
-        //           x0(j), otherwise.
-        for (int j=0; j<ub.rows(); j++){
-            if (u_des(j) < lb(j))
-                u_cand(j) = lb(j);
-            else if (u_des(j) > ub(j))
-                u_cand(j) = ub(j);
-            else
-                u_cand(j) = u_des(j);
-        }
-        f_cand = (u_cand-u_des).squaredNorm();
-    }
-    
+	if ((ub-lb).minCoeff() < 0)   // infeasible
+		f_cand = __DBL_MAX__;
+	else{
+		//           lb(j), if x0(j) < lb(j),
+		// x*(k) =   ub(j), if x0(j) > ub(j),
+		//           x0(j), otherwise.
+		for (int j=0; j<ub.rows(); j++){
+			if (u_des(j) < lb(j))
+				u_cand(j) = lb(j);
+			else if (u_des(j) > ub(j))
+				u_cand(j) = ub(j);
+			else
+				u_cand(j) = u_des(j);
+		}
+		f_cand = (u_cand-u_des).squaredNorm();
+	}
+
 	std::pair<double, UType> res(f_cand, u_cand);
-    return res;
+	return res;
 }
 
 
-vector<int> CISSupervisor::findCIS(XType& x0) {
+vector<int> CISSupervisor::findCIS(const XType& x0) {
 	Eigen::MatrixXd Aineq;
 	Eigen::VectorXd bineq;
 
@@ -325,10 +329,9 @@ vector<int> CISSupervisor::findCIS(XType& x0) {
 	return output;
 }
 
-bool CISSupervisor::isContained(XType& x0) {
+bool CISSupervisor::isContained(const XType& x0) {
 
 	vector<int> valid_reg = findCIS(x0);
-
 	if (valid_reg.empty())
 		return false;
 	else
@@ -337,11 +340,11 @@ bool CISSupervisor::isContained(XType& x0) {
 
 
 void CISSupervisor::SetActive(bool active) {
-		active_ = active;
+	active_ = active;
 }
 
 bool CISSupervisor::isActive() {
-		return active_;
+	return active_;
 }
 
 
@@ -351,72 +354,72 @@ polytope CISSupervisor::simplify2box(
 		const polytope& CIS,
 		const model* mdl,
 		const polytope* inputConstr) {
-    const double abs_tol = 0.0000001;   // absolute tolerance is used by MPT to check containments (I think...).
-    // Get variables:
-    MatrixXd Ad = mdl->Ad;
-    MatrixXd Bd = mdl->Bd;
-    MatrixXd cisA = CIS.A;
-    VectorXd cisb = CIS.b;
-    MatrixXd Gu = inputConstr->A;
-    MatrixXd Fu = inputConstr->b;
-    int ulen = Gu.cols();
-    
-    // Construct linear inequality constraints:
-    MatrixXd Aineq(cisA.rows()+Gu.rows(), mdl->Bd.cols());
-    Aineq << cisA * mdl->Bd, Gu;
-    VectorXd bineq(cisb.rows() + Fu.rows());
-    bineq << cisb - cisA * mdl->Ad * x0, Fu.col(0);
+	const double abs_tol = 0.0000001;   // absolute tolerance is used by MPT to check containments (I think...).
+	// Get variables:
+	MatrixXd Ad = mdl->Ad;
+	MatrixXd Bd = mdl->Bd;
+	MatrixXd cisA = CIS.A;
+	VectorXd cisb = CIS.b;
+	MatrixXd Gu = inputConstr->A;
+	MatrixXd Fu = inputConstr->b;
+	int ulen = Gu.cols();
 
-    // Normalize by the non-zero value of each row:
-    bool guard = false;
-    for (int j=0; j<Aineq.rows(); j++){
-        int sum = 0;
-        int idx;
-        double val;
-        for (int i=0; i<Aineq.cols(); i++){
-            if (Aineq(j,i)!=0){
-                val = Aineq(j,i);
-                sum++;
-                idx = i;
-            }
-        }
-        if (sum>1){
-            cout << "More than one non-zero value at row: "<< j << ", polytope not a hyper-rectangle" << endl;
-            exit(-1);
-        }
-        else if (sum==1){
-            val = abs(Aineq(j,idx));
-            Aineq(j,idx) = Aineq(j,idx)/val;
-            bineq(j) = bineq(j)/val;
-        }
-        else    // Everything is zero, we check feasibility:
-            if (bineq(j)<0 && abs(bineq(j)) > abs_tol) // infeasible.
-                guard = true;
-    }
-    
-    // Extract the box:
-    VectorXd ub = __DBL_MAX__*VectorXd::Ones(Aineq.cols(),1);
-    VectorXd lb = -__DBL_MAX__*VectorXd::Ones(Aineq.cols(),1);
-    if (guard){
-        ub = -VectorXd::Ones(Aineq.cols(),1);
-        lb = VectorXd::Ones(Aineq.cols(),1);
-    }
-    else{
-        for (int i=0; i<Aineq.cols(); i++){
-            for (int j=0; j<Aineq.rows(); j++){
-                if (Aineq(j,i)>0)
-                    ub(i) = min(ub(i),bineq(j));
-                if (Aineq(j,i)<0)
-                    lb(i) = max(lb(i),-bineq(j));
-            }
-        }
-    }
+	// Construct linear inequality constraints:
+	MatrixXd Aineq(cisA.rows()+Gu.rows(), mdl->Bd.cols());
+	Aineq << cisA * mdl->Bd, Gu;
+	VectorXd bineq(cisb.rows() + Fu.rows());
+	bineq << cisb - cisA * mdl->Ad * x0, Fu.col(0);
 
-    // Construct box polytope:
-    MatrixXd boxA(ulen*2, ulen);
-    boxA << -MatrixXd::Identity(ulen,ulen), MatrixXd::Identity(ulen,ulen);
-    MatrixXd boxb(ulen*2,1);
-    boxb << -lb, ub;
-    polytope box(boxA,boxb);
-    return box;
+	// Normalize by the non-zero value of each row:
+	bool guard = false;
+	for (int j=0; j<Aineq.rows(); j++){
+		int sum = 0;
+		int idx;
+		double val;
+		for (int i=0; i<Aineq.cols(); i++){
+			if (Aineq(j,i)!=0){
+				val = Aineq(j,i);
+				sum++;
+				idx = i;
+			}
+		}
+		if (sum>1){
+			cout << "More than one non-zero value at row: "<< j << ", polytope not a hyper-rectangle" << endl;
+			exit(-1);
+		}
+		else if (sum==1){
+			val = abs(Aineq(j,idx));
+			Aineq(j,idx) = Aineq(j,idx)/val;
+			bineq(j) = bineq(j)/val;
+		}
+		else    // Everything is zero, we check feasibility:
+			if (bineq(j)<0 && abs(bineq(j)) > abs_tol) // infeasible.
+				guard = true;
+	}
+
+	// Extract the box:
+	VectorXd ub = __DBL_MAX__*VectorXd::Ones(Aineq.cols(),1);
+	VectorXd lb = -__DBL_MAX__*VectorXd::Ones(Aineq.cols(),1);
+	if (guard){
+		ub = -VectorXd::Ones(Aineq.cols(),1);
+		lb = VectorXd::Ones(Aineq.cols(),1);
+	}
+	else{
+		for (int i=0; i<Aineq.cols(); i++){
+			for (int j=0; j<Aineq.rows(); j++){
+				if (Aineq(j,i)>0)
+					ub(i) = min(ub(i),bineq(j));
+				if (Aineq(j,i)<0)
+					lb(i) = max(lb(i),-bineq(j));
+			}
+		}
+	}
+
+	// Construct box polytope:
+	MatrixXd boxA(ulen*2, ulen);
+	boxA << -MatrixXd::Identity(ulen,ulen), MatrixXd::Identity(ulen,ulen);
+	MatrixXd boxb(ulen*2,1);
+	boxb << -lb, ub;
+	polytope box(boxA,boxb);
+	return box;
 }

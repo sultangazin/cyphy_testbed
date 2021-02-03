@@ -72,8 +72,8 @@ class CISSupervisor {
 		// Model
 		model* mdl_;
 
-		bool isContained(XType& x);
-		std::vector<int> findCIS(XType& x);
+		bool isContained(const XType& x);
+		std::vector<int> findCIS(const XType& x);
 
 		UType ComputeNominalU(const XType& err);
 
