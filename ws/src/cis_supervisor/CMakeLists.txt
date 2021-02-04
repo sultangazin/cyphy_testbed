@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 2.8.3)
 project(cis_supervisor)
 add_compile_options(-std=c++17)
 
-set(GUROBI_CXX_LIBRARY "$ENV{GUROBI_HOME}/lib/libgurobi_c++.a")
+#set(GUROBI_CXX_LIBRARY "$ENV{GUROBI_HOME}/lib/libgurobi_c++.a")
+set(GUROBI_CXX_LIBRARY "$ENV{GUROBI_HOME}/src/build/libgurobi_c++.a")
 
 # Find required packages
 find_package(
@@ -63,6 +64,11 @@ target_include_directories(gurobi_routines
 	${GUROBI_INCLUDE_DIRS}
 	)
 
+message("XXXXXXXXXXXXXXXXXXXX")
+message(${GUROBI_CXX_LIBRARY})
+message(${GUROBI_LIBRARY})
+message("Include: " ${GUROBI_INCLUDE_DIRS})
+
 target_link_libraries(gurobi_routines
 	PUBLIC
 	${GUROBI_LIBRARY}
@@ -84,9 +90,9 @@ add_dependencies(cis_supervisor
 	)
 
 target_link_libraries(cis_supervisor
-	${catkin_LIBRARIES}
 	${GUROBI_LIBRARY}
 	${GUROBI_CXX_LIBRARY}
+	${catkin_LIBRARIES}
 	gurobi_routines
 	utilities
 	Eigen3::Eigen 

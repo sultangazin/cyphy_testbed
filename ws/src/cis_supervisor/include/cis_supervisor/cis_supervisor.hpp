@@ -82,7 +82,8 @@ class CISSupervisor {
 				UType u_des,
 				const model* mdl,
 				const polytope& CIS,
-				const polytope* inputConstr);
+				const polytope* inputConstr,
+				int method);
 
 		polytope simplify2box(
 				XType x0,

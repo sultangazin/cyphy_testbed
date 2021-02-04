@@ -64,7 +64,6 @@ CISSupervisor::CISSupervisor() : ctrl_outputs_(UType::Zero()),
 
 	CISSupervisor::~CISSupervisor() {}
 
-
 	void CISSupervisor::SetInitialState(const XType& x0) {
 		x0_ = x0;	
 	}
@@ -128,8 +127,13 @@ void CISSupervisor::Step(double deltaT) {
 	// Compute the nominal next state
 	XType x_next_des = mdl_->Ad * x_curr_ + mdl_->Bd * u_des;
 
-	bool cond = isContained(x_next_des);
+	bool cond = isContained(x_curr_);
 
+	if (!cond) {
+		cout << "I am outside the CIS! " << endl;
+	}
+
+	cond = isContained(x_next_des);
 	if (cond) {
 		ctrl_outputs_ = u_des;
 		cout << "u_des: " << u_des.transpose() << endl;
@@ -148,42 +152,14 @@ void CISSupervisor::Step(double deltaT) {
 		//cout << "It would go out!" << endl;
 		for (int k = 0; k < Ncis; k++) {
 			int cindex = active_ciss[k];
-			//cout << "Correcting in [" << cindex << "].." << endl;
+			cout << "Correcting in [" << cindex << "].." << endl;
 
 			polytope ptope(CISs_.get_polA(cindex), CISs_.get_polb(cindex));
 			std::pair<double, UType> res = callSupervisor(
-					x_curr_, u_des, mdl_, ptope, inputPol_);
+					x_curr_, u_des, mdl_, ptope, inputPol_, 0);
 
 			f_cand[k] = res.first;
 			u_cand[k] = res.second;
-
-			//cout << f_cand[k] << endl;
-			//cout << u_cand[k].transpose() << endl;
-
-			/*
-			// CIS inequalitites:
-			//
-			Eigen::MatrixXd cisA = CISs_.get_polA(cindex);
-			Eigen::VectorXd cisb = CISs_.get_polb(cindex).col(0);
-			Eigen::MatrixXd Aineq(cisA.rows() + inputPol_->A.rows(), mdl_->Bd.cols());
-			Aineq << cisA * mdl_->Bd, inputPol_->A;
-			Eigen::VectorXd bineq(cisb.rows() + inputPol_->b.rows());
-			bineq << cisb - cisA*mdl_->Ad * x_curr_, inputPol_->b.col(0);
-			// Original cost: || u - udes ||^2.
-			Eigen::MatrixXd H = Eigen::MatrixXd::Identity(mdl_->Nu,mdl_->Nu);
-			Eigen::VectorXd c = -2 * u_des;
-
-			// Call solver:
-			opt_result res = solveGurobi(H, c, Aineq, bineq, 1);
-
-			if (res.solved){
-			u_cand[k] = res.sol;
-			f_cand[k] = res.objVal;
-			}
-			else{
-			f_cand[k] = __DBL_MAX__;
-			}
-			*/
 		}
 
 		// Sanity check:
@@ -247,62 +223,67 @@ std::pair<double, UType> CISSupervisor::callSupervisor(
 		UType u_des,
 		const model* mdl,
 		const polytope& CIS,
-		const polytope* inputConstr) {
+		const polytope* inputConstr,
+		int method) {
+
 	double f_cand;
 	VectorXd u_cand(u_des.rows());
 
 	// CIS inequalitites:
 	MatrixXd cisA = CIS.A;
 	VectorXd cisb = CIS.b;
+
 	// wrt to u: cisA*Bd* u < cisb - cisA*Ad*x_curr
 	// Simplify to box constraints:
 	polytope box = simplify2box(x_curr, CIS, mdl, inputConstr);
 	MatrixXd Aineq = box.A;
 	VectorXd bineq = box.b.col(0);
 
-	//                // Approach 1: Use Gurobi:
-	//                // Original cost: || u - udes ||^2.
-	//                MatrixXd H = MatrixXd::Identity(mdl.Nu,mdl.Nu);
-	//                VectorXd c = -2 * u_des;
-	//
-	//                // Call solver:
-	//                cout << "CIS: " << k << endl;
-	//                opt_result res = solveGurobi(H,c,Aineq,bineq,0);
-	//                if (res.solved){
-	//                    u_cand = res.sol;
-	//                    f_cand = res.objVal;
-	//                }
-	//                else{
-	//                    f_cand = __DBL_MAX__;
-	//                }
+	if (method == 0) {
+		// Approach 1: Analytical solution:
+		UType lb(u_des.rows());
+		UType ub(u_des.rows());
 
-	// Approach 2: Analytical solution:
-	UType lb(u_des.rows());
-	UType ub(u_des.rows());
+		lb(0) = -bineq(0);
+		lb(1) = -bineq(1);
+		lb(2) = -bineq(2);
 
-	lb(0) = -bineq(0);
-	lb(1) = -bineq(1);
-	lb(2) = -bineq(2);
+		ub(0) = bineq(3);
+		ub(1) = bineq(4);
+		ub(2) = bineq(5);
 
-	ub(0) = bineq(3);
-	ub(1) = bineq(4);
-	ub(2) = bineq(5);
-
-	if ((ub-lb).minCoeff() < 0)   // infeasible
-		f_cand = __DBL_MAX__;
-	else{
-		//           lb(j), if x0(j) < lb(j),
-		// x*(k) =   ub(j), if x0(j) > ub(j),
-		//           x0(j), otherwise.
-		for (int j=0; j<ub.rows(); j++){
-			if (u_des(j) < lb(j))
-				u_cand(j) = lb(j);
-			else if (u_des(j) > ub(j))
-				u_cand(j) = ub(j);
-			else
-				u_cand(j) = u_des(j);
+		if ((ub-lb).minCoeff() < 0) {  // infeasible
+			cout << "Infeasible " << endl;
+			f_cand = __DBL_MAX__;
+		} else {
+			//           lb(j), if x0(j) < lb(j),
+			// x*(k) =   ub(j), if x0(j) > ub(j),
+			//           x0(j), otherwise.
+			for (int j=0; j < ub.rows(); j++){
+				if (u_des(j) < lb(j))
+					u_cand(j) = lb(j);
+				else if (u_des(j) > ub(j))
+					u_cand(j) = ub(j);
+				else
+					u_cand(j) = u_des(j);
+			}
+			f_cand = (u_cand - u_des).squaredNorm();
 		}
-		f_cand = (u_cand-u_des).squaredNorm();
+	} else {
+		// Approach 2: Use Gurobi:
+		// Original cost: || u - udes ||^2.
+		MatrixXd H = MatrixXd::Identity(mdl->Nu,mdl->Nu);
+		VectorXd c = -2 * u_des;
+		
+		opt_result res = solveGurobi(H, c, Aineq, bineq, 0);
+		if (res.solved){
+		    u_cand = res.sol;
+		    f_cand = res.objVal;
+		}
+		else{
+		    f_cand = __DBL_MAX__;
+		}
+
 	}
 
 	std::pair<double, UType> res(f_cand, u_cand);
