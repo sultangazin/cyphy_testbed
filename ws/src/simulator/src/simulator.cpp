@@ -41,9 +41,7 @@ bool XSimulator::Initialize(const ros::NodeHandle& n) {
 		return false;
 	}
 
-	sensor_pub_ = nl.advertise<testbed_msgs::CustOdometryStamped> (sim_sensor_topic_.c_str(), 10);
-
-	codometry_pub_ = nl.advertise<testbed_msgs::CustOdometryStamped> (sim_state_topic_.c_str(), 10);
+	state_pub_ = nl.advertise<testbed_msgs::CustOdometryStamped> (sim_state_topic_.c_str(), 10);
 
 	vrpn_sim_pub_ = nl.advertise<geometry_msgs::PoseStamped> (vrpn_sim_pose_topic_.c_str(), 10);
 
@@ -194,15 +192,14 @@ void XSimulator::pub_thread_fnc(double dt) {
 	create_tspec(period_tms, dt);
 
 	std::vector<double> x(10);
-	//testbed_msgs::CustOdometryStamped ext_codometry_msg;
 	geometry_msgs::PoseStamped sim_vrpn_pose_msg;
+	testbed_msgs::CustOdometryStamped sim_state_msg;
 
 	int counter = 0;
 	while (ros::ok()) {
 		// Get current time
 		clock_gettime(CLOCK_MONOTONIC, &time);
 		timespec_sum(time, period_tms, next_activation);
-		//std::cout << next_activation.tv_nsec << std::endl;
 
 		sim_->get_X(x);
 
@@ -219,8 +216,19 @@ void XSimulator::pub_thread_fnc(double dt) {
 
 			vrpn_sim_pub_.publish(sim_vrpn_pose_msg);
 
-			//sensor_pub_.publish(ext_codometry_msg);
+			sim_state_msg.p.x = x[0];
+			sim_state_msg.p.y = x[1];
+			sim_state_msg.p.z = x[2];
+			sim_state_msg.v.x = x[3];
+			sim_state_msg.v.y = x[4];
+			sim_state_msg.v.z = x[5];
+			sim_state_msg.a.x = 0;
+			sim_state_msg.a.y = 0;
+			sim_state_msg.a.z = 0;
 		}
+
+		state_pub_.publish(sim_state_msg); 
+
 
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_activation, NULL);
 	}

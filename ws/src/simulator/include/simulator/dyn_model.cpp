@@ -143,16 +143,19 @@ bool f2(vector<double>& x_,
     Eigen::Vector3d n = omega_b.normalized();
     double dtheta = omega_b.norm() * dt;
 
+	// Consider the Ground
+    if (p(2) <= 0.0) {
+        p(2) = 0.0;
+        v(2) = (v(2) < 0) ? 0.0 : v(2);
+		acc(2) = (acc(2) < 0) ? 0.0 : acc(2);
+    }
+
     // Integrate the dynamics
     p = p + v * dt + 0.5 * acc * dt*dt; 
     v = v + acc * dt;
     q = q * Eigen::AngleAxis<double>(dtheta, n);
 
-    // Consider the Ground
-    if (p(2) < -0.01) {
-        p(2) = 0.0;
-        v(2) = 0.0;
-    }
+    
 
     // Put the Eigen vector back into the standard vector
     // Return the updated vector

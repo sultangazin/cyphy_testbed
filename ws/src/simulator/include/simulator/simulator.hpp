@@ -53,8 +53,7 @@ class XSimulator {
         bool initialized_;
 
         ros::Subscriber ctrl_topic_sub_;
-        ros::Publisher codometry_pub_;
-        ros::Publisher sensor_pub_;
+        ros::Publisher state_pub_;
         ros::Publisher vrpn_sim_pub_;
 
         std::string sim_sensor_topic_;
