@@ -161,7 +161,7 @@ The following nodes will be started:
 	<node pkg="rqt_plot"
 			type="rqt_plot" 
 			name="$(arg vehicle_frame)_plot_estimate" 
-		args="/$(arg vehicle_frame)/external_codom/v/x:y:z">
+		args="/$(arg vehicle_frame)/external_codom/p/x:y:z">
 	</node>
 
 
