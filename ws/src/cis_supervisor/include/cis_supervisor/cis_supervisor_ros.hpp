@@ -88,6 +88,8 @@ class CISSupervisorROS {
 		// Remember last time we got a state callback.
 		double last_state_time_;
 
+		double thrust;
+
 		// Callback on Pose 
 		void onNewState(
 				const testbed_msgs::CustOdometryStamped::ConstPtr& msg);

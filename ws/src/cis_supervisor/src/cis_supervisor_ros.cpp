@@ -55,11 +55,13 @@ bool CISSupervisorROS::Initialize(const ros::NodeHandle& n) {
 
 	initialized_ = true;
 
+	thrust = 0.032 * 9.81;
+
 	periodic_thread_arg_.period = 0.05;
 	periodic_thread_arg_.psupervisor = supervisor_;
 	periodic_thread_arg_.ctrl_pub = cis_supervisor_ctrl_;
 	periodic_thread_arg_.perf_pub = performance_pub_; 
-	periodic_thread_ = std::thread(thread_fnc, (void*) &periodic_thread_arg_);
+	//periodic_thread_ = std::thread(thread_fnc, (void*) &periodic_thread_arg_);
 
 	ROS_INFO("[%s] Initialized!", node_name_.c_str());
 
@@ -146,15 +148,12 @@ bool CISSupervisorROS::RegisterCallbacks(const ros::NodeHandle& n) {
 // CALLBACKS ----------------------------------------------------------------
 void CISSupervisorROS::onNewState(
 		const testbed_msgs::CustOdometryStamped::ConstPtr& msg) {
-
 	// Take the time
 	//ros::Time current_time = ros::Time::now();
 	// Read the timestamp of the message
 	//t.tv_sec = msg->header.stamp.sec;
 	//t.tv_nsec = msg->header.stamp.nsec;
-
 	XType state_x;
-
 	state_x(0) = msg->p.x;
 	state_x(1) = msg->p.y;
 	state_x(2) = msg->p.z;
@@ -166,13 +165,60 @@ void CISSupervisorROS::onNewState(
 	state_x(8) = msg->a.z;
 
 	supervisor_->SetState(state_x);
-
 	quat_.vec() = Eigen::Vector3d (msg->q.x, msg->q.y, msg->q.z);
 	quat_.w() = msg->q.w;
 	quat_.normalize();
 
 	periodic_thread_arg_.quat = quat_;
 
+	// In order to reduce the jitter among estimate update and execution of the 
+	// Supervisor I could run the control step from this callback.
+	// I need to improve this...
+	double dt = msg->header.stamp.toSec() - last_state_time_;
+	if (dt >= 0.05) {
+		UType control_cmd;
+		UType u_body(UType::Zero()); 
+		testbed_msgs::ControlStamped control_msg;
+		cis_supervisor::PerformanceMsg ctrl_perf_msg;
+
+
+		//std::cout << "Dt = " << dt << std::endl;
+		last_state_time_ = ros::Time::now().toSec();
+		if (supervisor_->isActive()) {
+			supervisor_->Step(0.05);
+			// Get the desired jerk
+			control_cmd = supervisor_->getControls();
+			// ... convert the jerk in autopilot commands
+			// 1) Convert the jerk in body frame
+			u_body = quat_.inverse() * control_cmd;
+			// 2) Convert in angular velocity and thrust
+			if (thrust > 0.05) {
+				control_msg.control.roll = -(u_body(1) / thrust) * 0.032;
+				control_msg.control.pitch = (u_body(0) / thrust) * 0.032;
+			}
+			thrust = std::max(thrust + 0.032 * u_body(2) * dt, 0.0);
+			control_msg.control.thrust = thrust;
+		} else {
+			control_msg.control.thrust = 0.0;
+			control_msg.control.roll = 0.0;
+			control_msg.control.pitch = 0.0;
+			control_msg.control.yaw_dot = 0.0;
+		}
+
+		// Performance Message
+		control_msg.header.stamp = ros::Time::now();
+		ctrl_perf_msg.header.stamp = control_msg.header.stamp;
+		ctrl_perf_msg.thrust = thrust;
+		for (int i = 0; i < 3; i++) {
+			ctrl_perf_msg.jerk_body[i] = u_body(i);
+		}
+		ctrl_perf_msg.ang_velocity[0] = control_msg.control.roll;
+		ctrl_perf_msg.ang_velocity[1] = control_msg.control.pitch;
+
+
+		cis_supervisor_ctrl_.publish(control_msg);
+		performance_pub_.publish(ctrl_perf_msg);
+	}
 	return;
 }
 
@@ -238,7 +284,6 @@ void thread_fnc(void* p) {
 	cis_supervisor::PerformanceMsg ctrl_perf_msg;
 
 	while (ros::ok()) {
-
 		// Get current time
 		clock_gettime(CLOCK_MONOTONIC, &time);
 		timespec_sum(time, period_tms, next_activation);
@@ -258,14 +303,12 @@ void thread_fnc(void* p) {
 			u_body = pArg->quat.inverse() * control_cmd;
 
 			// 2) Convert in angular velocity and thrust
-			thrust = std::max(thrust + 0.032 * u_body(2) * dt, 0.0);
-
 			if (thrust > 0.05) {
-				control_msg.control.thrust = thrust;
-				control_msg.control.roll = -u_body(1) / thrust * 0.032;
-				control_msg.control.pitch = u_body(0) / thrust * 0.032;
+				control_msg.control.roll = -(u_body(1) / thrust) * 0.032;
+				control_msg.control.pitch = (u_body(0) / thrust) * 0.032;
 			}
-
+			thrust = std::max(thrust + 0.032 * u_body(2) * dt, 0.0);
+			control_msg.control.thrust = thrust;
 		} else {
 			control_msg.control.thrust = 0.0;
 			control_msg.control.roll = 0.0;

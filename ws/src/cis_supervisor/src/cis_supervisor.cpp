@@ -123,6 +123,7 @@ void CISSupervisor::Step(double deltaT) {
 	// Compute the error
 	XType err = x_ref_ - x_curr_;
 	UType u_des = ComputeNominalU(err);
+	ctrl_outputs_ = u_des;
 
 	// Compute the nominal next state
 	XType x_next_des = mdl_->Ad * x_curr_ + mdl_->Bd * u_des;
@@ -134,8 +135,8 @@ void CISSupervisor::Step(double deltaT) {
 	}
 
 	cond = isContained(x_next_des);
+	//cond = true;
 	if (cond) {
-		ctrl_outputs_ = u_des;
 		cout << "u_des: " << u_des.transpose() << endl;
 		cout << "curr_in: " << x_curr_.transpose() << endl;
 		cout << "next_in: " << x_next_des.transpose() << endl;
