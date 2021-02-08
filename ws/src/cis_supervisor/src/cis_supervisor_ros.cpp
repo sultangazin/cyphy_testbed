@@ -206,7 +206,11 @@ void CISSupervisorROS::onNewState(
 		}
 
 		// Performance Message
-		control_msg.header.stamp = ros::Time::now();
+		ros::Time timestamp = ros::Time::now();
+		double dt = (timestamp - last_sent_time).toSec();
+		last_sent_time = timestamp;
+		std::cout << dt << std::endl;
+		
 		ctrl_perf_msg.header.stamp = control_msg.header.stamp;
 		ctrl_perf_msg.thrust = thrust;
 		for (int i = 0; i < 3; i++) {
@@ -215,7 +219,8 @@ void CISSupervisorROS::onNewState(
 		ctrl_perf_msg.ang_velocity[0] = control_msg.control.roll;
 		ctrl_perf_msg.ang_velocity[1] = control_msg.control.pitch;
 
-
+		control_msg.header.stamp = timestamp;
+		ctrl_perf_msg.header.stamp = timestamp;
 		cis_supervisor_ctrl_.publish(control_msg);
 		performance_pub_.publish(ctrl_perf_msg);
 	}
@@ -283,6 +288,7 @@ void thread_fnc(void* p) {
 
 	cis_supervisor::PerformanceMsg ctrl_perf_msg;
 
+	ros::Time last_sent_time_local = ros::Time::now();
 	while (ros::ok()) {
 		// Get current time
 		clock_gettime(CLOCK_MONOTONIC, &time);
@@ -290,7 +296,6 @@ void thread_fnc(void* p) {
 
 		UType u_body(UType::Zero()); 
 
-		control_msg.header.stamp = ros::Time::now();
 		if (psupervisor->isActive()) {
 			// Do something
 			psupervisor->Step(dt);
@@ -317,7 +322,6 @@ void thread_fnc(void* p) {
 		}
 
 		// Performance Message
-		ctrl_perf_msg.header.stamp = control_msg.header.stamp;
 		ctrl_perf_msg.thrust = thrust;
 		for (int i = 0; i < 3; i++) {
 			ctrl_perf_msg.jerk_body[i] = u_body(i);
@@ -325,6 +329,12 @@ void thread_fnc(void* p) {
 		ctrl_perf_msg.ang_velocity[0] = control_msg.control.roll;
 		ctrl_perf_msg.ang_velocity[1] = control_msg.control.pitch;
 
+		ros::Time timestamp = ros::Time::now();
+		double dt = (timestamp - last_sent_time_local).toSec();
+		std::cout << dt << std::endl;
+
+		control_msg.header.stamp = timestamp;
+		ctrl_perf_msg.header.stamp = timestamp;
 		ctrl_pub.publish(control_msg);
 		perf_pub.publish(ctrl_perf_msg);
 

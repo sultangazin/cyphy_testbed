@@ -87,6 +87,7 @@ class CISSupervisorROS {
 
 		// Remember last time we got a state callback.
 		double last_state_time_;
+		ros::Time last_sent_time;
 
 		double thrust;
 
