@@ -287,7 +287,6 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 		dt = time_diff(t, t_old); 
 
 		_pfilt->prediction(dt);
-
 		_pfilt->update(p_);
 
 		p_ = _pfilt->getPos();
@@ -308,7 +307,6 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 			Eigen::Quaterniond tempq = q_.inverse() * qd_;
 			www = 0.5 * www + (0.5) * 2.0 * tempq.vec();
 			w_ = www;
-			//std::cout << "dt = " << dt << "dq: " << qd_.vec().transpose() << "| w : " << www.transpose() << std::endl;
 		}
 
 		q_old_ = q_;

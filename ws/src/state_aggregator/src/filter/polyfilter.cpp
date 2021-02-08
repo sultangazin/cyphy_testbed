@@ -1,6 +1,6 @@
 /**
  * @author Luigi Pannocchi
- * @file tracker.cpp
+ * @file polyfilter.cpp
  *
  */
 
@@ -45,7 +45,6 @@ const Vector3d PolyFilter::getPos() const {
 	_mx.unlock();
 	return out;
 }
-
 
 const Vector3d PolyFilter::getVel() const {
 	_mx.lock();
@@ -107,16 +106,28 @@ void PolyFilter::setPos(const Vector3d& p){
 	_mx.unlock();
 }
 
+void PolyFilter::setPosNoBlk(const Vector3d& p){
+	_x.block<3,1>(0,0) = p;
+}
+
 void PolyFilter::setVel(const Vector3d& v) {
 	_mx.lock();
     _x.block<3,1>(3,0) = v;
 	_mx.unlock();
 }
 
+void PolyFilter::setVelNoBlk(const Vector3d& v) {
+    _x.block<3,1>(3,0) = v;
+}
+
 void PolyFilter::setAcc(const Vector3d& a) {
 	_mx.lock();
     _x.block<3,1>(6,0) = a;
 	_mx.unlock();
+}
+
+void PolyFilter::setAccNoBlk(const Vector3d& a) {
+    _x.block<3,1>(6,0) = a;
 }
 
 
@@ -155,14 +166,14 @@ KMat PolyFilter::computeK(QMat& P, HMat& H, RMat& R) {
 
 void PolyFilter::prediction(double dt) {
 
-    //_mx.lock();
+    _mx.lock();
 
 	// Integrate position 
-	Vector3d new_pos = getPos() + getVel() * dt +
+	Vector3d new_pos = Pos() + Vel() * dt +
 		0.5 * Acc() * (dt * dt);
 
 	// Integrate the velocity
-	Vector3d new_vel = getVel() + getAcc() * dt;
+	Vector3d new_vel = Vel() + Acc() * dt;
 
 	// =================
 	if (_params.T != dt) {
@@ -177,34 +188,34 @@ void PolyFilter::prediction(double dt) {
 			_params.Q,
 			_params.A);	
 
-	setPos(new_pos);
-	setVel(new_vel);
+	setPosNoBlk(new_pos);
+	setVelNoBlk(new_vel);
 
-    //_mx.unlock();
+    _mx.unlock();
 }
  
 
 void PolyFilter::update(const YMat& y) {
 
-    //_mx.lock();
 
     HMat H_pos = HMat::Zero();
     H_pos.block<3,3>(0,0) = Matrix<double, 3, 3>::Identity();
 
+    _mx.lock();
 	// Compute the kalman gain
 	KMat K = computeK(_P, H_pos, _params.R); 
 
-	Vector3d innov = y - getPos();
+	Vector3d innov = y - Pos();
 	XMat dx = K * innov;
     //std::cout << dx.transpose() << std::endl;
 
-	setPos(getPos() + dx.head<3>());
-    setVel(getVel() + dx.segment<3>(3));
-    setAcc(getAcc() + dx.tail<3>());
+	setPosNoBlk(Pos() + dx.head<3>());
+    setVelNoBlk(Vel() + dx.segment<3>(3));
+    setAccNoBlk(Acc() + dx.tail<3>());
 
 	_P = updateXcovariance(_P, H_pos, K, _params.R);
 
-    //_mx.unlock();
+    _mx.unlock();
 }
 
 

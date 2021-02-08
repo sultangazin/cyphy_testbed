@@ -119,6 +119,11 @@ class PolyFilter {
 		void  setVel(const Eigen::Vector3d& v);
 		void  setAcc(const Eigen::Vector3d& a);
 
+		void  setPosNoBlk(const Eigen::Vector3d& p);
+		void  setVelNoBlk(const Eigen::Vector3d& v);
+		void  setAccNoBlk(const Eigen::Vector3d& a);
+
+
 		/**
 		 * Fetcher Private
 		 */
