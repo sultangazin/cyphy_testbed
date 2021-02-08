@@ -150,12 +150,13 @@ The following nodes will be started:
 		</group>
 
 	-->
-
+		<!--
 	<node pkg="rqt_plot"
 			type="rqt_plot" 
 			name="$(arg vehicle_frame)_plot_estimate" 
 		args="/$(arg vehicle_frame)/external_codom/p/x:y:z">
 	</node>
+		-->
 
 
 	<node pkg="rosbag" name="cis_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_cis  /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/setpoint /CISSupervisor/$(arg vehicle_frame)/cis_perf /$(arg vehicle_frame)/xsim_state"/>
