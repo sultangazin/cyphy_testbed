@@ -52,6 +52,8 @@ void Dynamics_UAngles::set_state(const std::vector<double>& x0) {
 }
 
 void Dynamics_UAngles::step(double dt) {
+
+	mx_.lock();
 	// Extract Model Parameters
 	double Mass = params_.Mass; 
 	double ldrag = params_.c_drag;
@@ -70,17 +72,21 @@ void Dynamics_UAngles::step(double dt) {
 		vel_(2) = (vel_(2) < 0) ? 0.0 : vel_(2);
 		acc_(2) = (acc_(2) < 0) ? 0.0 : acc_(2);
 	}
+	mx_.unlock();
 }
 
 std::vector<double> Dynamics_UAngles::get_state() {
 	// Cast the Eigen Data into a std::vector
 	std::vector<double> output(StateDim_, 0);
+
+	mx_.lock();
 	for (int i = 0; i < 3; i++) {
 		output[i] = pos_(i);
 		output[i + 3] = vel_(i);
 		output[i + 7] = quat_.vec()(i);
 	}
 	output[6] = quat_.w();
+	mx_.unlock();
 
 	return output;
 }
@@ -88,9 +94,11 @@ std::vector<double> Dynamics_UAngles::get_state() {
 std::vector<double> Dynamics_UAngles::get_acceleration() {
 	std::vector<double> output(3, 0);
 
+	mx_.lock();
 	for (int i = 0; i < 3; i++) {
 		output[i] = acc_(i);
 	}
+	mx_.unlock();
 
 	return output;
 }
@@ -98,6 +106,7 @@ std::vector<double> Dynamics_UAngles::get_acceleration() {
 void Dynamics_UAngles::set_inputs(
 		const std::vector<double>& u) {
 
+	mx_.lock();
 	// Extract the Control Vector
 	thrust_ = (u[0] > 0.1) ? u[0] : 0.1;
 
@@ -106,6 +115,7 @@ void Dynamics_UAngles::set_inputs(
 	}
 	// XXX The yaw is creating problems. :-P
 	rpy_(2) = 0.0;
+	mx_.unlock();
 }
 
 
@@ -135,14 +145,17 @@ void Dynamics_URates::set_state(const std::vector<double>& x0) {
 		return;
 	}
 
+	mx_.lock();
 	for (int i = 0; i < 3; i++) {
 		pos_(i) = x0[i];
 		vel_(i) = x0[i + 3];
 		quat_.vec()(i) = x0[i + 7];
 	}
 	quat_.w() = x0[6];
+	mx_.unlock();
 }
 void Dynamics_URates::step(double dt) {
+	mx_.lock();
 	// Extract Model Parameters
 	double Mass = params_.Mass; 
 	double ldrag = params_.c_drag;
@@ -166,17 +179,21 @@ void Dynamics_URates::step(double dt) {
 		vel_(2) = (vel_(2) < 0) ? 0.0 : vel_(2);
 		acc_(2) = (acc_(2) < 0) ? 0.0 : acc_(2);
 	}
+	mx_.unlock();
 }
 
 std::vector<double> Dynamics_URates::get_state() {
 	// Cast the Eigen Data into a std::vector
 	std::vector<double> output(StateDim_, 0);
+
+	mx_.lock();
 	for (int i = 0; i < 3; i++) {
 		output[i] = pos_(i);
 		output[i + 3] = vel_(i);
 		output[i + 7] = quat_.vec()(i);
 	}
 	output[6] = quat_.w();
+	mx_.unlock();
 
 	return output;
 }
@@ -184,9 +201,11 @@ std::vector<double> Dynamics_URates::get_state() {
 std::vector<double> Dynamics_URates::get_acceleration() {
 	std::vector<double> output(3, 0);
 
+	mx_.lock();
 	for (int i = 0; i < 3; i++) {
 		output[i] = acc_(i);
 	}
+	mx_.unlock();
 
 	return output;
 }
@@ -194,6 +213,7 @@ std::vector<double> Dynamics_URates::get_acceleration() {
 void Dynamics_URates::set_inputs(
 		const std::vector<double>& u) {
 
+	mx_.unlock();
 	// Extract the Control Vector
 	thrust_ = (u[0] > 0.05) ? u[0] : 0.05;
 
@@ -201,4 +221,5 @@ void Dynamics_URates::set_inputs(
 		b_angvel_(i) = u[i + 1]; 
 	}
 	b_angvel_(2) = 0.0;
+	mx_.unlock();
 }

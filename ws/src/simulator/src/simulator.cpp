@@ -1,12 +1,46 @@
 #include "simulator/simulator.hpp"
 #include "testbed_msgs/CustOdometryStamped.h"
 #include "geometry_msgs/PoseStamped.h"
+#include "utilities/timeutils/timeutils.hpp"
 
 using namespace std;
 
+void composeVRPN_msg(
+		geometry_msgs::PoseStamped& vrpn_msg,
+		const vector<double>& x,
+		ros::Time t) {
+	vrpn_msg.header.stamp = t;
+	vrpn_msg.pose.position.x = x[0];
+	vrpn_msg.pose.position.y = x[1];
+	vrpn_msg.pose.position.z = x[2];
+
+	vrpn_msg.pose.orientation.w = x[6];
+	vrpn_msg.pose.orientation.x = x[7];
+	vrpn_msg.pose.orientation.y = x[8];
+	vrpn_msg.pose.orientation.z = x[9];
+
+}
+
+void composeCodom_msg(
+		testbed_msgs::CustOdometryStamped& codom_msg,
+		const vector<double>& x,
+		const vector<double>& acc,
+		ros::Time t) {
+	codom_msg.header.stamp = t;
+	codom_msg.p.x = x[0];
+	codom_msg.p.y = x[1];
+	codom_msg.p.z = x[2];
+	codom_msg.v.x = x[3];
+	codom_msg.v.y = x[4];
+	codom_msg.v.z = x[5];
+	codom_msg.a.x = acc[0];
+	codom_msg.a.y = acc[1];
+	codom_msg.a.z = acc[2];
+}
 void sim_thread_fnc(void* p);
 
 
+/// =============================================================
 XSimulator::XSimulator() {
 	initialized_ = false;
 }
@@ -48,6 +82,7 @@ bool XSimulator::Initialize(const ros::NodeHandle& n) {
 	arg_.period = sim_period_;
 	arg_.pParam = (void*) &parameters_;
 	arg_.pSim = sim_;
+	arg_.pub = state_pub_;
 
 	sim_thread = std::thread(sim_thread_fnc, (void*) &arg_);
 	return true;
@@ -143,6 +178,7 @@ void sim_thread_fnc(void* p) {
 	double dt = pArg->period;
 	void* pparam = pArg->pParam;
 	IDynamics* psim = pArg->pSim;
+	ros::Publisher pub = pArg->pub;
 
 	struct timespec time;
 	struct timespec next_activation;
@@ -150,9 +186,8 @@ void sim_thread_fnc(void* p) {
 	struct timespec period_tms; 
 	create_tspec(period_tms, dt);
 
-	//std::vector<double> x(10);
-	//x[6] = 1.0;
-	//psim->set_state(x);
+	std::vector<double> x(10);
+	std::vector<double> acc(3);
 
 	while (ros::ok()) {
 		// Get current time
@@ -161,12 +196,25 @@ void sim_thread_fnc(void* p) {
 
 		psim->step(dt);
 
+		x = psim->get_state();
+		acc = psim->get_acceleration();
+
+		ros::Time timestamp = ros::Time::now();
+		testbed_msgs::CustOdometryStamped sim_state_msg;
+		composeCodom_msg(sim_state_msg, x, acc, timestamp);
+		pub.publish(sim_state_msg); 
+
+		clock_gettime(CLOCK_MONOTONIC, &time);
+		if (time_diff(next_activation, time) < 0)
+			std::cout << "Simulator Deadline Miss" << std::endl;
 		clock_nanosleep(CLOCK_MONOTONIC,
 				TIMER_ABSTIME, &next_activation, NULL);
 	}
 	ROS_INFO("Terminating Simulation Thread...\n");
 
 }
+
+
 
 void XSimulator::pub_thread_fnc(double dt) {   
 	struct timespec time;
@@ -177,10 +225,7 @@ void XSimulator::pub_thread_fnc(double dt) {
 
 	std::vector<double> x(10);
 	std::vector<double> acc(3);
-	geometry_msgs::PoseStamped sim_vrpn_pose_msg;
-	testbed_msgs::CustOdometryStamped sim_state_msg;
 
-	int counter = 0;
 	while (ros::ok()) {
 		// Get current time
 		clock_gettime(CLOCK_MONOTONIC, &time);
@@ -189,34 +234,16 @@ void XSimulator::pub_thread_fnc(double dt) {
 		x = sim_->get_state();
 		acc = sim_->get_acceleration();
 
+		ros::Time timestamp = ros::Time::now();
 
-		if (counter++ % 1 == 0) {
-			sim_vrpn_pose_msg.header.stamp = ros::Time::now();
-			sim_vrpn_pose_msg.pose.position.x = x[0];
-			sim_vrpn_pose_msg.pose.position.y = x[1];
-			sim_vrpn_pose_msg.pose.position.z = x[2];
+		geometry_msgs::PoseStamped sim_vrpn_pose_msg;
+		composeVRPN_msg(sim_vrpn_pose_msg, x, timestamp);
 
-			sim_vrpn_pose_msg.pose.orientation.w = x[6];
-			sim_vrpn_pose_msg.pose.orientation.x = x[7];
-			sim_vrpn_pose_msg.pose.orientation.y = x[8];
-			sim_vrpn_pose_msg.pose.orientation.z = x[9];
+		testbed_msgs::CustOdometryStamped sim_state_msg;
+		composeCodom_msg(sim_state_msg, x, acc, timestamp);
 
-			vrpn_sim_pub_.publish(sim_vrpn_pose_msg);
-
-			sim_state_msg.header.stamp = sim_vrpn_pose_msg.header.stamp;
-			sim_state_msg.p.x = x[0];
-			sim_state_msg.p.y = x[1];
-			sim_state_msg.p.z = x[2];
-			sim_state_msg.v.x = x[3];
-			sim_state_msg.v.y = x[4];
-			sim_state_msg.v.z = x[5];
-			sim_state_msg.a.x = acc[0];
-			sim_state_msg.a.y = acc[1];
-			sim_state_msg.a.z = acc[2];
-		}
-
+		vrpn_sim_pub_.publish(sim_vrpn_pose_msg);
 		state_pub_.publish(sim_state_msg); 
-
 
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_activation, NULL);
 	}

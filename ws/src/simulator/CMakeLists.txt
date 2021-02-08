@@ -9,6 +9,7 @@ find_package(
 	tf 
 	std_msgs
 	testbed_msgs
+	utilities
 	)
 find_package (Eigen3 REQUIRED NO_MODULE)
 
@@ -48,6 +49,7 @@ add_dependencies(simulator
 target_link_libraries(simulator
 	${catkin_LIBRARIES}
 	Eigen3::Eigen 
-    simdyn
-    timespec_lib
+	simdyn
+	utilities
+	timespec_lib
 	)

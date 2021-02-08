@@ -39,6 +39,8 @@ class Dynamics_UAngles : public IDynamics {
 		std::vector<double> get_acceleration();
 
 	private:
+		std::mutex mx_;
+
 		int StateDim_;
 		int InputDim_;
 		int MeasDim_;
@@ -74,6 +76,7 @@ class Dynamics_URates : public IDynamics {
 		std::vector<double> get_acceleration();
 
 	private:
+		std::mutex mx_;
 
 		int StateDim_;
 		int InputDim_;

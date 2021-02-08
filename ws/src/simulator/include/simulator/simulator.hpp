@@ -16,6 +16,7 @@ struct simThread_arg {
     double period;
     void* pParam;
     IDynamics* pSim;
+    ros::Publisher pub;
 };
 
 
