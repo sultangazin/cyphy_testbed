@@ -13,8 +13,8 @@
         <param name="frame_name" value="$(arg vehicle_frame)" type='str'/>
         <param name="topics/input_control_topic" value="/$(arg vehicle_frame)/control" type='str'/>
         <param name="topics/output_sensor_topic" value="xsim_sensors" type='str'/>
-        <param name="topics/output_state_topic" value="xsim_state" type='str'/>
-        <param name="topics/output_simvrpn_topic" value="/area0/sensors/optitrack/$(arg vehicle_frame)/data" type='str'/>
+        <param name="topics/output_state_topic" value="external_codom" type='str'/>
+        <param name="topics/output_simvrpn_topic" value="/area1/sensors/optitrack/$(arg vehicle_frame)/data" type='str'/>
         <param name="param/drone_mass" value="0.032" type='double'/>
         <param name="param/lin_drag_coeff" value="0.0" type='double'/>
         <param name="param/ang_drag_coeff" value="0.0" type='double'/>
