@@ -7,20 +7,15 @@
 #include <thread>
 #include "Eigen/Dense"
 
-#include "simclass/simdyn.hpp"
-#include "simulator/dyn_model.hpp"
+//#include "simclass/simdyn.hpp"
+//#include "simulator/dyn_model.hpp"
+#include "simclass/dyn_class.hpp"
 #include "timespec_lib/timespec_lib.hpp"
-
-struct State {
-    Eigen::Vector3d p;
-    Eigen::Vector3d v;
-    Eigen::Quaterniond q;
-};
 
 struct simThread_arg {
     double period;
     void* pParam;
-    SimDyn* pSim;
+    IDynamics* pSim;
 };
 
 
@@ -39,15 +34,14 @@ class XSimulator {
         void pub_thread_fnc(double dt);
 
     private:
-        State X;
-
         std::string name_;
         std::string frame_name_;
 
         ros::Time old_time_;
 
-        SimDyn* sim_;
-        SimParam parameters_;
+	IDynamics* sim_;
+
+        SimParams parameters_;
         simThread_arg arg_;
 
         bool initialized_;

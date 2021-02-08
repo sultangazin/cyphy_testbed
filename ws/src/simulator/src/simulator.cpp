@@ -6,19 +6,6 @@ using namespace std;
 
 void sim_thread_fnc(void* p);
 
-extern bool f2(vector<double>& x_,
-		const vector<double>& x,
-		const vector<double>& u, 
-		double dt, void* param);
-
-extern bool g1(std::vector<double>& y,
-		const std::vector<double>& x,
-		const std::vector<double>& u);
-
-extern bool h1(std::vector<double>& z,
-		const std::vector<double>& x,
-		const std::vector<double>& u);
-
 
 XSimulator::XSimulator() {
 	initialized_ = false;
@@ -48,13 +35,13 @@ bool XSimulator::Initialize(const ros::NodeHandle& n) {
 	old_time_.sec = 0;
 	old_time_.nsec = 0; 
 
-	sim_ = new SimDyn(10, 4, 1, 0, &f2, &g1, &h1);
+	sim_ = new Dynamics_URates(parameters_);
 
 	std::vector<double> x0(10, 0);
 	x0[0] = -1.5;
 	x0[1] = 1.1;
 	x0[6] = 1.0;
-	sim_->set_X(x0);
+	sim_->set_state(x0);
 
 	initialized_ = true;
 
@@ -119,10 +106,7 @@ bool XSimulator::RegisterCallbacks(const ros::NodeHandle& n) {
 void XSimulator::ControlCallback(
 		const testbed_msgs::ControlStamped::ConstPtr& msg) {
 
-	// The implementation of the flat controller returns an acceleration instead
-	// of a thrust.
 	ros::Time current_time = ros::Time::now();
-
 
 	if (old_time_.toSec() > 0) {
 		double dt = current_time.toSec() - old_time_.toSec();
@@ -132,7 +116,7 @@ void XSimulator::ControlCallback(
 		u_[1] = msg->control.roll;
 		u_[2] = msg->control.pitch;
 		u_[3] = msg->control.yaw_dot;
-		sim_->set_U(u_);
+		sim_->set_inputs(u_);
 	} else {
 		old_time_ = current_time;
 	}
@@ -142,7 +126,7 @@ void XSimulator::ControlCallback(
  * In case I wanted to call the function from the ROS interface directly.
  */
 void XSimulator::updateState(double dt) {
-	sim_->sim_step(dt, (void*) &parameters_);
+	sim_->step(dt);
 }
 
 
@@ -158,7 +142,7 @@ void sim_thread_fnc(void* p) {
 
 	double dt = pArg->period;
 	void* pparam = pArg->pParam;
-	SimDyn* psim = pArg->pSim;
+	IDynamics* psim = pArg->pSim;
 
 	struct timespec time;
 	struct timespec next_activation;
@@ -168,14 +152,14 @@ void sim_thread_fnc(void* p) {
 
 	//std::vector<double> x(10);
 	//x[6] = 1.0;
-	//psim->set_X(x);
+	//psim->set_state(x);
 
 	while (ros::ok()) {
 		// Get current time
 		clock_gettime(CLOCK_MONOTONIC, &time);
 		timespec_sum(time, period_tms, next_activation);
 
-		psim->sim_step(dt, pparam);
+		psim->step(dt);
 
 		clock_nanosleep(CLOCK_MONOTONIC,
 				TIMER_ABSTIME, &next_activation, NULL);
@@ -192,6 +176,7 @@ void XSimulator::pub_thread_fnc(double dt) {
 	create_tspec(period_tms, dt);
 
 	std::vector<double> x(10);
+	std::vector<double> acc(3);
 	geometry_msgs::PoseStamped sim_vrpn_pose_msg;
 	testbed_msgs::CustOdometryStamped sim_state_msg;
 
@@ -201,7 +186,9 @@ void XSimulator::pub_thread_fnc(double dt) {
 		clock_gettime(CLOCK_MONOTONIC, &time);
 		timespec_sum(time, period_tms, next_activation);
 
-		sim_->get_X(x);
+		x = sim_->get_state();
+		acc = sim_->get_acceleration();
+
 
 		if (counter++ % 1 == 0) {
 			sim_vrpn_pose_msg.header.stamp = ros::Time::now();
@@ -216,15 +203,16 @@ void XSimulator::pub_thread_fnc(double dt) {
 
 			vrpn_sim_pub_.publish(sim_vrpn_pose_msg);
 
+			sim_state_msg.header.stamp = sim_vrpn_pose_msg.header.stamp;
 			sim_state_msg.p.x = x[0];
 			sim_state_msg.p.y = x[1];
 			sim_state_msg.p.z = x[2];
 			sim_state_msg.v.x = x[3];
 			sim_state_msg.v.y = x[4];
 			sim_state_msg.v.z = x[5];
-			sim_state_msg.a.x = 0;
-			sim_state_msg.a.y = 0;
-			sim_state_msg.a.z = 0;
+			sim_state_msg.a.x = acc[0];
+			sim_state_msg.a.y = acc[1];
+			sim_state_msg.a.z = acc[2];
 		}
 
 		state_pub_.publish(sim_state_msg); 

@@ -25,8 +25,11 @@ include_directories(
 
 # Add library for the simulation
 add_library(simdyn
-    include/simclass/simdyn.cpp
+    include/simclass/dyn_class.cpp
     )
+target_link_libraries(simdyn
+	Eigen3::Eigen
+	)
 
 add_library(timespec_lib
     include/timespec_lib/timespec_lib.cpp
@@ -36,7 +39,6 @@ add_library(timespec_lib
 add_executable(simulator 
 	exec/simulator_node.cpp 
 	src/simulator.cpp
-    include/simulator/dyn_model.cpp
 	)
 
 add_dependencies(simulator 
