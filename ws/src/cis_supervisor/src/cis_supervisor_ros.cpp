@@ -176,11 +176,11 @@ void CISSupervisorROS::onNewState(
 	// I need to improve this...
 	double dt = msg->header.stamp.toSec() - last_state_time_;
 	if (dt >= 0.05) {
+		ros::Time sup_exe_start = ros::Time::now();
 		UType control_cmd;
 		UType u_body(UType::Zero()); 
 		testbed_msgs::ControlStamped control_msg;
 		cis_supervisor::PerformanceMsg ctrl_perf_msg;
-
 
 		//std::cout << "Dt = " << dt << std::endl;
 		last_state_time_ = ros::Time::now().toSec();
@@ -206,10 +206,14 @@ void CISSupervisorROS::onNewState(
 		}
 
 		// Performance Message
-		ros::Time timestamp = ros::Time::now();
-		double dt = (timestamp - last_sent_time).toSec();
-		last_sent_time = timestamp;
-		std::cout << dt << std::endl;
+		ros::Time msg_timestamp = ros::Time::now();
+		double PubPeriod = (msg_timestamp - last_sent_time).toSec();
+		double SupExeTime = (msg_timestamp - sup_exe_start).toSec();
+		last_sent_time = msg_timestamp;
+
+		std::cout << PubPeriod << std::endl;
+		std::cout << SupExeTime << std::endl;
+		std::cout << std::endl;
 		
 		ctrl_perf_msg.header.stamp = control_msg.header.stamp;
 		ctrl_perf_msg.thrust = thrust;
@@ -219,8 +223,8 @@ void CISSupervisorROS::onNewState(
 		ctrl_perf_msg.ang_velocity[0] = control_msg.control.roll;
 		ctrl_perf_msg.ang_velocity[1] = control_msg.control.pitch;
 
-		control_msg.header.stamp = timestamp;
-		ctrl_perf_msg.header.stamp = timestamp;
+		control_msg.header.stamp = msg_timestamp;
+		ctrl_perf_msg.header.stamp = msg_timestamp;
 		cis_supervisor_ctrl_.publish(control_msg);
 		performance_pub_.publish(ctrl_perf_msg);
 	}
@@ -329,12 +333,12 @@ void thread_fnc(void* p) {
 		ctrl_perf_msg.ang_velocity[0] = control_msg.control.roll;
 		ctrl_perf_msg.ang_velocity[1] = control_msg.control.pitch;
 
-		ros::Time timestamp = ros::Time::now();
-		double dt = (timestamp - last_sent_time_local).toSec();
+		ros::Time msg_timestamp = ros::Time::now();
+		double dt = (msg_timestamp - last_sent_time_local).toSec();
 		std::cout << dt << std::endl;
 
-		control_msg.header.stamp = timestamp;
-		ctrl_perf_msg.header.stamp = timestamp;
+		control_msg.header.stamp = msg_timestamp;
+		ctrl_perf_msg.header.stamp = msg_timestamp;
 		ctrl_pub.publish(control_msg);
 		perf_pub.publish(ctrl_perf_msg);
 
