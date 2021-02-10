@@ -175,7 +175,7 @@ void CISSupervisorROS::onNewState(
 	// Supervisor I could run the control step from this callback.
 	// I need to improve this...
 	double dt = msg->header.stamp.toSec() - last_state_time_;
-	if (dt >= 0.18) {
+	if (dt >= 0.10) {
 		ros::Time sup_exe_start = ros::Time::now();
 		UType control_cmd;
 		UType u_body(UType::Zero()); 
@@ -186,6 +186,7 @@ void CISSupervisorROS::onNewState(
 		last_state_time_ = ros::Time::now().toSec();
 		if (supervisor_->isActive()) {
 			supervisor_->Step(0.05);
+
 			// Get the desired jerk
 			control_cmd = supervisor_->getControls();
 			// ... convert the jerk in autopilot commands

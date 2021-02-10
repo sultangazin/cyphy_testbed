@@ -88,12 +88,14 @@ void CISSupervisor::LoadCISs() {
 	string path = ros::package::getPath("cis_supervisor");
 	for (int i=0; i < 9; i++) {
 		string filename = path + "/config/data/cis" + to_string(i);
+		cout << "[CISSupervisor] Loading " << filename << " data." << endl;
 		cisA = load_csv<Eigen::MatrixXd>(filename + "_A.csv");
 		cisb = load_csv<Eigen::MatrixXd>(filename + "_b.csv");
 		polytope CIS(cisA, cisb);
 		CISs_.add_poly(CIS);
 
 		filename = path + "/config/data/rcis" + to_string(i);
+		cout << "[CISSupervisor] Loading " << filename << " data." << endl;
 		rcisA = load_csv<Eigen::MatrixXd>(filename + "_A.csv");
 		rcisb = load_csv<Eigen::MatrixXd>(filename + "_b.csv");
 		polytope RCIS(rcisA, rcisb);
@@ -102,8 +104,8 @@ void CISSupervisor::LoadCISs() {
 
 	// Input constraints:
 	Eigen::MatrixXd Gu, Fu;
-	Gu = load_csv<Eigen::MatrixXd>(path + "/config/data/inputA.csv");
-	Fu = load_csv<Eigen::MatrixXd>(path + "/config/data/inputb.csv");
+	Gu = load_csv<Eigen::MatrixXd>(path + "/config/data/InputA.csv");
+	Fu = load_csv<Eigen::MatrixXd>(path + "/config/data/InputB.csv");
 	inputSet_ = new polytope(Gu, Fu);
 }
 
