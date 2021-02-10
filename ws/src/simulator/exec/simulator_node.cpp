@@ -15,10 +15,7 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
     ROS_INFO("Started");
-
-    // Start the periodic thread that publish the simulated external_odometry.
-    //std::thread pub_thread(&XSimulator::pub_thread_fnc, &sim_n, 0.002);
-
+    
     ros::spin();
 
     return EXIT_SUCCESS;

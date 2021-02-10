@@ -19,7 +19,6 @@ struct simThread_arg {
     ros::Publisher pub;
 };
 
-
 class XSimulator {
     public:
         XSimulator();
@@ -33,6 +32,8 @@ class XSimulator {
                 const testbed_msgs::ControlStamped::ConstPtr& msg);
 
         void pub_thread_fnc(double dt);
+	void start_simulation(double dt);
+	void start_sensor_pub(double dt);
 
     private:
         std::string name_;
@@ -56,7 +57,10 @@ class XSimulator {
         std::string ctrl_topic_; 
         std::string vrpn_sim_pose_topic_;
 
+	std::vector<double> initial_pos_;
+
         double sim_period_;
+	double sens_period_;
         double Mass_;
         double c_drag_;
         double a_drag_;

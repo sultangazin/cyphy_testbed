@@ -72,20 +72,33 @@ bool XSimulator::Initialize(const ros::NodeHandle& n) {
 	sim_ = new Dynamics_URates(parameters_);
 
 	std::vector<double> x0(10, 0);
-	x0[0] = -1.5;
-	x0[1] = 1.1;
+	x0[0] = initial_pos_[0];
+	x0[1] = initial_pos_[1];
+	x0[2] = initial_pos_[2];
 	x0[6] = 1.0;
 	sim_->set_state(x0);
 
 	initialized_ = true;
 
-	arg_.period = sim_period_;
+	// Start the simulation and the publication of sensor data
+	start_simulation(sim_period_);
+	start_sensor_pub(sens_period_);
+
+	return true;
+}
+
+void XSimulator::start_simulation(double dt) {
+	arg_.period = dt;
 	arg_.pParam = (void*) &parameters_;
 	arg_.pSim = sim_;
 	arg_.pub = state_pub_;
 
 	sim_thread = std::thread(sim_thread_fnc, (void*) &arg_);
-	return true;
+}
+
+void XSimulator::start_sensor_pub(double dt) {
+	pub_thread = std::thread(&XSimulator::pub_thread_fnc, this, dt);
+
 }
 
 bool XSimulator::LoadParameters(const ros::NodeHandle& n) {
@@ -110,7 +123,24 @@ bool XSimulator::LoadParameters(const ros::NodeHandle& n) {
 	nl.param<double>("param/drone_mass", Mass_, 1.0);
 	nl.param<double>("param/lin_drag_coeff", c_drag_, 0.00001);
 	nl.param<double>("param/ang_drag_coeff", a_drag_, 0.00001);
-	nl.param<double>("param/sim_period", sim_period_, 0.005);
+	nl.param<double>("param/sim_period", sim_period_, 0.001);
+	nl.param<double>("param/sensor_period", sens_period_, 0.002);
+
+	std::string param_name;
+	if (nl.searchParam("param/x0", param_name)) {
+		std::vector<double> p_vec;
+		n.getParam(param_name, p_vec);
+		initial_pos_ = p_vec;
+
+		std::cout << "Simulated Vehicle: Initial Position = ";
+		for (auto el : initial_pos_) {
+			std::cout << el << " ";
+		}
+		std::cout << std::endl;
+	} else {
+		initial_pos_ = std::vector<double>(3,0);
+	}
+
 
 	parameters_.Mass = Mass_;
 	parameters_.c_drag = c_drag_;
@@ -243,11 +273,10 @@ void XSimulator::pub_thread_fnc(double dt) {
 		composeCodom_msg(sim_state_msg, x, acc, timestamp);
 
 		vrpn_sim_pub_.publish(sim_vrpn_pose_msg);
-		state_pub_.publish(sim_state_msg); 
+		//state_pub_.publish(sim_state_msg); 
 
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_activation, NULL);
 	}
 	ROS_INFO("Terminating Simulation Thread...\n");
-
 }
 
