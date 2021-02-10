@@ -42,7 +42,7 @@ class CISSupervisor {
 		void SetSetpoint(const XType& xref);
 		void SetState(const XType& x);
 
-		void SetK(const std::array<double, CISS_STATESIZE_1D>& k);
+		void SetK(const array<double, CISS_STATESIZE_1D>& k);
 
 		void LoadModel();
 		void LoadCISs();
@@ -59,21 +59,22 @@ class CISSupervisor {
 		XType x_ref_;
 		XType x_;
 
-		std::array<double, CISS_STATESIZE_1D> K_;
+		array<double, CISS_STATESIZE_1D> K_;
 
 		UType ctrl_outputs_;
 
 		// CIS Polytopes
 		unionPoly CISs_;
+		unionPoly RCISs_;
 
 		// Control Constratints Polytope
-		polytope* inputPol_;
+		polytope* inputSet_;
 
 		// Model
 		model* mdl_;
 
 		bool isContained(const XType& x);
-		std::vector<int> findCIS(const XType& x);
+		vector<int> findCIS(const XType& x);
 
 		UType ComputeNominalU(const XType& err);
 
@@ -82,12 +83,12 @@ class CISSupervisor {
 				UType u_des,
 				const model* mdl,
 				const polytope& CIS,
-				const polytope* inputConstr,
+				const polytope* inputSet,
 				int method);
 
 		polytope simplify2box(
 				XType x0,
 				const polytope& CIS,
 				const model* mdl,
-				const polytope* inputConstr);
+				const polytope* inputSet);
 };

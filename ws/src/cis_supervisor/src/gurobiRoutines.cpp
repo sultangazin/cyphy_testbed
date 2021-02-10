@@ -51,8 +51,8 @@ void addObjectiveGRB(GRBModel& model, MatrixXd H, VectorXd c, vector<GRBVar> u){
 
 
 opt_result solveGurobi(MatrixXd H, VectorXd c, MatrixXd Aineq, VectorXd bineq, int verbose){
-	const double feas_tol = 0.000000001;
-	const double opt_tol = 0.000000001;
+	const double feas_tol = 1e-8;
+	const double opt_tol = 1e-8;
 	try {
 		// Create environment and model:
 		GRBEnv env = GRBEnv();
@@ -64,9 +64,9 @@ opt_result solveGurobi(MatrixXd H, VectorXd c, MatrixXd Aineq, VectorXd bineq, i
 		GRBModel model = GRBModel(env);
 
 		// Set model parameters:
-		model.set(GRB_DoubleParam_FeasibilityTol, 0.000000001);
-		model.set(GRB_DoubleParam_OptimalityTol, 0.000000001);
-		model.set(GRB_IntParam_Method,-1); // primal simplex.
+		model.set(GRB_DoubleParam_FeasibilityTol, feas_tol);
+		model.set(GRB_DoubleParam_OptimalityTol, opt_tol);
+		model.set(GRB_IntParam_Method,-1); // auto.
 
 		// Create variables:
 		vector<GRBVar> u;
@@ -77,16 +77,14 @@ opt_result solveGurobi(MatrixXd H, VectorXd c, MatrixXd Aineq, VectorXd bineq, i
 		// Add constraints:
 		addConstrsGRB(model, Aineq, bineq, u);
 
-		//cout << Aineq << endl;
-		//cout << bineq << endl;
-
 		// Optimize model
 		model.optimize();
 		
 		VectorXd sol(u.size());
 
-		model.update();
-		model.write("debug.lp");
+		// // Write model for debugging:
+		// model.update();
+		// model.write("debug.lp");
 
 		for (int i=0; i<u.size(); i++)
 			sol[i] = u[i].get(GRB_DoubleAttr_X);
