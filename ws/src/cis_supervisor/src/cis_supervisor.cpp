@@ -48,16 +48,6 @@ M load_csv (const string& path) {
 }
 
 bool check_ineq(const XType& x0, const Eigen::MatrixXd& Aineq, const Eigen::VectorXd& bineq) {
-	// bool guard = true;
-	// int k = 0;
-	// VectorXd temp = Aineq * x0 - bineq;
-	// while (guard && k < Aineq.rows()) {
-	// 	double lhs = Aineq.row(k) * x0;
-	// 	if (lhs > bineq(k))
-	// 		guard = false;
-	// 	k++;
-	// }
-	// return guard;
 	const double abs_tol = 1e-9;
 	VectorXd temp = Aineq * x0 - bineq;
 	bool guard = (temp.array() <= abs_tol).all();
@@ -114,7 +104,7 @@ void CISSupervisor::LoadCISs() {
 	Eigen::MatrixXd Gu, Fu;
 	Gu = load_csv<Eigen::MatrixXd>(path + "/config/data/inputA.csv");
 	Fu = load_csv<Eigen::MatrixXd>(path + "/config/data/inputb.csv");
-	inputPol_ = new polytope(Gu, Fu);
+	inputSet_ = new polytope(Gu, Fu);
 }
 
 
@@ -143,10 +133,12 @@ void CISSupervisor::Step(double deltaT) {
 	bool cond = isContained(x_next_des);
 	if (cond) {
 		// Do not print here, we know we are good..
-		// cout << "u_des: " << u_des.transpose() << endl;
-		// cout << "curr_in: " << x_curr_.transpose() << endl;
-		// cout << "next_in: " << x_next_des.transpose() << endl;
-		// cout << endl;
+		/*
+		cout << "u_des: " << u_des.transpose() << endl;
+		cout << "curr_in: " << x_curr_.transpose() << endl;
+		cout << "next_in: " << x_next_des.transpose() << endl;
+		cout << endl;
+		*/
 		x_curr_ = x_next_des;
 	} else {
 		// Check in which CIS the current state is located
@@ -163,7 +155,7 @@ void CISSupervisor::Step(double deltaT) {
 
 			polytope ptope(RCISs_.get_polA(cindex), RCISs_.get_polb(cindex));
 			pair<double, UType> res = callSupervisor(
-					x_curr_, u_des, mdl_, ptope, inputPol_, 0);
+					x_curr_, u_des, mdl_, ptope, inputSet_, 0);
 
 			f_cand[k] = res.first;
 			u_cand[k] = res.second;
@@ -176,8 +168,7 @@ void CISSupervisor::Step(double deltaT) {
 		vector<double>::iterator min_el_it = min_element(
 				f_cand.begin(), f_cand.end());
 
-		// if (min_el_it == f_cand.end() || *min_el_it == __DBL_MAX__) {
-		if (*min_el_it == __DBL_MAX__) {
+		if (min_el_it == f_cand.end() || *min_el_it == __DBL_MAX__) {
 			cout << "All the optimizations failed.." << endl;
 			cout << "[fail] curr_corr: " << x_curr_.transpose() << endl;
 			cout << "[fail] next_corr: " << x_next_des.transpose() << endl;

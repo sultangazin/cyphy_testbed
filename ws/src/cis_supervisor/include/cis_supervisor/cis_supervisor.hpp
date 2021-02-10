@@ -42,7 +42,7 @@ class CISSupervisor {
 		void SetSetpoint(const XType& xref);
 		void SetState(const XType& x);
 
-		void SetK(const array<double, CISS_STATESIZE_1D>& k);
+		void SetK(const std::array<double, CISS_STATESIZE_1D>& k);
 
 		void LoadModel();
 		void LoadCISs();
@@ -59,7 +59,7 @@ class CISSupervisor {
 		XType x_ref_;
 		XType x_;
 
-		array<double, CISS_STATESIZE_1D> K_;
+		std::array<double, CISS_STATESIZE_1D> K_;
 
 		UType ctrl_outputs_;
 
@@ -74,7 +74,7 @@ class CISSupervisor {
 		model* mdl_;
 
 		bool isContained(const XType& x);
-		vector<int> findCIS(const XType& x);
+		std::vector<int> findCIS(const XType& x);
 
 		UType ComputeNominalU(const XType& err);
 

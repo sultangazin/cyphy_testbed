@@ -175,7 +175,7 @@ void CISSupervisorROS::onNewState(
 	// Supervisor I could run the control step from this callback.
 	// I need to improve this...
 	double dt = msg->header.stamp.toSec() - last_state_time_;
-	if (dt >= 0.05) {
+	if (dt >= 0.18) {
 		ros::Time sup_exe_start = ros::Time::now();
 		UType control_cmd;
 		UType u_body(UType::Zero()); 
@@ -211,9 +211,11 @@ void CISSupervisorROS::onNewState(
 		double SupExeTime = (msg_timestamp - sup_exe_start).toSec();
 		last_sent_time = msg_timestamp;
 
+		/*
 		std::cout << PubPeriod << std::endl;
 		std::cout << SupExeTime << std::endl;
 		std::cout << std::endl;
+		*/
 		
 		ctrl_perf_msg.header.stamp = control_msg.header.stamp;
 		ctrl_perf_msg.thrust = thrust;
@@ -335,7 +337,7 @@ void thread_fnc(void* p) {
 
 		ros::Time msg_timestamp = ros::Time::now();
 		double dt = (msg_timestamp - last_sent_time_local).toSec();
-		std::cout << dt << std::endl;
+		//std::cout << dt << std::endl;
 
 		control_msg.header.stamp = msg_timestamp;
 		ctrl_perf_msg.header.stamp = msg_timestamp;
