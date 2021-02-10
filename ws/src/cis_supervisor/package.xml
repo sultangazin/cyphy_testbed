@@ -9,6 +9,8 @@
 	<license>MIT</license>
 
 	<author email="lpannocchi@g.ucla.edu">Luigi Pannocchi</author>
+	
+	<author email="janis10@g.ucla.edu">Tzanis Anevlavis</author>
 
 	<buildtool_depend>catkin</buildtool_depend>
 
