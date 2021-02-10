@@ -41,6 +41,7 @@ The following nodes will be started:
 		<!-- ===================================== -->
 		<!-- Launch the estimator of the object state from
 			the VRPN raw data.
+		-->
 		<group ns="$(arg vehicle_frame)">
 			<node pkg="state_aggregator" name="aggregator" type="state_aggregator" 
 				respawn="true"
@@ -59,7 +60,6 @@ The following nodes will be started:
 			<param name="time_delay" value="0.0" type='double' />
 		</node>
 	</group>
-		-->
 
 	<!-- ===================================== -->
 	<!-- Launch the Arena Node
