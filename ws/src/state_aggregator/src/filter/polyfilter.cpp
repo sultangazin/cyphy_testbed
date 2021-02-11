@@ -27,6 +27,9 @@ PolyFilter::PolyFilter(const Vector3d& p0,
 
 PolyFilter::~PolyFilter() {}
 
+void PolyFilter::resetPosition(const Vector3d& p0) {
+	setPos(p0);
+}
 
 void PolyFilter::reset(const XMat& x0, double s0) {
 

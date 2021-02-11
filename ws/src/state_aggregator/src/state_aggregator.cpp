@@ -42,7 +42,7 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 	Eigen::Vector3d sigma_y(_sigmay, _sigmay, _sigmay);
 
 	_pfilt = new PolyFilter(Eigen::Vector3d::Zero(),
-			sigma_x, sigma_y, 0.03);
+			sigma_x, sigma_y, 0.002);
 
 	// Advertise topics
 
@@ -262,7 +262,8 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 	std::string node_name = *(std::string*) arg;
 
 	// Take the time
-	ros::Time current_time = ros::Time::now();
+	ros::Time current_time = msg->header.stamp;
+	//ros::Time current_time = ros::Time::now();
 	static ros::Time old_time {};
 
 	p_(0) = msg->pose.position.x;	
@@ -279,6 +280,7 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 	t.tv_nsec = msg->header.stamp.nsec;
 
 	if (!received_reference_) {
+		_pfilt->resetPosition(p_);
 		q_old_= q_;
 		t_old = t; 
 
@@ -325,8 +327,8 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 
 
 	// Pose: Position + Orientation
-	ext_pose_msg_.header.stamp = msg->header.stamp;
-	//ext_pose_msg_.header.stamp = current_time;
+	//ext_pose_msg_.header.stamp = msg->header.stamp;
+	ext_pose_msg_.header.stamp = current_time;
 	ext_pose_msg_.pose.position.x = p_(0);
 	ext_pose_msg_.pose.position.y = p_(1);
 	ext_pose_msg_.pose.position.z = p_(2);

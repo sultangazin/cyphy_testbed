@@ -35,6 +35,9 @@ DDFilter::DDFilter(const Vector3d& p0, int Nsteps, double dt) :
 
 DDFilter::~DDFilter() {}
 
+void DDFilter::resetPosition(const Vector3d& p0) {
+	setPos(p0);
+}
 
 void DDFilter::reset(const DDXMat& x0, double s0) {
     _mx.lock();

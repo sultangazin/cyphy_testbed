@@ -83,6 +83,8 @@ class PolyFilter {
 
 		void reset(const XMat& x0, double s0);
 
+		void resetPosition(const Eigen::Vector3d& p0);
+
 		void prediction(double dt);
 
 		void setU(const UMat& u);

@@ -78,6 +78,9 @@ class DDFilter {
         void setVel(const Eigen::Vector3d& v);
         void setAcc(const Eigen::Vector3d& a);
 
+		void resetPosition(const Eigen::Vector3d& p0);
+
+
 		/**
 		 * Fetcher Private
 		 */

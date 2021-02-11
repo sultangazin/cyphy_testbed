@@ -20,6 +20,7 @@
 #include <state_aggregator/ControlSensor.h>
 
 #include "filter/polyfilter.hpp"
+#include "filter/ddfilter.hpp"
 #include "utilities/network_parser/network_parser.hpp"
 
 
