@@ -49,3 +49,15 @@ Vector3d qd2w(Quaterniond q, Quaterniond qd) {
     out = M * v;
     return out;
 }
+
+Vector3d q2eul(Quaterniond q) {
+	Vector3d euler;
+	euler(0) =  atan2(2.0 * q.y() * q.z() + 2.0 * q.w() * q.x(), 
+			1.0 - 2.0 * (q.x() * q.x() + q.y() * q.y()));
+	euler(1) = asin(2.0 * q.w()*q.y() - 2.0 * q.x()*q.z());
+	euler(2) =  atan2(2.0 * q.x() * q.y() + 2.0 * q.z() * q.w(),
+			1.0 - 2.0 * (q.y() * q.y() + q.z() * q.z()));
+
+	return euler;
+}
+

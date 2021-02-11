@@ -5,6 +5,9 @@
 #include "utilities/timeutils/timeutils.hpp"
 #include "utilities/custom_conversion/custom_conversion.hpp"
 
+#include "filter/lbfilter.hpp"
+#include "filter/polyfilter.hpp"
+
 void kf_thread_fnc(void* p);
 
 // =================================================================
@@ -41,8 +44,8 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 	Eigen::Vector3d sigma_x(_sigmax, _sigmax, _sigmax);
 	Eigen::Vector3d sigma_y(_sigmay, _sigmay, _sigmay);
 
-	_pfilt = new PolyFilter(Eigen::Vector3d::Zero(),
-			sigma_x, sigma_y, 0.002);
+	//_pfilt = new PolyFilter(Eigen::Vector3d::Zero(), sigma_x, sigma_y, 0.002);
+	_pfilt = new LBFilter(Eigen::Vector3d::Zero(), 0.002);
 
 	// Advertise topics
 
@@ -65,6 +68,9 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 	rs_pub_ =
 		nl.advertise<testbed_msgs::CustOdometryStamped> (rs_codom_topic_.c_str(), 10);
 
+	// Temporary
+	ctrl_sub_ = nl.subscribe(ctrl_topic_.c_str(), 10, &StateAggregator::ctrl_callback, this);
+
 
 	// Advertise Services
 	sensor_service = node_.advertiseService(
@@ -75,8 +81,7 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 	arg_.period = 0.002;
 	arg_.pfilt = _pfilt;
 
-	//kf_thread = std::thread(kf_thread_fnc, (void*) &arg_);
-
+	//kf_thread = std::thread(kf_thread_fnc, (void*) &arg_); 
 	net_disc_thr = std::thread(&StateAggregator::net_discovery, this,
 			500);
 
@@ -105,6 +110,9 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 
 	np.param<std::string>("topics/out_rs_codom_topic", rs_codom_topic_,
 			"rs_codom");
+
+	np.param<std::string>("topics/in_ctrl_topic", ctrl_topic_,
+		"/CISSupervisor/"+ target_name_ + "/cis_perf");
 
 	//    ROS_INFO("Namespace = %s", );
 	// Params
@@ -288,6 +296,7 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 	} else {
 		dt = time_diff(t, t_old); 
 
+		_pfilt->setU(ctrl_);
 		_pfilt->prediction(dt);
 		_pfilt->update(p_);
 
@@ -318,13 +327,8 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 
 	// Convert to euler
 	//euler_ = q_pf_.toRotationMatrix().eulerAngles(0, 1, 2);
-
-	euler_(0) =  atan2(2.0 * q_pf_.y() * q_pf_.z() + 2.0 * q_pf_.w() * q_pf_.x(), 
-			1.0 - 2.0 * (q_pf_.x() * q_pf_.x() + q_pf_.y() * q_pf_.y()));
-	euler_(1) = asin(2.0 * q_pf_.w()*q_pf_.y() - 2.0 * q_pf_.x()*q_pf_.z());
-	euler_(2) =  atan2(2.0 * q_pf_.x() * q_pf_.y() + 2.0 * q_pf_.z() * q_pf_.w(),
-			1.0 - 2.0 * (q_pf_.y() * q_pf_.y() + q_pf_.z() * q_pf_.z()));
-
+	euler_ = q2eul(q_pf_);
+	
 
 	// Pose: Position + Orientation
 	//ext_pose_msg_.header.stamp = msg->header.stamp;
@@ -478,13 +482,21 @@ void StateAggregator::net_discovery(int ms){
 	}
 }
 
-void kf_thread_fnc(void* p) {
 
+void StateAggregator::ctrl_callback(const cis_supervisor::PerformanceMsg::ConstPtr& msg) {
+	for (int i = 0; i < 3; i++) {
+		ctrl_(i) = msg->jerk_body[i];
+	}
+	ctrl_ = q_pf_ * ctrl_;
+}
+
+void kf_thread_fnc(void* p) {
+/*
 	// Convert the pointer to pass information to the thread.
 	kfThread_arg* pArg = (kfThread_arg*) p;
 
 	double dt = pArg->period;
-	PolyFilter* pfilt = pArg->pfilt;
+	FlatOFilter* pfilt = pArg->pfilt;
 
 	struct timespec time;
 	struct timespec next_activation;
@@ -497,11 +509,11 @@ void kf_thread_fnc(void* p) {
 		clock_gettime(CLOCK_MONOTONIC, &time);
 		timespec_sum(time, period_tms, next_activation);
 
-		pfilt->prediction(dt);
+		pfilt->prediction(ctrl_, dt);
 
 		clock_nanosleep(CLOCK_MONOTONIC,
 				TIMER_ABSTIME, &next_activation, NULL);
 	}
 	ROS_INFO("Terminating Kalman Filter Thread...\n");
-
+	*/
 }

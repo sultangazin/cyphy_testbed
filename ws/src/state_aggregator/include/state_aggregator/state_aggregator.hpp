@@ -19,8 +19,11 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <state_aggregator/ControlSensor.h>
 
-#include "filter/polyfilter.hpp"
-#include "filter/ddfilter.hpp"
+#include "cis_supervisor/PerformanceMsg.h"
+
+//#include "filter/polyfilter.hpp"
+//#include "filter/ddfilter.hpp"
+#include "filter/filter.hpp"
 #include "utilities/network_parser/network_parser.hpp"
 
 
@@ -28,7 +31,7 @@ using namespace Eigen;
 
 struct kfThread_arg {
     double period;
-    PolyFilter* pfilt;
+    Filter* pfilt;
 };
 
 // =================================================================
@@ -131,10 +134,17 @@ class StateAggregator {
 
 
         // FILTER
-        PolyFilter* _pfilt;
+        Filter* _pfilt;
         kfThread_arg arg_;
         std::thread kf_thread;
         std::thread net_disc_thr;
+
+		Eigen::Vector3d ctrl_;
+		void ctrl_callback(
+				const cis_supervisor::PerformanceMsg::ConstPtr& msg);
+		std::string ctrl_topic_;
+
+		ros::Subscriber ctrl_sub_;
 
         // ===========================================================
         // Helper variables

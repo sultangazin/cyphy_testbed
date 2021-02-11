@@ -8,16 +8,17 @@ find_package(
 	roscpp 
 	tf 
 	std_msgs
-    message_generation
+	message_generation
 	testbed_msgs
-    utilities
+	utilities
+	roslib
 	)
 find_package (Eigen3 REQUIRED NO_MODULE)
 
 
 add_service_files(
 	FILES
-    ControlSensor.srv
+	ControlSensor.srv
 	)
 
 generate_messages()
@@ -26,7 +27,7 @@ generate_messages()
 catkin_package(
 	INCLUDE_DIRS include/ # The package contains header files
 	CATKIN_DEPENDS roscpp tf std_msgs
-    message_runtime
+	message_runtime
 	)
 
 # Since we use eigen
@@ -39,8 +40,9 @@ include_directories(
 add_executable(state_aggregator 
 	exec/state_aggregator_node.cpp 
 	src/state_aggregator.cpp
-    src/filter/ddfilter.cpp
-    src/filter/polyfilter.cpp
+	src/filter/ddfilter.cpp
+	src/filter/polyfilter.cpp
+	src/filter/lbfilter.cpp
 	)
 
 add_dependencies(state_aggregator 
@@ -49,6 +51,6 @@ add_dependencies(state_aggregator
 
 target_link_libraries(state_aggregator
 	${catkin_LIBRARIES}
-    utilities
+	utilities
 	Eigen3::Eigen 
 	)

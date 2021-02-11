@@ -13,17 +13,19 @@
 using namespace Eigen;
 
 PolyFilter::PolyFilter(const Vector3d& p0,
-		const SigmaXMat& sigma_x, const SigmaYMat& sigma_y, double dt) : 
-	_x {XMat::Zero()}, _y{YMat::Zero()},
-	_u{UMat::Zero()}, _P{PMat::Zero()} {
+		const SigmaXMat& sigmastate_,
+		const SigmaYMat& sigmameas_,
+		double dt) : 
+	state_ {XMat::Zero()}, meas_{YMat::Zero()},
+	input_{UMat::Zero()}, _P{PMat::Zero()} {
 
-	setPos(p0);
+		setPos(p0);
 
-	updateSigmas(sigma_x, sigma_y);
-	updateSampleTime(dt);
+		updateSigmas(sigmastate_, sigmameas_);
+		updateSampleTime(dt);
 
-	_P = PMat::Identity();
-}
+		_P = PMat::Identity();
+	}
 
 PolyFilter::~PolyFilter() {}
 
@@ -31,106 +33,115 @@ void PolyFilter::resetPosition(const Vector3d& p0) {
 	setPos(p0);
 }
 
-void PolyFilter::reset(const XMat& x0, double s0) {
+void PolyFilter::reset(const XMat& x0) {
 
-    _mx.lock();
-	_x = x0;
-    _mx.unlock();
+	mx_.lock();
+	state_ = x0;
+	mx_.unlock();
 
-    _P = PMat::Identity() * s0;
+	_P = PMat::Identity();
 }
 
-void PolyFilter::setU(const UMat& u) {}
+
+void PolyFilter::setGain(const KMat& k) {
+	FilterGain_ = k;
+}
+
+void PolyFilter::setU(const UMat& u) {
+	mx_.lock();
+	input_ = u;
+	mx_.unlock();
+}
 
 const Vector3d PolyFilter::getPos() const {
-	_mx.lock();
-	Vector3d out(_x.block<3,1>(0,0));
-	_mx.unlock();
+	mx_.lock();
+	Vector3d out(state_.block<3,1>(0,0));
+	mx_.unlock();
 	return out;
 }
 
 const Vector3d PolyFilter::getVel() const {
-	_mx.lock();
-    Vector3d out(_x.block<3,1>(3,0));
-	_mx.unlock();
+	mx_.lock();
+	Vector3d out(state_.block<3,1>(3,0));
+	mx_.unlock();
 	return out;
 }
 
 const Vector3d PolyFilter::getAcc() const {
-	_mx.lock();
-    Vector3d out(_x.block<3,1>(6,0));
-	_mx.unlock();
+	mx_.lock();
+	Vector3d out(state_.block<3,1>(6,0));
+	mx_.unlock();
 	return out;
 }
 
 const QMat PolyFilter::getQ() const {
-	_mx.lock();
+	mx_.lock();
 	QMat out(_params.Q);
-	_mx.unlock();
+	mx_.unlock();
 
 	return out;	
 }
 
 const DynMat PolyFilter::getA() const {
-	_mx.lock();
+	mx_.lock();
 	QMat out(_params.A);
-	_mx.unlock();
+	mx_.unlock();
 
 	return out;	
 }
 
 const PMat PolyFilter::getP() const {
-	_mx.lock();
+	mx_.lock();
 	QMat out(_P);
-	_mx.unlock();
+	mx_.unlock();
 
 	return out;	
 }
 
 const HMat PolyFilter::getH() const {
-	_mx.lock();
+	mx_.lock();
 	HMat out(_params.H);
-	_mx.unlock();
+	mx_.unlock();
 
 	return out;	
 }
 
 const RMat PolyFilter::getR() const {
-	_mx.lock();
+	mx_.lock();
 	RMat out(_params.R);
-	_mx.unlock();
+	mx_.unlock();
 
 	return out;	
 }
 
 void PolyFilter::setPos(const Vector3d& p){
-	_mx.lock();
-	_x.block<3,1>(0,0) = p;
-	_mx.unlock();
+	mx_.lock();
+	state_.block<3,1>(0,0) = p;
+	mx_.unlock();
 }
 
 void PolyFilter::setPosNoBlk(const Vector3d& p){
-	_x.block<3,1>(0,0) = p;
+	state_.block<3,1>(0,0) = p;
 }
 
 void PolyFilter::setVel(const Vector3d& v) {
-	_mx.lock();
-    _x.block<3,1>(3,0) = v;
-	_mx.unlock();
+	mx_.lock();
+	state_.block<3,1>(3,0) = v;
+	mx_.unlock();
 }
 
 void PolyFilter::setVelNoBlk(const Vector3d& v) {
-    _x.block<3,1>(3,0) = v;
+	state_.block<3,1>(3,0) = v;
 }
 
 void PolyFilter::setAcc(const Vector3d& a) {
-	_mx.lock();
-    _x.block<3,1>(6,0) = a;
-	_mx.unlock();
+	mx_.lock();
+	state_.block<3,1>(6,0) = a;
+	mx_.unlock();
 }
 
 void PolyFilter::setAccNoBlk(const Vector3d& a) {
-    _x.block<3,1>(6,0) = a;
+	state_.block<3,1>(6,0) = a;
 }
 
 
@@ -169,14 +180,21 @@ KMat PolyFilter::computeK(QMat& P, HMat& H, RMat& R) {
 
 void PolyFilter::prediction(double dt) {
 
-    _mx.lock();
+	mx_.lock();
+	UMat U = input_; 
+
+	double dt2 = dt * dt;
+	double dt3 = dt2 * dt;
 
 	// Integrate position 
 	Vector3d new_pos = Pos() + Vel() * dt +
-		0.5 * Acc() * (dt * dt);
+		0.5 * Acc() * dt2 + U * dt3 / 6.0;
 
 	// Integrate the velocity
-	Vector3d new_vel = Vel() + Acc() * dt;
+	Vector3d new_vel = Vel() + Acc() * dt +
+		0.5 * U * dt2;
+
+	Vector3d new_acc = Acc() + U * dt;
 
 	// =================
 	if (_params.T != dt) {
@@ -193,32 +211,33 @@ void PolyFilter::prediction(double dt) {
 
 	setPosNoBlk(new_pos);
 	setVelNoBlk(new_vel);
+	setAccNoBlk(new_acc);
 
-    _mx.unlock();
+	mx_.unlock();
 }
- 
+
 
 void PolyFilter::update(const YMat& y) {
 
 
-    HMat H_pos = HMat::Zero();
-    H_pos.block<3,3>(0,0) = Matrix<double, 3, 3>::Identity();
+	HMat H_pos = HMat::Zero();
+	H_pos.block<3,3>(0,0) = Matrix<double, 3, 3>::Identity();
 
-    _mx.lock();
+	mx_.lock();
 	// Compute the kalman gain
 	KMat K = computeK(_P, H_pos, _params.R); 
 
 	Vector3d innov = y - Pos();
 	XMat dx = K * innov;
-    //std::cout << dx.transpose() << std::endl;
+	//std::cout << dx.transpose() << std::endl;
 
 	setPosNoBlk(Pos() + dx.head<3>());
-    setVelNoBlk(Vel() + dx.segment<3>(3));
-    setAccNoBlk(Acc() + dx.tail<3>());
+	setVelNoBlk(Vel() + dx.segment<3>(3));
+	setAccNoBlk(Acc() + dx.tail<3>());
 
 	_P = updateXcovariance(_P, H_pos, K, _params.R);
 
-    _mx.unlock();
+	mx_.unlock();
 }
 
 
@@ -228,13 +247,13 @@ void PolyFilter::update(const YMat& y) {
 DynMat PolyFilter::computeA(double T) {
 	DynMat out = DynMat::Identity();
 
-    out.block<3,3>(0, 3) =
+	out.block<3,3>(0, 3) =
 		Matrix<double, 3, 3>::Identity() * T;
 
-    out.block<3,3>(0, 6) =
+	out.block<3,3>(0, 6) =
 		Matrix<double, 3, 3>::Identity() * T * T * 0.5;
 
-    out.block<3,3>(3, 6) =
+	out.block<3,3>(3, 6) =
 		Matrix<double, 3, 3>::Identity() * T;
 
 	return out;
@@ -267,8 +286,8 @@ QMat PolyFilter::computeQ(double dt, SigmaXMat& sigmas) {
 
 void PolyFilter::updateSigmas(const SigmaXMat& x, 
 		const SigmaYMat& y) {
-	_params.sigma_x = x;
-	_params.sigma_y = y;
+	_params.sigmastate_ = x;
+	_params.sigmameas_ = y;
 
 	_params.R = RMat::Identity();
 	_params.R(0,0) = y(0);
@@ -276,38 +295,38 @@ void PolyFilter::updateSigmas(const SigmaXMat& x,
 	_params.R(2,2) = y(2);
 
 	std::cout << "UPDATED SIGMAS" << std::endl;
-	std::cout << "X: " << _params.sigma_x.transpose() << std::endl;
-	std::cout << "Y: " << _params.sigma_y.transpose() << std::endl;
+	std::cout << "X: " << _params.sigmastate_.transpose() << std::endl;
+	std::cout << "Y: " << _params.sigmameas_.transpose() << std::endl;
 }
 
 void PolyFilter::updateSampleTime(double dt) {
 	_params.T = dt;
 	_params.A = computeA(dt); 
-	_params.Q = computeQ(dt, _params.sigma_x);
+	_params.Q = computeQ(dt, _params.sigmastate_);
 }
 
 
 void PolyFilter::updateSigmaY(const Vector3d& s) {
-	_params.sigma_y = s;
+	_params.sigmameas_ = s;
 
-    _params.R = RMat::Identity();
-    _params.R(0,0) = s(0);
-    _params.R(1,1) = s(1);
-    _params.R(2,2) = s(2);
+	_params.R = RMat::Identity();
+	_params.R(0,0) = s(0);
+	_params.R(1,1) = s(1);
+	_params.R(2,2) = s(2);
 }
 
 // ===========================================================
 const Vector3d PolyFilter::Pos() const {
-	Vector3d out(_x.block<3,1>(0,0));
+	Vector3d out(state_.block<3,1>(0,0));
 	return out;
 }
 
 const Vector3d PolyFilter::Vel() const {
-    Vector3d out(_x.block<3,1>(3,0));
+	Vector3d out(state_.block<3,1>(3,0));
 	return out;
 }
 
 const Vector3d PolyFilter::Acc() const {
-    Vector3d out(_x.block<3,1>(6,0));
+	Vector3d out(state_.block<3,1>(6,0));
 	return out;
 }

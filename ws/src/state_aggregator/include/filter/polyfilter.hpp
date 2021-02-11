@@ -3,15 +3,11 @@
  * @file polyfilter.hpp
  */
 
-#ifndef _POLYFILTER_HPP_
-#define _POLYFILTER_HPP_
+#pragma once
 
 #include <Eigen/Dense>
 #include <mutex>
-
-#define STATE_DIM (9)
-#define INPUT_DIM (3)
-#define MEAS_DIM (3)
+#include "filter/filter.hpp"
 
 #define SIGMAX_DIM (3)
 #define SIGMAY_DIM (3)
@@ -46,10 +42,10 @@ struct TrackerParam {
 		double T;
 
 	// Standard deviations of the model uncertainty. 
-	SigmaXMat sigma_x;
+	SigmaXMat sigmastate_;
 
 	// Variance vector of the measurement noise.
-	SigmaYMat sigma_y;
+	SigmaYMat sigmameas_;
 
 	// Linearization of the dynamics model
 	DynMat A;
@@ -62,8 +58,8 @@ struct TrackerParam {
 	// Constructor
 	TrackerParam() : 
 		T(1.0),
-		sigma_x(SigmaXMat::Ones()),
-		sigma_y(SigmaYMat::Ones()),
+		sigmastate_(SigmaXMat::Ones()),
+		sigmameas_(SigmaYMat::Ones()),
 		A(DynMat::Identity()),
 		Q(QMat::Identity()), 
 		H(HMat::Zero()),
@@ -71,19 +67,22 @@ struct TrackerParam {
 };
 
 
-class PolyFilter {
+class PolyFilter : public Filter {
 
 	public:
 		EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-			PolyFilter(const Eigen::Vector3d& p0,
-					const SigmaXMat& sigma_x, const SigmaYMat& sigma_y,
-					double dt);
+		PolyFilter(const Eigen::Vector3d& p0,
+				const SigmaXMat& sigmastate_,
+				const SigmaYMat& sigmameas_,
+				double dt);
 		~PolyFilter();
 
-		void reset(const XMat& x0, double s0);
+		void reset(const XMat& x0);
 
 		void resetPosition(const Eigen::Vector3d& p0);
+
+		void setGain(const KMat& k);
 
 		void prediction(double dt);
 
@@ -105,13 +104,15 @@ class PolyFilter {
 		void updateSigmas(const SigmaXMat& x, const SigmaYMat& y);
 
 	private:
-		mutable std::mutex _mx;
+		mutable std::mutex mx_;
 
-		XMat _x;
-		UMat _u;
-		YMat _y;
+		XMat state_;
+		UMat input_;
+		YMat meas_;
 
 		PMat _P;
+
+		KMat FilterGain_;
 
 		TrackerParam _params;
 
@@ -172,5 +173,3 @@ class PolyFilter {
 		 **/
 		void updateSigmaY(const SigmaYMat& s);
 };
-
-#endif
