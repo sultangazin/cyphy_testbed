@@ -56,8 +56,8 @@ class CISSupervisor {
 
 		XType x0_;
 
-		XType x_ref_;
-		XType x_;
+		XType state_ref_;
+		XType state_;
 
 		std::array<double, CISS_STATESIZE_1D> K_;
 

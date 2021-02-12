@@ -153,18 +153,18 @@ void CISSupervisorROS::onNewState(
 	// Read the timestamp of the message
 	//t.tv_sec = msg->header.stamp.sec;
 	//t.tv_nsec = msg->header.stamp.nsec;
-	XType state_x;
-	state_x(0) = msg->p.x;
-	state_x(1) = msg->p.y;
-	state_x(2) = msg->p.z;
-	state_x(3) = msg->v.x;
-	state_x(4) = msg->v.y;
-	state_x(5) = msg->v.z;
-	state_x(6) = msg->a.x;
-	state_x(7) = msg->a.y;
-	state_x(8) = msg->a.z;
+	XType state_;
+	state_(0) = msg->p.x;
+	state_(1) = msg->p.y;
+	state_(2) = msg->p.z;
+	state_(3) = msg->v.x;
+	state_(4) = msg->v.y;
+	state_(5) = msg->v.z;
+	state_(6) = msg->a.x;
+	state_(7) = msg->a.y;
+	state_(8) = msg->a.z;
 
-	supervisor_->SetState(state_x);
+	supervisor_->SetState(state_);
 	quat_.vec() = Eigen::Vector3d (msg->q.x, msg->q.y, msg->q.z);
 	quat_.w() = msg->q.w;
 	quat_.normalize();
@@ -176,14 +176,14 @@ void CISSupervisorROS::onNewState(
 	// I need to improve this...
 	double dt = msg->header.stamp.toSec() - last_state_time_;
 	if (dt >= 0.10) {
-		ros::Time sup_exe_start = ros::Time::now();
+		ros::Time ctrl_activation = ros::Time::now();
 		UType control_cmd;
 		UType u_body(UType::Zero()); 
 		testbed_msgs::ControlStamped control_msg;
 		cis_supervisor::PerformanceMsg ctrl_perf_msg;
 
 		//std::cout << "Dt = " << dt << std::endl;
-		last_state_time_ = ros::Time::now().toSec();
+		last_state_time_ = ctrl_activation.toSec();
 		if (supervisor_->isActive()) {
 			supervisor_->Step(0.05);
 
@@ -209,7 +209,7 @@ void CISSupervisorROS::onNewState(
 		// Performance Message
 		ros::Time msg_timestamp = ros::Time::now();
 		double PubPeriod = (msg_timestamp - last_sent_time).toSec();
-		double SupExeTime = (msg_timestamp - sup_exe_start).toSec();
+		double SupExeTime = (msg_timestamp - ctrl_activation).toSec();
 		last_sent_time = msg_timestamp;
 
 		/*
@@ -218,16 +218,16 @@ void CISSupervisorROS::onNewState(
 		std::cout << std::endl;
 		*/
 		
-		ctrl_perf_msg.header.stamp = control_msg.header.stamp;
+		control_msg.header.stamp = msg_timestamp;
+		ctrl_perf_msg.header.stamp = msg_timestamp;
+
 		ctrl_perf_msg.thrust = thrust;
 		for (int i = 0; i < 3; i++) {
 			ctrl_perf_msg.jerk_body[i] = u_body(i);
 		}
 		ctrl_perf_msg.ang_velocity[0] = control_msg.control.roll;
 		ctrl_perf_msg.ang_velocity[1] = control_msg.control.pitch;
-
-		control_msg.header.stamp = msg_timestamp;
-		ctrl_perf_msg.header.stamp = msg_timestamp;
+		
 		cis_supervisor_ctrl_.publish(control_msg);
 		performance_pub_.publish(ctrl_perf_msg);
 	}

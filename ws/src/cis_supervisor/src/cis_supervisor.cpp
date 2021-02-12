@@ -122,29 +122,26 @@ UType CISSupervisor::ComputeNominalU(const XType& err) {
 }
 
 void CISSupervisor::Step(double deltaT) {
-	XType x_curr_ = x_;
+	XType state_curr_ = state_;
 
 	// Compute the error
-	XType err = x_ref_ - x_curr_;
+	XType err = state_ref_ - state_curr_;
 	UType u_des = ComputeNominalU(err);
 	ctrl_outputs_ = u_des;
 
 	// Compute the nominal next state
-	XType x_next_des = mdl_->Ad * x_curr_ + mdl_->Bd * u_des;
+	XType state_next_des = mdl_->Ad * state_curr_ + mdl_->Bd * u_des;
 
-	bool cond = isContained(x_next_des);
+	bool cond = isContained(state_next_des);
 	if (cond) {
 		// Do not print here, we know we are good..
-		/*
 		cout << "u_des: " << u_des.transpose() << endl;
-		cout << "curr_in: " << x_curr_.transpose() << endl;
-		cout << "next_in: " << x_next_des.transpose() << endl;
+		cout << "curr_in: " << state_curr_.transpose() << endl;
+		cout << "next_in: " << state_next_des.transpose() << endl;
 		cout << endl;
-		*/
-		x_curr_ = x_next_des;
 	} else {
 		// Check in which CIS the current state is located
-		vector<int> active_ciss = findCIS(x_curr_);
+		vector<int> active_ciss = findCIS(state_curr_);
 		int Ncis = active_ciss.size();
 		cout << "Ncis: " << Ncis << endl;
 
@@ -157,7 +154,7 @@ void CISSupervisor::Step(double deltaT) {
 
 			polytope ptope(RCISs_.get_polA(cindex), RCISs_.get_polb(cindex));
 			pair<double, UType> res = callSupervisor(
-					x_curr_, u_des, mdl_, ptope, inputSet_, 0);
+					state_curr_, u_des, mdl_, ptope, inputSet_, 0);
 
 			f_cand[k] = res.first;
 			u_cand[k] = res.second;
@@ -172,8 +169,8 @@ void CISSupervisor::Step(double deltaT) {
 
 		if (min_el_it == f_cand.end() || *min_el_it == __DBL_MAX__) {
 			cout << "All the optimizations failed.." << endl;
-			cout << "[fail] curr_corr: " << x_curr_.transpose() << endl;
-			cout << "[fail] next_corr: " << x_next_des.transpose() << endl;
+			cout << "[fail] curr_corr: " << state_curr_.transpose() << endl;
+			cout << "[fail] next_corr: " << state_next_des.transpose() << endl;
 			cout << "[fail] costs: [ ";
 			for (auto& el : f_cand) {
 				cout << el << " "; 
@@ -188,18 +185,18 @@ void CISSupervisor::Step(double deltaT) {
 		UType u_corrected = u_cand[min_el_it - f_cand.begin()];
 		
 		// Make sure that next state is indeed in the next cis:
-		XType x_next = mdl_->Ad * x_curr_ + mdl_->Bd * u_corrected;
-		if (!isContained(x_next)){
+		XType state_next = mdl_->Ad * state_curr_ + mdl_->Bd * u_corrected;
+		if (!isContained(state_next)){
 			cout << "Next state not in a CIS!" << endl;
 			cout << "u_corr: " << setprecision(10) << u_corrected.transpose() << endl;
-			cout << "Curr: " << setprecision(10) << x_curr_.transpose() << endl;
-			cout << "Next: " << setprecision(10) << x_next.transpose() << endl;
+			cout << "Curr: " << setprecision(10) << state_curr_.transpose() << endl;
+			cout << "Next: " << setprecision(10) << state_next.transpose() << endl;
 			cout << endl;
 		} else {
 			cout << "Corrected!" << endl;
 			cout << "u_corr: " << setprecision(10) << u_corrected.transpose() << endl;
-			cout << "curr_corr: " << setprecision(10) << x_curr_.transpose() << endl;
-			cout << "next_corr: " << setprecision(10) << x_next.transpose() << endl;
+			cout << "curr_corr: " << setprecision(10) << state_curr_.transpose() << endl;
+			cout << "next_corr: " << setprecision(10) << state_next.transpose() << endl;
 			cout << endl;
 		}
 
@@ -216,15 +213,15 @@ const UType CISSupervisor::getControls() const {
 }
 
 void CISSupervisor::SetSetpoint(const XType& xref) {
-	x_ref_ = xref;
+	state_ref_ = xref;
 }
 
 void CISSupervisor::SetState(const XType& x) {
-	x_ = x;
+	state_ = x;
 }
 
 pair<double, UType> CISSupervisor::callSupervisor(
-		XType x_curr,
+		XType state_curr,
 		UType u_des,
 		const model* mdl,
 		const polytope& RCIS,
@@ -243,9 +240,9 @@ pair<double, UType> CISSupervisor::callSupervisor(
 	MatrixXd Gu = inputConstr->A;
 	MatrixXd Fu = inputConstr->b;
 
-	// wrt to u: cisA*Bd* u < cisb - cisA*Ad*x_curr
+	// wrt to u: cisA*Bd* u < cisb - cisA*Ad*state_curr
 	// Simplify to box constraints:
-	polytope box = simplify2box(x_curr, RCIS, mdl, inputConstr);
+	polytope box = simplify2box(state_curr, RCIS, mdl, inputConstr);
 	MatrixXd Aineq = box.A;
 	VectorXd bineq = box.b.col(0);
 
@@ -284,7 +281,7 @@ pair<double, UType> CISSupervisor::callSupervisor(
 		MatrixXd Aineq(rcisA.rows()+Gu.rows(), Bd.cols());
 		Aineq << rcisA * Bd, Gu;
 		VectorXd bineq(rcisb.rows() + Fu.rows());
-		bineq << rcisb - rcisA * Ad * x_curr, Fu.col(0);
+		bineq << rcisb - rcisA * Ad * state_curr, Fu.col(0);
 		
 		// Approach 2: Use Gurobi:
 		// Original cost: || u - udes ||^2.
