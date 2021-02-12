@@ -46,6 +46,8 @@ class XSimulator {
         SimParams parameters_;
         simThread_arg arg_;
 
+	double noise_std_;
+
         bool initialized_;
 
         ros::Subscriber ctrl_topic_sub_;
@@ -66,6 +68,8 @@ class XSimulator {
         double a_drag_;
 
         void updateState(double dt);
+
+	double generate_noise();
 
         std::thread sim_thread;
         std::thread pub_thread;

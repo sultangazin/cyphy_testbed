@@ -3,6 +3,8 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "utilities/timeutils/timeutils.hpp"
 
+#include <time.h>
+
 using namespace std;
 
 void composeVRPN_msg(
@@ -42,6 +44,7 @@ void sim_thread_fnc(void* p);
 
 /// =============================================================
 XSimulator::XSimulator() {
+	srand(time(NULL));
 	initialized_ = false;
 }
 
@@ -125,6 +128,9 @@ bool XSimulator::LoadParameters(const ros::NodeHandle& n) {
 	nl.param<double>("param/ang_drag_coeff", a_drag_, 0.00001);
 	nl.param<double>("param/sim_period", sim_period_, 0.001);
 	nl.param<double>("param/sensor_period", sens_period_, 0.002);
+
+	nl.param<double>("param/sensor_noise", noise_std_, 0.003);
+
 
 	std::string param_name;
 	if (nl.searchParam("param/x0", param_name)) {
@@ -245,6 +251,13 @@ void sim_thread_fnc(void* p) {
 }
 
 
+double XSimulator::generate_noise() {
+	double noise = (rand() % 100) / 100.0;
+	noise *= noise_std_;
+
+	return noise;
+}
+
 
 void XSimulator::pub_thread_fnc(double dt) {   
 	struct timespec time;
@@ -266,13 +279,18 @@ void XSimulator::pub_thread_fnc(double dt) {
 
 		ros::Time timestamp = ros::Time::now();
 
-		geometry_msgs::PoseStamped sim_vrpn_pose_msg;
-		composeVRPN_msg(sim_vrpn_pose_msg, x, timestamp);
+		geometry_msgs::PoseStamped vrpn_msg;
+		composeVRPN_msg(vrpn_msg, x, timestamp);
+
+		// Add Noise
+		vrpn_msg.pose.position.x += generate_noise();
+                vrpn_msg.pose.position.y += generate_noise();
+                vrpn_msg.pose.position.z += generate_noise();
 
 		testbed_msgs::CustOdometryStamped sim_state_msg;
 		composeCodom_msg(sim_state_msg, x, acc, timestamp);
 
-		vrpn_sim_pub_.publish(sim_vrpn_pose_msg);
+		vrpn_sim_pub_.publish(vrpn_msg);
 		//state_pub_.publish(sim_state_msg); 
 
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_activation, NULL);
