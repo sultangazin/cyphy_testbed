@@ -8,6 +8,7 @@
 #include <testbed_msgs/ControlStamped.h>
 
 #include "utilities/timeutils/timeutils.hpp"
+#include "utilities/custom_conversion/custom_conversion.hpp"
 #include <mutex>
 
 void thread_fnc(void* p);
@@ -20,7 +21,8 @@ CISSupervisorROS::CISSupervisorROS():
 	active_(false),
 	setpoint_type_("stop"),
 	last_state_time_(-1.0),
-	initialized_(false) {}
+	initialized_(false),
+	expected_state_{XType::Zero()}{}
 
 	CISSupervisorROS::~CISSupervisorROS() {};
 
@@ -169,6 +171,7 @@ void CISSupervisorROS::onNewState(
 	quat_.w() = msg->q.w;
 	quat_.normalize();
 
+	supervisor_->SetQuat(quat_);
 	periodic_thread_arg_.quat = quat_;
 
 	// In order to reduce the jitter among estimate update and execution of the 
@@ -176,7 +179,7 @@ void CISSupervisorROS::onNewState(
 	// I need to improve this...
 	double dt = msg->header.stamp.toSec() - last_state_time_;
 	if (dt >= 0.10) {
-		ros::Time ctrl_activation = ros::Time::now();
+		ros::Time ctrl_activation = msg->header.stamp;
 		UType control_cmd;
 		UType u_body(UType::Zero()); 
 		testbed_msgs::ControlStamped control_msg;
@@ -184,9 +187,9 @@ void CISSupervisorROS::onNewState(
 
 		//std::cout << "Dt = " << dt << std::endl;
 		last_state_time_ = ctrl_activation.toSec();
+		expected_state_ = supervisor_->getNextState();
 		if (supervisor_->isActive()) {
-			supervisor_->Step(0.05);
-
+			supervisor_->Step(0.10);
 			// Get the desired jerk
 			control_cmd = supervisor_->getControls();
 			// ... convert the jerk in autopilot commands
@@ -198,13 +201,17 @@ void CISSupervisorROS::onNewState(
 				control_msg.control.pitch = (u_body(0) / thrust) * 0.032;
 			}
 			thrust = std::max(thrust + 0.032 * u_body(2) * dt, 0.0);
-			control_msg.control.thrust = thrust;
+			control_msg.control.thrust = thrust / 0.032; // Because the library works with acc
 		} else {
 			control_msg.control.thrust = 0.0;
 			control_msg.control.roll = 0.0;
 			control_msg.control.pitch = 0.0;
 			control_msg.control.yaw_dot = 0.0;
 		}
+
+		// Crazyflie Fuck
+		control_msg.control.pitch *= -1;
+		control_msg.control.yaw_dot = supervisor_->getYawCtrl();
 
 		// Performance Message
 		ros::Time msg_timestamp = ros::Time::now();
@@ -227,6 +234,10 @@ void CISSupervisorROS::onNewState(
 		}
 		ctrl_perf_msg.ang_velocity[0] = control_msg.control.roll;
 		ctrl_perf_msg.ang_velocity[1] = control_msg.control.pitch;
+		for (int i = 0; i < 9; i++) {
+			ctrl_perf_msg.state_pred[i] = expected_state_(i);
+		}
+		ctrl_perf_msg.yaw_rate = control_msg.control.yaw_dot;  
 		
 		cis_supervisor_ctrl_.publish(control_msg);
 		performance_pub_.publish(ctrl_perf_msg);

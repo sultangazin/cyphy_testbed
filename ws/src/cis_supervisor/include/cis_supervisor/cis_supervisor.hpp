@@ -41,6 +41,7 @@ class CISSupervisor {
 		void SetInitialState(const XType& x0);
 		void SetSetpoint(const XType& xref);
 		void SetState(const XType& x);
+		void SetQuat(const Eigen::Quaterniond& q);
 
 		void SetK(const std::array<double, CISS_STATESIZE_1D>& k);
 
@@ -50,6 +51,9 @@ class CISSupervisor {
 		void Step(double T); 
 		void getControls(UType& ctrls) const;
 		const UType getControls() const;
+		double getYawCtrl();
+
+		const XType getNextState() const;
 
 	private:
 		bool active_;
@@ -58,10 +62,15 @@ class CISSupervisor {
 
 		XType state_ref_;
 		XType state_;
+		XType state_next_des_;
+
+		Eigen::Quaterniond quat_;
 
 		std::array<double, CISS_STATESIZE_1D> K_;
+		double kr_rates_;
 
 		UType ctrl_outputs_;
+		double ctrl_yaw_;
 
 		// CIS Polytopes
 		unionPoly CISs_;
@@ -77,6 +86,8 @@ class CISSupervisor {
 		std::vector<int> findCIS(const XType& x);
 
 		UType ComputeNominalU(const XType& err);
+		double ComputeYawCtrl(const Eigen::Vector3d& acc_d,
+				const Eigen::Vector3d& acc);
 
 		std::pair<double, UType> callSupervisor(
 				XType x_curr,

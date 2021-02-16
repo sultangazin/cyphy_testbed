@@ -128,5 +128,6 @@ class CISSupervisorROS {
 		CISSupervisor* supervisor_;
 
 		Eigen::Quaterniond quat_;
+		XType expected_state_;
 
 };

@@ -55,8 +55,17 @@ bool check_ineq(const XType& x0, const Eigen::MatrixXd& Aineq, const Eigen::Vect
 }
 
 
-CISSupervisor::CISSupervisor() : ctrl_outputs_(UType::Zero()),
-	K_{58, 43, 10}, active_{false} {}
+CISSupervisor::CISSupervisor() :
+	ctrl_outputs_(UType::Zero()),
+	K_{58, 43, 10},
+	x0_{XType::Zero()},
+	state_{XType::Zero()},
+	state_next_des_{XType::Zero()},
+	quat_{Quaterniond::Identity()},
+	active_{false} {
+		ctrl_yaw_ = 0;
+		kr_rates_ = 0.8;
+	}
 
 	CISSupervisor::~CISSupervisor() {}
 
@@ -73,6 +82,12 @@ void CISSupervisor::SetK(const array<double, CISS_STATESIZE_1D>& k) {
 	}
 	cout << "]" << endl;
 }
+
+
+void CISSupervisor::SetQuat(const Quaterniond& q) {
+	quat_ = q;
+}
+
 
 void CISSupervisor::LoadModel() {
 	Eigen::MatrixXd Ad, Bd;
@@ -121,24 +136,64 @@ UType CISSupervisor::ComputeNominalU(const XType& err) {
 	return U;
 }
 
+
+double CISSupervisor::ComputeYawCtrl(
+		const Vector3d& acc_d,
+		const Vector3d& acc) {
+
+	Vector3d z_d = acc_d.normalized();
+	Vector3d z = acc.normalized();	
+
+	Vector3d ni = z.cross(z);
+	double alpha = std::acos(ni.norm());
+	ni.normalize();
+
+	// Express the axis in body frame
+	Vector3d nb = quat_.inverse() * ni;
+	Quaterniond q_pq(AngleAxisd(alpha, nb));
+
+	// [yB_des]
+	Vector3d y_d = Vector3d::UnitY();
+	// [xB_des]
+	Vector3d x_d = (y_d.cross(z_d)).normalized();
+
+	Matrix3d Rdes;
+	Rdes.col(0) = x_d;
+	Rdes.col(1) = y_d;
+	Rdes.col(2) = z_d;
+
+	Quaterniond q_r =
+		q_pq.inverse() * quat_.inverse() * Quaterniond(Rdes);
+	
+	double ctrl_yaw = (q_r.w() > 0) ? 
+		(2.0 * kr_rates_ * q_r.z()) : (-2.0 * kr_rates_ * q_r.z());
+
+	return ctrl_yaw;
+}
+
 void CISSupervisor::Step(double deltaT) {
 	XType state_curr_ = state_;
 
 	// Compute the error
 	XType err = state_ref_ - state_curr_;
 	UType u_des = ComputeNominalU(err);
+	Vector3d acc_ref = state_ref_.block<3,1>(6,0);
+	Vector3d acc = state_.block<3, 1>(6,0);
+	ctrl_yaw_ = ComputeYawCtrl(acc_ref, acc);
 	ctrl_outputs_ = u_des;
 
 	// Compute the nominal next state
-	XType state_next_des = mdl_->Ad * state_curr_ + mdl_->Bd * u_des;
+	state_next_des_ = mdl_->Ad * state_curr_ + mdl_->Bd * u_des;
 
-	bool cond = isContained(state_next_des);
+	bool cond = isContained(state_next_des_);
 	if (cond) {
 		// Do not print here, we know we are good..
+		/*
 		cout << "u_des: " << u_des.transpose() << endl;
 		cout << "curr_in: " << state_curr_.transpose() << endl;
-		cout << "next_in: " << state_next_des.transpose() << endl;
+		cout << "next_in: " << state_next_des_.transpose() << endl;
 		cout << endl;
+		*/
 	} else {
 		// Check in which CIS the current state is located
 		vector<int> active_ciss = findCIS(state_curr_);
@@ -170,7 +225,7 @@ void CISSupervisor::Step(double deltaT) {
 		if (min_el_it == f_cand.end() || *min_el_it == __DBL_MAX__) {
 			cout << "All the optimizations failed.." << endl;
 			cout << "[fail] curr_corr: " << state_curr_.transpose() << endl;
-			cout << "[fail] next_corr: " << state_next_des.transpose() << endl;
+			cout << "[fail] next_corr: " << state_next_des_.transpose() << endl;
 			cout << "[fail] costs: [ ";
 			for (auto& el : f_cand) {
 				cout << el << " "; 
@@ -185,20 +240,21 @@ void CISSupervisor::Step(double deltaT) {
 		UType u_corrected = u_cand[min_el_it - f_cand.begin()];
 		
 		// Make sure that next state is indeed in the next cis:
-		XType state_next = mdl_->Ad * state_curr_ + mdl_->Bd * u_corrected;
-		if (!isContained(state_next)){
+		state_next_des_ = mdl_->Ad * state_curr_ + mdl_->Bd * u_corrected;
+		if (!isContained(state_next_des_)){
 			cout << "Next state not in a CIS!" << endl;
 			cout << "u_corr: " << setprecision(10) << u_corrected.transpose() << endl;
 			cout << "Curr: " << setprecision(10) << state_curr_.transpose() << endl;
-			cout << "Next: " << setprecision(10) << state_next.transpose() << endl;
+			cout << "Next: " << setprecision(10) << state_next_des_.transpose() << endl;
 			cout << endl;
 		} else {
 			cout << "Corrected!" << endl;
 			cout << "u_corr: " << setprecision(10) << u_corrected.transpose() << endl;
 			cout << "curr_corr: " << setprecision(10) << state_curr_.transpose() << endl;
-			cout << "next_corr: " << setprecision(10) << state_next.transpose() << endl;
+			cout << "next_corr: " << setprecision(10) << state_next_des_.transpose() << endl;
 			cout << endl;
 		}
+
 
 		ctrl_outputs_ = u_corrected;
 	}
@@ -210,6 +266,14 @@ void CISSupervisor::getControls(UType& ctrls) const {
 
 const UType CISSupervisor::getControls() const {
 	return ctrl_outputs_;
+}
+
+double CISSupervisor::getYawCtrl() {
+	return ctrl_yaw_;
+}
+
+const XType CISSupervisor::getNextState() const {
+	return state_next_des_;
 }
 
 void CISSupervisor::SetSetpoint(const XType& xref) {
