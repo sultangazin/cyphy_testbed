@@ -47,8 +47,8 @@ The following nodes will be started:
 				respawn="true"
 				respawn_delay="3"
 				output="screen"> 
-			<param name="sigmax" value="0.01" type='double' />
-			<param name="sigmay" value="0.001" type='double' />
+			<param name="sigmax" value="0.1" type='double' />
+			<param name="sigmay" value="0.0001" type='double' />
 			<param name="param/target_name" value="$(arg vehicle_frame)" />
 
 			<param name="topics/out_ext_position_topic" value="external_position" />
@@ -56,7 +56,6 @@ The following nodes will be started:
 			<param name="topics/out_ext_pose_rpy_topic" value="external_pose_rpy" />
 			<param name="topics/out_ext_odom_topic" value="external_odom" />
 			<param name="topics/out_ext_codom_topic" value="external_codom" />
-
 			<param name="time_delay" value="0.0" type='double' />
 		</node>
 	</group>
@@ -76,12 +75,13 @@ The following nodes will be started:
 		</include>
 
 		<!--
-			<include file="$(find demo_launchers)/launch/radio_server.launch">
+			Connection with Crazyflie
+		-->
+		<include file="$(find demo_launchers)/launch/radio_server.launch">
 			<arg name="rs_name" value="$(arg server)" />
-			</include>
+		</include>
 
-
-			<include file="$(find demo_launchers)/launch/cf_bridge.launch">
+		<include file="$(find demo_launchers)/launch/cf_bridge.launch">
 			<arg name="uri" value="$(arg uri)" />
 			<arg name="frame" value="$(arg vehicle_frame)" />
 			<arg name="server" value="$(arg server)" />
@@ -90,14 +90,16 @@ The following nodes will be started:
 			<arg name="provide_pose" value="$(arg provide_pose)" />
 			<arg name="controller_type" value="Mellinger" />
 			<arg name="estimator_type" value="EKF" />
+			<arg name="control_mode" value="0" />
+		</include>
+
+
+		<!-- ===================================== -->
+		<!-- Launch the Arena Node
+			<include file="$(find demo_launchers)/launch/simulator.launch">
 			</include>
 		-->
 
-			<!-- ===================================== -->
-			<!-- Launch the Arena Node
-			-->
-			<include file="$(find demo_launchers)/launch/simulator.launch">
-			</include>
 
 			<!--
 				===================================================
@@ -110,6 +112,8 @@ The following nodes will be started:
 			<param name="param/vehicle_name" value="$(arg vehicle_frame)" />
 		</node>
 
+		<!--
+		--> 
 		<node name="cis_supervisor"
 			pkg="cis_supervisor"
 			type="cis_supervisor"
@@ -127,45 +131,40 @@ The following nodes will be started:
 		<arg name="topics/ctrl_perf_topic" value="/$(arg vehicle_frame)/ctrl_perf" />
 		<arg name="topics/state_topic" value="/$(arg vehicle_frame)/external_codom" />
 		<arg name="param/vehicle_name" value="$(arg vehicle_frame)" />
-		<arg name="control_mode" value="ANGLES" />
+		<arg name="control_mode" value="RATES" />
 		</include>
+		</group>
+	-->
 
-		<include file="$(find demo_launchers)/launch/ext_control2.launch">
-		<arg name="topics/setpoint_topic" value="/$(arg vehicle_frame)/setpoint" />
-		<arg name="topics/control_topic" value="/area0/controller/geometric_ctrl2/$(arg vehicle_frame)/control" />
-		<arg name="topics/ctrl_perf_topic" value="/$(arg vehicle_frame)/ctrl_perf" />
-		<arg name="topics/state_topic" value="/$(arg vehicle_frame)/external_codom" />
-		<arg name="param/vehicle_name" value="$(arg vehicle_frame)" />
-		<arg name="control_mode" value="ANGLES" />
-		</include>
-
-
-		<node name="cmd_vel_converter"
-		pkg="controller"
-		type="cmd_vel_converter_node"
-		output="screen">
-		<param name="topics/control" value="/$(arg vehicle_frame)/control" />
-		<param name="topics/cmd_vel" value="/$(arg vehicle_frame)/cmd_vel" />
-		</node>
+		<group ns="$(arg vehicle_frame)"> 
+			<node name="cmd_vel_converter" pkg="controller" type="cmd_vel_converter_node" output="screen">
+				<param name="topics/control" value="/$(arg vehicle_frame)/control" />
+				<param name="topics/cmd_vel" value="/$(arg vehicle_frame)/cmd_vel" />
+			</node>
 		</group>
 
-	-->
+
 		<!--
-	<node pkg="rqt_plot"
+			<node pkg="rqt_plot"
 			type="rqt_plot" 
 			name="$(arg vehicle_frame)_plot_estimate" 
-		args="/$(arg vehicle_frame)/external_codom/p/x:y:z">
-	</node>
+			args="/$(arg vehicle_frame)/external_codom/p/x:y:z">
+			</node>
 		-->
 
 
-	<node pkg="rosbag" name="cis_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_cis  /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/setpoint /CISSupervisor/$(arg vehicle_frame)/cis_perf /$(arg vehicle_frame)/xsim_state"/>
+			<node pkg="rosbag" name="cis_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_cis  /area0/sensors/optitrack/$(arg vehicle_frame)/data   /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/setpoint /CISSupervisor/$(arg vehicle_frame)/cis_perf /$(arg vehicle_frame)/control /$(arg vehicle_frame)/cmd_vel"/>
+
+				<!--
+					<node pkg="rosbag" name="cis_$(arg vehicle_frame)_sim" type="record" args="-O /tmp/$(arg vehicle_frame)_cis_sim  /area0/sensors/optitrack/$(arg vehicle_frame)/data   /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/setpoint /CISSupervisor/$(arg vehicle_frame)/cis_perf /$(arg vehicle_frame)/xsim_state /$(arg vehicle_frame)/control /$(arg vehicle_frame)/cmd_vel"/>
+				-->
 
 
-			<!--
-				<node pkg="rosbag" name="mocap_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_mocap  /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/external_pose_rpy /area0/sensors/optitrack/$(arg vehicle_frame)/data"/>
-			-->
 
-			</launch>
+						<!--
+							<node pkg="rosbag" name="mocap_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_mocap  /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/external_pose_rpy /area0/sensors/optitrack/$(arg vehicle_frame)/data"/>
+						-->
+
+						</launch>
 
 

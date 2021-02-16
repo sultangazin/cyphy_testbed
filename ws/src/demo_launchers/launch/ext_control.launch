@@ -15,31 +15,31 @@
   <arg name="g_vehicleMass" value="0.034" />
   <arg name="massThrust" value="132000" />
 
-  <arg name="kp_xy" value="0.4" />
-  <arg name="kd_xy" value="0.2" />
+  <arg name="kp_xy" value="15.4" />
+  <arg name="kd_xy" value="9.2" />
   <arg name="ki_xy" value="0.05" />
   <arg name="i_range_xy" value="0.2" />
 
-  <arg name="kp_z" value="1.25" />
-  <arg name="kd_z" value="0.4" />
+  <arg name="kp_z" value="18.25" />
+  <arg name="kd_z" value="8.4" />
   <arg name="ki_z" value="0.05" />
   <arg name="i_range_z" value="0.4" />
   <!-- 70000 20000-->  
-  <arg name="kR_xy" value="30000.0" />
-  <arg name="kw_xy" value="1000.0" />
+  <arg name="kR_xy" value="180000" />
+  <arg name="kw_xy" value="13000.0" />
   <arg name="ki_m_xy" value="0.0" />
   <arg name="i_range_m_xy" value="1.0" />
 
   <!-- 60000 12000-->
-  <arg name="kR_z" value="6000.0" />
-  <arg name="kw_z" value="100.0" />
+  <arg name="kR_z" value="60000.0" />
+  <arg name="kw_z" value="1200.0" />
   <arg name="ki_m_z" value="500" />
   <arg name="i_range_m_z" value="1500" />
   
   <arg name="kd_omega_rp" value="200" />
 
-  <arg name="kpq_rates" value="2.0" />
-  <arg name="kr_rates" value="3.0" />
+  <arg name="kpq_rates" value="0.5" />
+  <arg name="kr_rates" value="0.3" />
 
   <arg name="i_error_x" value="0" />
   <arg name="i_error_y" value="0" />

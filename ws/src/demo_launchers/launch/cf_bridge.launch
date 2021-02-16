@@ -8,6 +8,7 @@
     <arg name="provide_pose" default="False" />
     <arg name="controller_type" default="Mellinger" />
     <arg name="estimator_type" default="EKF" />
+    <arg name="control_mode" default="1" />
     
     <group ns="$(arg frame)">
         <node pkg="crazyflie_driver"
@@ -60,7 +61,7 @@ stabMode = {1 "angle" | 0 "rates"}
     <param name="ResEstimator" value='true' type='bool' />
     <param name="Controller" value="$(arg controller_type)" type='str' />
     <param name="Estimator" value="$(arg estimator_type)" type='str' />
-    <param name="stabMode" value="1" type='int' />
+    <param name="stabMode" value="$(arg control_mode)" type='int' />
 </node>
 
 
