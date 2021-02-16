@@ -16,7 +16,8 @@ void kf_thread_fnc(void* p);
 StateAggregator::StateAggregator():
 	received_reference_(false),
 	last_state_time_(-1.0),
-	initialized_(false) { 
+	initialized_(false),
+	ctrl_(Eigen::Vector3d::Zero()) { 
 	};
 
 StateAggregator::~StateAggregator() {};
@@ -44,8 +45,8 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 	Eigen::Vector3d sigma_x(_sigmax, _sigmax, _sigmax);
 	Eigen::Vector3d sigma_y(_sigmay, _sigmay, _sigmay);
 
-	//_pfilt = new PolyFilter(Eigen::Vector3d::Zero(), sigma_x, sigma_y, 0.002);
-	_pfilt = new LBFilter(Eigen::Vector3d::Zero(), 0.002);
+	_pfilt = new PolyFilter(Eigen::Vector3d::Zero(), sigma_x, sigma_y, 0.002);
+	//_pfilt = new LBFilter(Eigen::Vector3d::Zero(), 0.002);
 
 	// Advertise topics
 
@@ -80,6 +81,7 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 
 	arg_.period = 0.002;
 	arg_.pfilt = _pfilt;
+
 
 	//kf_thread = std::thread(kf_thread_fnc, (void*) &arg_); 
 	net_disc_thr = std::thread(&StateAggregator::net_discovery, this,
