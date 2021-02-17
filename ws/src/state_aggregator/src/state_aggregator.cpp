@@ -330,7 +330,6 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 	// Convert to euler
 	//euler_ = q_pf_.toRotationMatrix().eulerAngles(0, 1, 2);
 	euler_ = q2eul(q_pf_);
-	
 
 	// Pose: Position + Orientation
 	//ext_pose_msg_.header.stamp = msg->header.stamp;
