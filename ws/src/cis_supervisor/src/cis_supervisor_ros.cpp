@@ -48,6 +48,7 @@ bool CISSupervisorROS::Initialize(const ros::NodeHandle& n) {
 	// Instantiate classes
 	supervisor_ = new CISSupervisor();
 	supervisor_->SetK(ctrl_gains_);
+	supervisor_->SetKyaw(yaw_ctrl_gain_);
 
 	supervisor_->LoadModel();
 	supervisor_->LoadCISs();
@@ -115,6 +116,15 @@ bool CISSupervisorROS::LoadParameters(const ros::NodeHandle& n) {
 		ROS_INFO("No param 'param/ctrl_gains' found in an upward search");
 	}
 
+	if (np.searchParam("param/yaw_ctrl_gain", param_name)) {
+		std::cout << "Found " << param_name << std::endl; 
+		n.getParam(param_name, yaw_ctrl_gain_);
+		std::cout << "Yaw_K_gain: ";
+		std::cout << yaw_ctrl_gain_ << std::endl;
+	} else {
+		ROS_INFO("No param 'param/yaw_ctrl_gain' found in an upward search");
+	}
+
 	return true;
 }
 
@@ -179,7 +189,7 @@ void CISSupervisorROS::onNewState(
 	// I need to improve this...
 	double dt = msg->header.stamp.toSec() - last_state_time_;
 	if (dt >= 0.10) {
-		ros::Time ctrl_activation = msg->header.stamp;
+		ros::Time ctrl_activation = msg->header.stamp; // Use the time of the state message
 		UType control_cmd;
 		UType u_body(UType::Zero()); 
 		testbed_msgs::ControlStamped control_msg;
@@ -188,8 +198,8 @@ void CISSupervisorROS::onNewState(
 		//std::cout << "Dt = " << dt << std::endl;
 		last_state_time_ = ctrl_activation.toSec();
 		expected_state_ = supervisor_->getNextState();
-		if (supervisor_->isActive()) {
-			supervisor_->Step(0.10);
+		if (supervisor_->isControlActive()) {
+			bool active = supervisor_->Step(0.10);
 			// Get the desired jerk
 			control_cmd = supervisor_->getControls();
 			// ... convert the jerk in autopilot commands
@@ -209,9 +219,10 @@ void CISSupervisorROS::onNewState(
 			control_msg.control.yaw_dot = 0.0;
 		}
 
+		control_msg.control.yaw_dot = supervisor_->getYawCtrl();
+
 		// Crazyflie Fuck
 		control_msg.control.pitch *= -1;
-		control_msg.control.yaw_dot = supervisor_->getYawCtrl();
 
 		// Performance Message
 		ros::Time msg_timestamp = ros::Time::now();
@@ -236,8 +247,10 @@ void CISSupervisorROS::onNewState(
 		ctrl_perf_msg.ang_velocity[1] = control_msg.control.pitch;
 		for (int i = 0; i < 9; i++) {
 			ctrl_perf_msg.state_pred[i] = expected_state_(i);
+			ctrl_perf_msg.state_curr[i] = state_(i); 
 		}
 		ctrl_perf_msg.yaw_rate = control_msg.control.yaw_dot;  
+		ctrl_perf_msg.active = supervisor_->isSupervisionActive();
 		
 		cis_supervisor_ctrl_.publish(control_msg);
 		performance_pub_.publish(ctrl_perf_msg);
@@ -314,7 +327,7 @@ void thread_fnc(void* p) {
 
 		UType u_body(UType::Zero()); 
 
-		if (psupervisor->isActive()) {
+		if (psupervisor->isControlActive()) {
 			// Do something
 			psupervisor->Step(dt);
 

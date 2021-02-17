@@ -117,6 +117,7 @@ class CISSupervisorROS {
 
 		// DATA -------------------------------------------------------
 		std::array<double, CISS_STATESIZE_1D> ctrl_gains_;
+		double yaw_ctrl_gain_;
 
 		// THREAD OBJECTS 
 		Thread_arg periodic_thread_arg_;

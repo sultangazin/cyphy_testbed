@@ -35,8 +35,8 @@ class CISSupervisor {
 		~CISSupervisor(); 
 
 		void SetActive(bool active);
-		bool isActive();
-
+		bool isControlActive();
+		bool isSupervisionActive();
 
 		void SetInitialState(const XType& x0);
 		void SetSetpoint(const XType& xref);
@@ -44,11 +44,12 @@ class CISSupervisor {
 		void SetQuat(const Eigen::Quaterniond& q);
 
 		void SetK(const std::array<double, CISS_STATESIZE_1D>& k);
+		void SetKyaw(double d);
 
 		void LoadModel();
 		void LoadCISs();
 
-		void Step(double T); 
+		bool Step(double T); 
 		void getControls(UType& ctrls) const;
 		const UType getControls() const;
 		double getYawCtrl();
@@ -57,6 +58,7 @@ class CISSupervisor {
 
 	private:
 		bool active_;
+		bool supervision_active_;
 
 		XType x0_;
 

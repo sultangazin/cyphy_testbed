@@ -62,7 +62,8 @@ CISSupervisor::CISSupervisor() :
 	state_{XType::Zero()},
 	state_next_des_{XType::Zero()},
 	quat_{Quaterniond::Identity()},
-	active_{false} {
+	active_{false},
+	supervision_active_{false} {
 		ctrl_yaw_ = 0;
 		kr_rates_ = 0.8;
 	}
@@ -81,6 +82,13 @@ void CISSupervisor::SetK(const array<double, CISS_STATESIZE_1D>& k) {
 		cout << K_[i] << " ";
 	}
 	cout << "]" << endl;
+}
+
+void CISSupervisor::SetKyaw(double kyaw) {
+	cout << "CIS Supervisor - setting Kyaw: ";
+
+	kr_rates_ = kyaw;
+	cout << kr_rates_ << endl;;
 }
 
 
@@ -103,14 +111,14 @@ void CISSupervisor::LoadCISs() {
 	string path = ros::package::getPath("cis_supervisor");
 	for (int i=0; i < 9; i++) {
 		string filename = path + "/config/data/cis" + to_string(i);
-		cout << "[CISSupervisor] Loading " << filename << " data." << endl;
+		//cout << "[CISSupervisor] Loading " << filename << " data." << endl;
 		cisA = load_csv<Eigen::MatrixXd>(filename + "_A.csv");
 		cisb = load_csv<Eigen::MatrixXd>(filename + "_b.csv");
 		polytope CIS(cisA, cisb);
 		CISs_.add_poly(CIS);
 
 		filename = path + "/config/data/rcis" + to_string(i);
-		cout << "[CISSupervisor] Loading " << filename << " data." << endl;
+		//cout << "[CISSupervisor] Loading " << filename << " data." << endl;
 		rcisA = load_csv<Eigen::MatrixXd>(filename + "_A.csv");
 		rcisb = load_csv<Eigen::MatrixXd>(filename + "_b.csv");
 		polytope RCIS(rcisA, rcisb);
@@ -141,26 +149,28 @@ double CISSupervisor::ComputeYawCtrl(
 		const Vector3d& acc_d,
 		const Vector3d& acc) {
 
+	// Frame with the desired Zb and X align with the the X inertial frame 
 	Vector3d z_d = acc_d.normalized();
-	Vector3d z = acc.normalized();	
-
-	Vector3d ni = z.cross(z);
-	double alpha = std::acos(ni.norm());
-	ni.normalize();
-
-	// Express the axis in body frame
-	Vector3d nb = quat_.inverse() * ni;
-	Quaterniond q_pq(AngleAxisd(alpha, nb));
-
-	// [yB_des]
 	Vector3d y_d = Vector3d::UnitY();
-	// [xB_des]
 	Vector3d x_d = (y_d.cross(z_d)).normalized();
-
 	Matrix3d Rdes;
 	Rdes.col(0) = x_d;
 	Rdes.col(1) = y_d;
 	Rdes.col(2) = z_d;
+
+	// Current Zb
+	Vector3d z = acc.normalized();	
+	Vector3d ni = z.cross(z_d);
+	double alpha = std::asin(ni.norm());
+	ni.normalize();
+
+	// Express the rotation in body frame
+	Quaterniond q_pq(Quaterniond::Identity());
+
+	if (abs(alpha) > 0.001) {
+		Vector3d nb = quat_.inverse() * ni;
+		q_pq = AngleAxisd(alpha, nb);
+	}
 
 	Quaterniond q_r =
 		q_pq.inverse() * quat_.inverse() * Quaterniond(Rdes);
@@ -171,7 +181,7 @@ double CISSupervisor::ComputeYawCtrl(
 	return ctrl_yaw;
 }
 
-void CISSupervisor::Step(double deltaT) {
+bool CISSupervisor::Step(double deltaT) {
 	XType state_curr_ = state_;
 
 	// Compute the error
@@ -187,6 +197,7 @@ void CISSupervisor::Step(double deltaT) {
 
 	bool cond = isContained(state_next_des_);
 	if (cond) {
+		supervision_active_ = false;
 		// Do not print here, we know we are good..
 		/*
 		cout << "u_des: " << u_des.transpose() << endl;
@@ -232,7 +243,8 @@ void CISSupervisor::Step(double deltaT) {
 			}
 			cout << "]" << endl;
 			cout << endl;
-			return;
+			supervision_active_ = false;
+			return supervision_active_;
 		}
 
 		// Find minimum cost over all CISs:
@@ -255,9 +267,10 @@ void CISSupervisor::Step(double deltaT) {
 			cout << endl;
 		}
 
-
+		supervision_active_ = true;
 		ctrl_outputs_ = u_corrected;
 	}
+	return supervision_active_;
 }
 
 void CISSupervisor::getControls(UType& ctrls) const {
@@ -401,8 +414,12 @@ void CISSupervisor::SetActive(bool active) {
 	active_ = active;
 }
 
-bool CISSupervisor::isActive() {
+bool CISSupervisor::isControlActive() {
 	return active_;
+}
+
+bool CISSupervisor::isSupervisionActive() {
+	return supervision_active_;
 }
 
 
