@@ -188,7 +188,7 @@ void CISSupervisorROS::onNewState(
 	// Supervisor I could run the control step from this callback.
 	// I need to improve this...
 	double dt = msg->header.stamp.toSec() - last_state_time_;
-	if (dt >= 0.10) {
+	if (dt >= 0.12) {
 		ros::Time ctrl_activation = msg->header.stamp; // Use the time of the state message
 		UType control_cmd;
 		UType u_body(UType::Zero()); 
@@ -199,7 +199,7 @@ void CISSupervisorROS::onNewState(
 		last_state_time_ = ctrl_activation.toSec();
 		expected_state_ = supervisor_->getNextState();
 		if (supervisor_->isControlActive()) {
-			bool active = supervisor_->Step(0.10);
+			bool active = supervisor_->Step(dt);
 			// Get the desired jerk
 			control_cmd = supervisor_->getControls();
 			// ... convert the jerk in autopilot commands
@@ -242,6 +242,7 @@ void CISSupervisorROS::onNewState(
 		ctrl_perf_msg.thrust = thrust;
 		for (int i = 0; i < 3; i++) {
 			ctrl_perf_msg.jerk_body[i] = u_body(i);
+			ctrl_perf_msg.jerk_world[i] = control_cmd(i);
 		}
 		ctrl_perf_msg.ang_velocity[0] = control_msg.control.roll;
 		ctrl_perf_msg.ang_velocity[1] = control_msg.control.pitch;
