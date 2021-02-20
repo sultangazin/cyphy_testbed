@@ -13,36 +13,30 @@
 using namespace Eigen;
 
 DDFilter::DDFilter():
-    _x{DDXMat::Zero()}, _y{DDYMat::Zero()}, _u{DDUMat::Zero()} {
+	_x{DDXMat::Zero()}, _y{DDYMat::Zero()}, _u{DDUMat::Zero()} {
 
-	setPos(Eigen::Vector3d::Zero());
-	setSteps(5);
-	computeC();
-	updateSampleTime(0.03);
-}
+		setPos(Eigen::Vector3d::Zero());
+		setSteps(5);
+		computeC();
+		updateSampleTime(0.03);
+	}
 
 
 DDFilter::DDFilter(const Vector3d& p0, int Nsteps, double dt) : 
 	_x {DDXMat::Zero()}, _y{DDYMat::Zero()}, _u{DDUMat::Zero()} {
 
-	setPos(p0);
-	setSteps(Nsteps);
+		setPos(p0);
+		setSteps(Nsteps);
 
-	computeC();
+		computeC();
 
-	updateSampleTime(dt);
-}
+		updateSampleTime(dt);
+	}
 
 DDFilter::~DDFilter() {}
 
 void DDFilter::resetPosition(const Vector3d& p0) {
 	setPos(p0);
-}
-
-void DDFilter::reset(const DDXMat& x0, double s0) {
-    _mx.lock();
-	_x = x0;
-    _mx.unlock();
 }
 
 void DDFilter::setU(const DDUMat& u) {}
@@ -68,14 +62,14 @@ const Vector3d DDFilter::getPos() const {
 
 const Vector3d DDFilter::getVel() const {
 	_mx.lock();
-    Vector3d out(_x.block<3,1>(3,0));
+	Vector3d out(_x.block<3,1>(3,0));
 	_mx.unlock();
 	return out;
 }
 
 const Vector3d DDFilter::getAcc() const {
 	_mx.lock();
-    Vector3d out(_x.block<3,1>(6,0));
+	Vector3d out(_x.block<3,1>(6,0));
 	_mx.unlock();
 	return out;
 }
@@ -89,13 +83,13 @@ void DDFilter::setPos(const Vector3d& p){
 
 void DDFilter::setVel(const Vector3d& v) {
 	_mx.lock();
-    _x.block<3,1>(3,0) = v;
+	_x.block<3,1>(3,0) = v;
 	_mx.unlock();
 }
 
 void DDFilter::setAcc(const Vector3d& a) {
 	_mx.lock();
-    _x.block<3,1>(6,0) = a;
+	_x.block<3,1>(6,0) = a;
 	_mx.unlock();
 }
 
@@ -107,7 +101,7 @@ void DDFilter::prediction(double dt) {
 
 	// Integrate position 
 	Vector3d new_pos = ExtractPos(s) + ExtractVel(s) * dt +
-		 ExtractAcc(s) * (dt2 / 2.0);
+		ExtractAcc(s) * (dt2 / 2.0);
 
 	// Integrate the velocity
 	Vector3d new_vel = ExtractVel(s) + ExtractAcc(s) * dt; 
@@ -115,67 +109,60 @@ void DDFilter::prediction(double dt) {
 	setPos(new_pos);
 	setVel(new_vel);
 }
- 
 
-void DDFilter::update(const DDYMat& y, uint64_t time_usec) {
+
+void DDFilter::update(const DDYMat& y, double timestamp) {
 	// Update Measurement queue
 	_YQueue.push(y);
-    _tQueue.push(time_usec);
+	_tQueue.push(timestamp);
 
 	if (_YQueue.size() <= _Nsteps) {
 		return;
 	}
 
 	_YQueue.pop();
-    _tQueue.pop();
-
+	_tQueue.pop();
 
 	// Create Measurement Vector
 	Matrix<double, Dynamic, 1> Meas; 
-    Matrix<double, Dynamic, 1> times;
+	Matrix<double, Dynamic, 1> times;
 	Meas.resize(DDFILTER_MEAS_DIM * _Nsteps, 1);
-    times.resize(_Nsteps, 1);
+	times.resize(_Nsteps, 1);
 
 	for (int i = 0; i < _Nsteps; i++) {
-		int index = 3 * ((_Nsteps -1) - i);
-		Meas.block<3,1>(index, 0) = _YQueue.front();
-        times(_Nsteps - 1 -i, 0) = _tQueue.front();
+		int index = _Nsteps -1 - i;
+		Meas.block<3,1>(3 * index, 0) = _YQueue.front();
+		times(index, 0) = _tQueue.front();
 		_YQueue.pop();
-        _tQueue.pop();
+		_tQueue.pop();
 	}
-	
+
 	for (int i = 0; i < _Nsteps; i++) {
-		int index = 3 * ((_Nsteps -1) - i);
-		_YQueue.push(Meas.block<3,1>(index, 0));
-        _tQueue.push(times((_Nsteps -1) - i, 0));
+		int index = _Nsteps -1 - i;
+		_YQueue.push(Meas.block<3,1>(3 * index, 0));
+		_tQueue.push(times((_Nsteps -1) - i, 0));
 	}
 
 	// Create ObsMatrix
 	Matrix<double, Dynamic, DDFILTER_STATE_DIM> Theta;
 	Theta.resize(DDFILTER_MEAS_DIM * _Nsteps, DDFILTER_STATE_DIM);
 	for (int i = 0; i < _Nsteps; i++) {
+		double dt = (times(i) - times(0));
 		int index = i * DDFILTER_MEAS_DIM;
-
 		Theta.block<DDFILTER_MEAS_DIM, DDFILTER_STATE_DIM>(index, 0) = _C;
-
-		for (int j = i - 1; j > 0; j--) {
-            double dt = (times(j) - times(j + 1)) / 1e6;
-            std::cout << "dt = " << dt << std::endl;
-
-			Theta.block<DDFILTER_MEAS_DIM, DDFILTER_STATE_DIM>(index, 0) *= computeA(dt).inverse();
-		}
-	}	
+		Theta.block<DDFILTER_MEAS_DIM, 3>(index, 3) = -Matrix<double, 3, 3>::Identity() * dt;
+		Theta.block<DDFILTER_MEAS_DIM, 3>(index, 6) = Matrix<double, 3, 3>::Identity() * (dt * dt) / 2.0;
+	}
 
 	// Calculate PseudoInv
 	//Eigen::MatrixXd pinv = Theta.completeOrthogonalDecomposition().pseudoInverse();
-
 	//std::cout << "Size = " << pinv.rows() << " " << pinv.cols() << std::endl;
-
 	// Compute State as Obs^-1 * Meas
+
 	DDXMat dx = Theta.completeOrthogonalDecomposition().solve(Meas);
 	// Update internal State
 	setPos(dx.head<3>());
-    setVel(dx.segment<3>(3));
+	setVel(dx.segment<3>(3));
 	setAcc(dx.segment<3>(6));
 }
 
@@ -186,13 +173,13 @@ void DDFilter::update(const DDYMat& y, uint64_t time_usec) {
 DDDynMat DDFilter::computeA(double T) {
 	DDDynMat out = DDDynMat::Identity();
 
-    out.block<3,3>(0, 3) =
+	out.block<3,3>(0, 3) =
 		Matrix<double, 3, 3>::Identity() * T;
 
-    out.block<3,3>(0, 6) =
+	out.block<3,3>(0, 6) =
 		Matrix<double, 3, 3>::Identity() * T * T / 2.0;
 
-    out.block<3,3>(3, 6) =
+	out.block<3,3>(3, 6) =
 		Matrix<double, 3, 3>::Identity() * T;
 	return out;
 }
@@ -221,11 +208,11 @@ const Vector3d DDFilter::ExtractPos(const DDXMat& _x) const {
 }
 
 const Vector3d DDFilter::ExtractVel(const DDXMat& _x) const {
-    Vector3d out(_x.block<3,1>(3,0));
+	Vector3d out(_x.block<3,1>(3,0));
 	return out;
 }
 
 const Vector3d DDFilter::ExtractAcc(const DDXMat& _x) const {
-    Vector3d out(_x.block<3,1>(6,0));
+	Vector3d out(_x.block<3,1>(6,0));
 	return out;
 }

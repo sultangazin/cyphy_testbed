@@ -22,7 +22,7 @@
 #include "cis_supervisor/PerformanceMsg.h"
 
 //#include "filter/polyfilter.hpp"
-//#include "filter/ddfilter.hpp"
+#include "filter/ddfilter.hpp"
 #include "filter/filter.hpp"
 #include "utilities/network_parser/network_parser.hpp"
 

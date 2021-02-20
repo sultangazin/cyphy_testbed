@@ -40,7 +40,7 @@ class DDFilter {
 		DDFilter(const Eigen::Vector3d& p0, int Nsteps,	double dt);
 		~DDFilter();
 
-		void reset(const DDXMat& x0, double s0);
+		void resetPosition(const Eigen::Vector3d& p0);
 
 		void prediction(double dt);
 
@@ -48,7 +48,7 @@ class DDFilter {
 
 		void setSteps(int n);
 
-		void update(const DDYMat&, uint64_t usec);
+		void update(const DDYMat&, double timestamp);
 
 		// Fetchers
 		DDXMat getState() const;
@@ -61,7 +61,7 @@ class DDFilter {
 
 		int _Nsteps;
 		std::queue<DDYMat> _YQueue;
-        std::queue<uint64_t> _tQueue;
+        std::queue<double> _tQueue;
 
 		DDXMat _x;
 		DDUMat _u;
@@ -78,7 +78,6 @@ class DDFilter {
         void setVel(const Eigen::Vector3d& v);
         void setAcc(const Eigen::Vector3d& a);
 
-		void resetPosition(const Eigen::Vector3d& p0);
 
 
 		/**

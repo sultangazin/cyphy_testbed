@@ -47,6 +47,8 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 
 	_pfilt = new PolyFilter(Eigen::Vector3d::Zero(), sigma_x, sigma_y, 0.002);
 	//_pfilt = new LBFilter(Eigen::Vector3d::Zero(), 0.002);
+	//_pfilt = new DDFilter(Eigen::Vector3d::Zero(), 5, 0.002);
+
 
 	// Advertise topics
 
