@@ -19,7 +19,7 @@ find_package(
 	)
 
 find_package (Eigen3 REQUIRED NO_MODULE)
-find_package(GUROBI REQUIRED)
+#find_package(GUROBI REQUIRED)
 
 add_service_files(
 	DIRECTORY srv
