@@ -48,7 +48,7 @@ The following nodes will be started:
 				respawn_delay="3"
 				output="screen"> 
 			<param name="sigmax" value="0.1" type='double' />
-			<param name="sigmay" value="0.0001" type='double' />
+			<param name="sigmay" value="0.00001" type='double' />
 			<param name="param/target_name" value="$(arg vehicle_frame)" />
 
 			<param name="topics/out_ext_position_topic" value="external_position" />
@@ -153,7 +153,7 @@ The following nodes will be started:
 		-->
 
 
-			<node pkg="rosbag" name="cis_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_cis  /area0/sensors/optitrack/$(arg vehicle_frame)/data   /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/setpoint /CISSupervisor/$(arg vehicle_frame)/cis_perf /$(arg vehicle_frame)/control /$(arg vehicle_frame)/cmd_vel"/>
+			<node pkg="rosbag" name="cis_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_cis  /area0/sensors/optitrack/$(arg vehicle_frame)/data   /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/setpoint /CISSupervisor/$(arg vehicle_frame)/cis_perf /$(arg vehicle_frame)/control /$(arg vehicle_frame)/cmd_vel /$(arg vehicle_frame)/gyro"/>
 
 				<!--
 					<node pkg="rosbag" name="cis_$(arg vehicle_frame)_sim" type="record" args="-O /tmp/$(arg vehicle_frame)_cis_sim  /area0/sensors/optitrack/$(arg vehicle_frame)/data   /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/setpoint /CISSupervisor/$(arg vehicle_frame)/cis_perf /$(arg vehicle_frame)/xsim_state /$(arg vehicle_frame)/control /$(arg vehicle_frame)/cmd_vel"/>
