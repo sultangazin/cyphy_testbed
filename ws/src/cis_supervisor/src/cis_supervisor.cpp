@@ -23,7 +23,7 @@
 #include <ros/package.h>
 
 #include "cis_supervisor/cis_supervisor.hpp"
-#include "cis_supervisor/gurobiRoutines.hpp"
+//#include "cis_supervisor/gurobiRoutines.hpp"
 
 using namespace std;
 using namespace Eigen;
@@ -355,6 +355,7 @@ pair<double, UType> CISSupervisor::callSupervisor(
 		}
 	} else {
 		// Construct linear inequality constraints:
+		/*
 		MatrixXd Aineq(rcisA.rows()+Gu.rows(), Bd.cols());
 		Aineq << rcisA * Bd, Gu;
 		VectorXd bineq(rcisb.rows() + Fu.rows());
@@ -373,6 +374,7 @@ pair<double, UType> CISSupervisor::callSupervisor(
 		else{
 		    f_cand = __DBL_MAX__;
 		}
+		*/
 
 	}
 
