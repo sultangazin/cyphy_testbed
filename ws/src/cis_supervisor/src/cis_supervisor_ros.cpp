@@ -188,7 +188,7 @@ void CISSupervisorROS::onNewState(
 	// Supervisor I could run the control step from this callback.
 	// I need to improve this...
 	double dt = msg->header.stamp.toSec() - last_state_time_;
-	if (dt >= 0.12) {
+	if (dt >= 0.18) {
 		ros::Time ctrl_activation = msg->header.stamp; // Use the time of the state message
 		UType control_cmd;
 		UType u_body(UType::Zero()); 
@@ -246,7 +246,7 @@ void CISSupervisorROS::onNewState(
 		}
 		ctrl_perf_msg.ang_velocity[0] = control_msg.control.roll;
 		ctrl_perf_msg.ang_velocity[1] = control_msg.control.pitch;
-		for (int i = 0; i < 9; i++) {
+		for (int i = 0; i < CISS_STATESIZE; i++) {
 			ctrl_perf_msg.state_pred[i] = expected_state_(i);
 			ctrl_perf_msg.state_curr[i] = state_(i); 
 		}

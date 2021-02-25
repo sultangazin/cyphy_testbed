@@ -109,7 +109,7 @@ void CISSupervisor::LoadModel() {
 void CISSupervisor::LoadCISs() {
 	Eigen::MatrixXd cisA, cisb, rcisA, rcisb;
 	string path = ros::package::getPath("cis_supervisor");
-	for (int i=0; i < 9; i++) {
+	for (int i=0; i < 6; i++) {
 		string filename = path + "/config/data/cis" + to_string(i);
 		//cout << "[CISSupervisor] Loading " << filename << " data." << endl;
 		cisA = load_csv<Eigen::MatrixXd>(filename + "_A.csv");
@@ -158,6 +158,8 @@ double CISSupervisor::ComputeYawCtrl(
 	Rdes.col(1) = y_d;
 	Rdes.col(2) = z_d;
 
+	//std::cout << z_d.transpose() << std::endl;
+
 	// Current Zb
 	Vector3d z = acc.normalized();	
 	Vector3d ni = z.cross(z_d);
@@ -167,7 +169,7 @@ double CISSupervisor::ComputeYawCtrl(
 	// Express the rotation in body frame
 	Quaterniond q_pq(Quaterniond::Identity());
 
-	if (abs(alpha) > 0.001) {
+	if (abs(alpha) > 0.0001) {
 		Vector3d nb = quat_.inverse() * ni;
 		q_pq = AngleAxisd(alpha, nb);
 	}
@@ -187,7 +189,7 @@ bool CISSupervisor::Step(double deltaT) {
 	// Compute the error
 	XType err = state_ref_ - state_curr_;
 	UType u_des = ComputeNominalU(err);
-	Vector3d acc_ref = state_ref_.block<3,1>(6,0);
+	Vector3d acc_ref = state_ref_.block<3,1>(6,0) + Vector3d::UnitZ() * 9.81;
 	Vector3d acc = state_.block<3, 1>(6,0);
 	ctrl_yaw_ = ComputeYawCtrl(acc_ref, acc);
 	ctrl_outputs_ = u_des;
