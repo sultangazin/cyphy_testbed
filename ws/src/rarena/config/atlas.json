@@ -1,0 +1,24 @@
+{
+	"entities": [
+		{
+			"type": "pawn",
+			"name": "cf2",
+			"shape": "sphere",
+			"color": [100, 100, 0],
+			"opacity": 0.4,
+			"scale": [0.1, 0.1, 0.1],
+			"pos0": [0, 0, 0],
+			"att0": [0, 0, 0, 1]
+		},
+		{
+			"type": "object",
+			"name": "obstacle",
+			"shape": "box",
+			"color": [100, 50, 50],
+			"opacity": 0.4,
+			"scale": [0.15, 0.15, 0.15],
+			"pos0": [0, 0.075, 0],
+			"att0": [0, 0, 0, 1]
+		}
+	]
+}

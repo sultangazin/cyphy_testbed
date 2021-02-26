@@ -6,15 +6,15 @@ find_package(catkin REQUIRED
 	rospy
 	testbed_msgs
 	std_srvs
-    commander_interface
+	commander_interface
 	control_router
 	)
 
 
 catkin_package(
 	CATKIN_DEPENDS 
-    rospy
-    testbed_msgs
+	rospy
+	testbed_msgs
 	std_srvs
 	message_runtime
 	control_router
