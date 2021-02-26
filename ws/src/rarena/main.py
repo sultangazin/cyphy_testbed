@@ -35,9 +35,11 @@ arena_entities = dict()
 
 def monitor(supervisor_msg):
     if supervisor_msg.active:
-        arena_entities['cf2'].set_color((255, 0, 0))
+        #arena_entities['cf2'].set_color((255, 0, 0))
+        arena_entities['cf2'].set_opacity(0.7)
     else:
-        arena_entities['cf2'].set_color((0, 255, 0))
+        arena_entities['cf2'].set_opacity(0.0)
+        #arena_entities['cf2'].set_color((0, 255, 0))
 
 
 def handler(signal_received, frame):

@@ -79,6 +79,10 @@ class ROSArenaObject:
         self.clr = tuple(c)
 
 
+    def set_opacity(self, op):
+        self.opacity = op
+
+
     def set_rotation(self, r):
         self.updated = True;
         self.rotation = r 
@@ -87,10 +91,12 @@ class ROSArenaObject:
         if (self.updated == True):
             p = Position(self.location[0], self.location[1], self.location[2])
             r = Rotation(self.rotation[0], self.rotation[1], self.rotation[2], self.rotation[3])
+
+            mat = Material(color = tuple(self.clr), opacity = self.opacity)
             self.arena_obj_.update_attributes(
                     position = p,
                     rotation = r,
-                    color = tuple(self.clr))
+                    material = mat)
 
             self.arena_srv.update_object(self.arena_obj_)
             self.updated = False
