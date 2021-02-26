@@ -4,19 +4,22 @@
 import sys
 from signal import signal, SIGINT
 from sys import exit
-from arena import *
 import numpy as np
 import json
 import os
+import time
 
 import rospy
 import rospkg
+
+from cis_supervisor.msg import PerformanceMsg
+
+from arena import *
 
 from classes import ROSArenaObject
 from classes import PawnObject 
 
 
-import time
 
 ## GLOBAL
 host = "arena.andrew.cmu.edu"
@@ -29,6 +32,14 @@ arena_scene = Scene(host=host, realm=realm, scene=os.environ['SCENE'])
 arena_entities = dict()
 
 
+
+def monitor(supervisor_msg):
+    if supervisor_msg.active:
+        arena_entities['cf2'].set_color((255, 0, 0))
+    else:
+        arena_entities['cf2'].set_color((0, 255, 0))
+
+
 def handler(signal_received, frame):
     global arena_scene
     global arena_entities
@@ -38,8 +49,6 @@ def handler(signal_received, frame):
 
     for (key, value) in arena_entities.items():
         value.delete_obj()
-
-    time.sleep(5)
 
     print('TERMINATED')
 
@@ -106,6 +115,8 @@ def periodic():
 if __name__ == '__main__':
     rospy.init_node('RArena_node')
     # rospy.on_shutdown(remove_objects)
+
+    rospy.Subscriber("/CISSupervisor/cf2/cis_perf", PerformanceMsg, monitor)
 
     # Start Arena tasks
     arena_scene.run_tasks()

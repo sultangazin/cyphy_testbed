@@ -4,8 +4,6 @@ import numpy as np
 from arena import *
 
 
-
-
 class ROSArenaObject:
     """
     Class to bind ROS objects with ARENA objects.
@@ -15,13 +13,20 @@ class ROSArenaObject:
         self.selected=False
         self.id = kwargs.get('object_id')
 
+        self.offset = np.array([-0.045, -0.15, 0]);
+
         self.arena_srv = kwargs.get('arena_srv')
         if 'arena_srv' in kwargs: del kwargs['arena_srv']
 
         p = kwargs.get('position', Position(0.0, 0.0, 0.0))
         q = kwargs.get('rotation', Rotation(0, 0, 0, 1));
-        self.location = np.array([p.x, p.y, p.z], dtype=float)
-        self.rotation = np.array([q.x, q.y, q.z, q.z], dtype=float)
+
+        self.location = np.array(
+                [p.x + self.offset[0], p.z, -p.y + self.offset[1]],
+                dtype=float
+                )
+
+        self.rotation = np.array([q.x, q.z, -q.y, q.w], dtype=float)
 
         self.clr = kwargs.get("color", [100, 100, 0])
         if "color" in kwargs: del kwargs["color"]
@@ -32,6 +37,12 @@ class ROSArenaObject:
         obj_type = kwargs.get('obj_type', "box")
         if "obj_type" in kwargs : del kwargs['obj_type']
 
+        scale = kwargs.get('scale', [1,1,1]); 
+        temp = scale[1]
+        scale[1] = scale[2]
+        scale[2] = temp
+        if "scale" in kwargs: del kwargs['scale']
+
         # Create the Arena Object
         mat_ = Material(
                 color = tuple(self.clr),
@@ -40,11 +51,12 @@ class ROSArenaObject:
         self.arena_obj_ = Object(
                 object_type = obj_type,
                 material = mat_, 
+                scale = scale,
                 **kwargs)
 
         self.arena_srv.add_object(self.arena_obj_)
 
-        self.updated = False;
+        self.updated = True;
 
 
     def __del__(self):
@@ -63,6 +75,10 @@ class ROSArenaObject:
         self.updated = True;
 
 
+    def set_color(self, c):
+        self.clr = tuple(c)
+
+
     def set_rotation(self, r):
         self.updated = True;
         self.rotation = r 
@@ -77,7 +93,7 @@ class ROSArenaObject:
                     color = tuple(self.clr))
 
             self.arena_srv.update_object(self.arena_obj_)
-            updated = False
+            self.updated = False
 
 
     def get_arena_obj(self):

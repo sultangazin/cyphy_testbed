@@ -6,18 +6,38 @@
 			"shape": "sphere",
 			"color": [100, 100, 0],
 			"opacity": 0.4,
-			"scale": [0.1, 0.1, 0.1],
+			"scale": [0.07, 0.07, 0.07],
 			"pos0": [0, 0, 0],
 			"att0": [0, 0, 0, 1]
 		},
 		{
 			"type": "object",
-			"name": "obstacle",
+			"name": "obstacle1",
 			"shape": "box",
 			"color": [100, 50, 50],
 			"opacity": 0.4,
-			"scale": [0.15, 0.15, 0.15],
-			"pos0": [0, 0.075, 0],
+			"scale": [0.4, 0.4, 1.0],
+			"pos0": [-0.5, -0.5, 0.5],
+			"att0": [0, 0, 0, 1]
+		},
+		{
+			"type": "object",
+			"name": "obstacle2",
+			"shape": "box",
+			"color": [100, 50, 50],
+			"opacity": 0.4,
+			"scale": [0.4, 1.6, 1.0],
+			"pos0": [0.5, 1.2, 0.5],
+			"att0": [0, 0, 0, 1]
+		},
+		{
+			"type": "object",
+			"name": "obstacle3",
+			"shape": "box",
+			"color": [100, 50, 50],
+			"opacity": 0.4,
+			"scale": [0.4, 1.9, 1.0],
+			"pos0": [0.5, -1.05, 0.5],
 			"att0": [0, 0, 0, 1]
 		}
 	]

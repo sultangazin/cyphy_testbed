@@ -23,11 +23,12 @@ class PawnObject(ROSArenaObject):
     Class inheriting from the Pawn class but with more advanced features.
     """
     def __init__(self, **kwargs):
+
         super().__init__(**kwargs)
 
         self.mission_active = False
 
-        path = [Position(0,0,0), Position(1,1,1), Position(2,1,1)]
+        path = [Position(-1.5 + self.offset[0], 0.7, 1.5 + self.offset[1]), Position(1 + self.offset[0], 0.7, -0.3 + self.offset[1])]
         self.trajectory = ThickLine(path = path, lineWidth = 5)
 
         self.final_pos = self.location
