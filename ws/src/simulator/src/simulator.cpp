@@ -183,7 +183,7 @@ void XSimulator::ControlCallback(
 		double dt = current_time.toSec() - old_time_.toSec();
 		old_time_ = current_time;
 		vector<double> u_(4);
-		u_[0] = msg->control.thrust;
+		u_[0] = msg->control.thrust * parameters_.Mass; // Need to fix the mismatch...
 		u_[1] = msg->control.roll;
 		u_[2] = msg->control.pitch;
 		u_[3] = msg->control.yaw_dot;

@@ -2,7 +2,7 @@ param: {
         drone_mass: 0.032,
         lin_drag_coeff: 0.000005,
         ang_drag_coeff: 0.000005,
-        sim_period: 0.001,
+        sim_period: 0.002,
         sensor_period: 0.002,
         sensor_noise: 0.003,
         x0: [-1.5, -1.1, 0.0]
