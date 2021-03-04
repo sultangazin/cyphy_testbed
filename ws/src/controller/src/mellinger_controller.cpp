@@ -355,7 +355,7 @@ namespace controller {
 				{
 					// Compute the rotation error between the desired z_ and the current one in Inertial frame
 					Vector3d ni = z_axis.cross(z_axis_desired);
-					double alpha = std::acos(ni.norm());
+					double alpha = std::asin(ni.norm());
 					ni.normalize();
 
 					// Express the axis in body frame
@@ -371,7 +371,7 @@ namespace controller {
 
 					Quaterniond q_r = q_pq.inverse() * quat_.inverse() * Quaterniond(Rdes);
 					control_msg.control.yaw_dot = (q_r.w() > 0) ?
-						(2.0 * kr_rates_ / 10 * q_r.z()) : (-2.0 * kr_rates_ / 10 * q_r.z());
+						(2.0 * kr_rates_ * q_r.z()) : (-2.0 * kr_rates_ * q_r.z());
 
 					control_msg.control.yaw_dot = -1.0 * control_msg.control.yaw_dot;
 
