@@ -188,7 +188,7 @@ bool CISSupervisor::Step(double deltaT) {
 
 	// Compute the error
 	XType err = state_ref_ - state_curr_;
-	UType u_des = ComputeNominalU(err);
+	UType u_des = ComputeNominalU(err) + ctrl_ff_;
 	Vector3d acc_ref = state_ref_.block<3,1>(6,0) + Vector3d::UnitZ() * 9.81;
 	Vector3d acc = state_.block<3, 1>(6,0);
 	ctrl_yaw_ = ComputeYawCtrl(acc_ref, acc);
@@ -300,6 +300,11 @@ const XType CISSupervisor::getNextState() const {
 void CISSupervisor::SetSetpoint(const XType& xref) {
 	state_ref_ = xref;
 }
+
+void CISSupervisor::SetCtrlFF(const UType& ff) {
+	ctrl_ff_ = ff;
+}
+
 
 void CISSupervisor::SetState(const XType& x) {
 	state_ = x;

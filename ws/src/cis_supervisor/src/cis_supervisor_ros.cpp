@@ -3,9 +3,6 @@
 #include <chrono>
 
 #include "cis_supervisor/cis_supervisor_ros.hpp"
-#include "cis_supervisor/PerformanceMsg.h"
-
-#include <testbed_msgs/ControlStamped.h>
 
 #include "utilities/timeutils/timeutils.hpp"
 #include "utilities/custom_conversion/custom_conversion.hpp"
@@ -192,9 +189,7 @@ void CISSupervisorROS::onNewState(
 		ros::Time ctrl_activation = msg->header.stamp; // Use the time of the state message
 		UType control_cmd;
 		UType u_body(UType::Zero()); 
-		testbed_msgs::ControlStamped control_msg;
-		cis_supervisor::PerformanceMsg ctrl_perf_msg;
-
+		
 		//std::cout << "Dt = " << dt << std::endl;
 		last_state_time_ = ctrl_activation.toSec();
 		expected_state_ = supervisor_->getNextState();
@@ -207,55 +202,47 @@ void CISSupervisorROS::onNewState(
 			u_body = quat_.inverse() * control_cmd;
 			// 2) Convert in angular velocity and thrust
 			if (thrust > 0.05) {
-				control_msg.control.roll = -(u_body(1) / thrust) * 0.032;
-				control_msg.control.pitch = (u_body(0) / thrust) * 0.032;
+				control_msg_.control.roll = -(u_body(1) / thrust) * 0.032;
+				control_msg_.control.pitch = (u_body(0) / thrust) * 0.032;
 			}
 			thrust = std::max(thrust + 0.032 * u_body(2) * dt, 0.0);
-			control_msg.control.thrust = thrust / 0.032; // Because the library works with acc
+			control_msg_.control.thrust = thrust / 0.032; // Because the library works with acc
 		} else {
-			control_msg.control.thrust = 0.0;
-			control_msg.control.roll = 0.0;
-			control_msg.control.pitch = 0.0;
-			control_msg.control.yaw_dot = 0.0;
+			control_msg_.control.thrust = 0.0;
+			control_msg_.control.roll = 0.0;
+			control_msg_.control.pitch = 0.0;
+			control_msg_.control.yaw_dot = 0.0;
 		}
 
-		control_msg.control.yaw_dot = supervisor_->getYawCtrl();
+		control_msg_.control.yaw_dot = supervisor_->getYawCtrl();
 
 		// Crazyflie Fuck
-		control_msg.control.pitch *= -1;
+		control_msg_.control.pitch *= -1;
 
 		// Performance Message
-		ros::Time msg_timestamp = ros::Time::now();
-		double PubPeriod = (msg_timestamp - last_sent_time).toSec();
-		double SupExeTime = (msg_timestamp - ctrl_activation).toSec();
-		last_sent_time = msg_timestamp;
-
-		/*
-		std::cout << PubPeriod << std::endl;
-		std::cout << SupExeTime << std::endl;
-		std::cout << std::endl;
-		*/
-		
-		control_msg.header.stamp = msg_timestamp;
-		ctrl_perf_msg.header.stamp = msg_timestamp;
-
-		ctrl_perf_msg.thrust = thrust;
+		ctrl_perf_msg_.thrust = thrust;
 		for (int i = 0; i < 3; i++) {
-			ctrl_perf_msg.jerk_body[i] = u_body(i);
-			ctrl_perf_msg.jerk_world[i] = control_cmd(i);
+			ctrl_perf_msg_.jerk_body[i] = u_body(i);
+			ctrl_perf_msg_.jerk_world[i] = control_cmd(i);
 		}
-		ctrl_perf_msg.ang_velocity[0] = control_msg.control.roll;
-		ctrl_perf_msg.ang_velocity[1] = control_msg.control.pitch;
+		ctrl_perf_msg_.ang_velocity[0] = control_msg_.control.roll;
+		ctrl_perf_msg_.ang_velocity[1] = control_msg_.control.pitch;
 		for (int i = 0; i < CISS_STATESIZE; i++) {
-			ctrl_perf_msg.state_pred[i] = expected_state_(i);
-			ctrl_perf_msg.state_curr[i] = state_(i); 
+			ctrl_perf_msg_.state_pred[i] = expected_state_(i);
+			ctrl_perf_msg_.state_curr[i] = state_(i); 
 		}
-		ctrl_perf_msg.yaw_rate = control_msg.control.yaw_dot;  
-		ctrl_perf_msg.active = supervisor_->isSupervisionActive();
+		ctrl_perf_msg_.yaw_rate = control_msg_.control.yaw_dot;  
+		ctrl_perf_msg_.active = supervisor_->isSupervisionActive();
 		
-		cis_supervisor_ctrl_.publish(control_msg);
-		performance_pub_.publish(ctrl_perf_msg);
 	}
+
+	ros::Time msg_timestamp = ros::Time::now();
+	control_msg_.header.stamp = msg_timestamp;
+	ctrl_perf_msg_.header.stamp = msg_timestamp;
+
+	cis_supervisor_ctrl_.publish(control_msg_);
+	performance_pub_.publish(ctrl_perf_msg_);
+
 	return;
 }
 
@@ -265,6 +252,7 @@ void CISSupervisorROS::onNewSetpoint(
 		const testbed_msgs::ControlSetpoint::ConstPtr& msg) {
 
 	XType ctrl_setpoint;
+	UType ctrl_ff(UType::Zero());
 
 	if (msg->setpoint_type != "stop") {
 		active_ = true;
@@ -278,9 +266,14 @@ void CISSupervisorROS::onNewSetpoint(
 		ctrl_setpoint(7) = msg->a.y;
 		ctrl_setpoint(8) = msg->a.z;
 
+		ctrl_ff(0) = msg->j.x;
+		ctrl_ff(1) = msg->j.y;
+		ctrl_ff(2) = msg->j.z;
+
 		// Copy the setpoint structure into the controller class
 		supervisor_->SetActive(true);
 		supervisor_->SetSetpoint(ctrl_setpoint);
+		supervisor_->SetCtrlFF(ctrl_ff);
 
 		// Set the flag about the setpoint
 	} else {
@@ -351,6 +344,7 @@ void thread_fnc(void* p) {
 			control_msg.control.roll = 0.0;
 			control_msg.control.pitch = 0.0;
 			control_msg.control.yaw_dot = 0.0;
+			thrust = 0;
 		}
 
 		// Performance Message

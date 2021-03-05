@@ -33,9 +33,10 @@
 
 #include "cis_supervisor/CISSupervisorTune.h"
 
+#include <testbed_msgs/ControlStamped.h>
 #include "cis_supervisor/cis_supervisor.hpp"
 #include "utilities/network_parser/network_parser.hpp"
-
+#include "cis_supervisor/PerformanceMsg.h"
 
 struct Thread_arg {
 	double period;
@@ -90,6 +91,8 @@ class CISSupervisorROS {
 		ros::Time last_sent_time;
 
 		double thrust;
+		testbed_msgs::ControlStamped control_msg_;
+		cis_supervisor::PerformanceMsg ctrl_perf_msg_;
 
 		// Callback on Pose 
 		void onNewState(

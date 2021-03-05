@@ -1,5 +1,5 @@
 param: {
     # Controller parameters
-    ctrl_gains: [14.3119,   15.1680,    5.8654],
+    ctrl_gains: [35.5, 16.5, 5.4],
     yaw_ctrl_gain: 1.5
 }

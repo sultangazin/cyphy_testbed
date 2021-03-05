@@ -40,6 +40,7 @@ class CISSupervisor {
 
 		void SetInitialState(const XType& x0);
 		void SetSetpoint(const XType& xref);
+		void SetCtrlFF(const UType& ff);
 		void SetState(const XType& x);
 		void SetQuat(const Eigen::Quaterniond& q);
 
@@ -65,6 +66,8 @@ class CISSupervisor {
 		XType state_ref_;
 		XType state_;
 		XType state_next_des_;
+
+		UType ctrl_ff_;
 
 		Eigen::Quaterniond quat_;
 
