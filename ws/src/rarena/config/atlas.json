@@ -8,37 +8,37 @@
 			"opacity": 0.4,
 			"scale": [0.07, 0.07, 0.07],
 			"pos0": [0, 0, 0],
-			"att0": [0, 0, 0, 1]
+			"att0": [1, 0, 0, 0]
 		},
 		{
 			"type": "object",
 			"name": "obstacle1",
 			"shape": "box",
-			"color": [100, 50, 50],
-			"opacity": 0.4,
-			"scale": [0.4, 0.4, 1.0],
+			"color": [0, 0, 100],
+			"opacity": 0.3,
+			"scale": [0.4, 0.4, 0.8],
 			"pos0": [-0.5, -0.5, 0.5],
-			"att0": [0, 0, 0, 1]
+			"att0": [1, 0, 0, 0]
 		},
 		{
 			"type": "object",
 			"name": "obstacle2",
 			"shape": "box",
-			"color": [100, 50, 50],
-			"opacity": 0.4,
-			"scale": [0.4, 1.6, 1.0],
+			"color": [0, 0, 100],
+			"opacity": 0.3,
+			"scale": [0.4, 1.6, 0.8],
 			"pos0": [0.5, 1.2, 0.5],
-			"att0": [0, 0, 0, 1]
+			"att0": [1, 0, 0, 0]
 		},
 		{
 			"type": "object",
 			"name": "obstacle3",
 			"shape": "box",
-			"color": [100, 50, 50],
-			"opacity": 0.4,
-			"scale": [0.4, 1.9, 1.0],
+			"color": [0, 0, 100],
+			"opacity": 0.3,
+			"scale": [0.4, 1.9, 0.8],
 			"pos0": [0.5, -1.05, 0.5],
-			"att0": [0, 0, 0, 1]
+			"att0": [1, 0, 0, 0]
 		}
 	]
 }

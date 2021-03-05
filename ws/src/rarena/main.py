@@ -17,7 +17,7 @@ from cis_supervisor.msg import PerformanceMsg
 from arena import *
 
 from classes import ROSArenaObject
-from classes import PawnObject 
+from classes import DroneObject 
 
 
 
@@ -27,7 +27,9 @@ realm = "realm"
 
 # Arena Main object 
 # The scene should be specified with the environmental variable SCENE
-arena_scene = Scene(host=host, realm=realm, scene=os.environ['SCENE'])
+#arena_scene = Scene(host=host, realm=realm, scene=os.environ['SCENE'])
+arena_scene = Scene(host=host, realm=realm, scene='LandOfGG')
+
 # List of arena entities
 arena_entities = dict()
 
@@ -49,8 +51,10 @@ def handler(signal_received, frame):
     # Handle any cleanup here
     print('SIGINT or CTRL-C detected. Exiting gracefully')
 
+    arena_scene.stop_tasks()
+
     for (key, value) in arena_entities.items():
-        value.delete_obj()
+        value.delete()
 
     print('TERMINATED')
 
@@ -75,23 +79,29 @@ def load_entities():
             entity = ROSArenaObject(
                     arena_srv = arena_scene,
                     object_id = el["name"],
-                    obj_type = el["shape"],
+                    object_type = el["shape"],
                     scale = el["scale"],
                     color = el["color"],
                     opacity = el["opacity"],
-                    position = Position(pos[0], pos[1], pos[2]))
+                    persist = True,
+                    position = np.array(
+                        [pos[0], pos[1], pos[2]],
+                        dtype=float))
+
 
         if (el["type"] == "pawn"):
             print("Found {} with name {} @ {}\n".format(
                 el['type'], el['name'], el['pos0']))
-            entity = PawnObject(
+            entity = DroneObject(
                     arena_srv = arena_scene,
                     object_id = el["name"],
-                    obj_type = el["shape"],
+                    object_type = el["shape"],
                     scale = el["scale"],
                     color = el["color"],
                     opacity = el["opacity"],
-                    position = Position(pos[0], pos[1], pos[2]))
+                    position = np.array(
+                        [pos[0], pos[1], pos[2]],
+                        dtype=float))
 
         if (entity is not None):
             arena_entities[el["name"]] = entity 
@@ -106,12 +116,12 @@ def setup():
     load_entities()
 
 
-@arena_scene.run_forever(interval_ms=100)
+@arena_scene.run_forever(interval_ms=300)
 def periodic():
     # Update the entities of the arena
     for key, entity in arena_entities.items():
         # Update the Object
-        entity.arena_update()
+        entity.update()
     
 
 if __name__ == '__main__':
