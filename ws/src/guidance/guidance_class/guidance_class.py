@@ -4,6 +4,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../trjgen')))
 import numpy as np
 from threading import Thread
+import math
 
 import rospy
 
@@ -13,6 +14,8 @@ from testbed_msgs.msg import CustOdometryStamped
 from testbed_msgs.msg import ControlSetpoint 
 from testbed_msgs.msg import BZCurve
 from geometry_msgs.msg import PoseStamped
+
+#from testbed_msgs.msg import MissionMsg
 
 from guidance.srv import GenImpTrajectoryAuto
 from guidance.srv import GenTrackTrajectory
@@ -28,6 +31,19 @@ from guidance_helper import *
 import actionlib
 from guidance.msg import GuidanceTargetAction, GuidanceTargetFeedback, GuidanceTargetResult
 
+def genBZCurveMsg(pstart, tstart, bx, by, bz):
+    bz_msg = BZCurve()
+    bz_msg.t_start = tstart
+    bz_msg.t_end = bz_msg.t_start + bx.duration
+    start_pos = pstart 
+    bz_msg.p0.x = start_pos[0]
+    bz_msg.p0.y = start_pos[1]
+    bz_msg.p0.z = start_pos[2]
+    bz_msg.coeff_x = bx.getControlPts()
+    bz_msg.coeff_y = by.getControlPts() 
+    bz_msg.coeff_z = bz.getControlPts() 
+    bz_msg.duration = bx.duration
+    return bz_msg
 
 
 ################# GUIDANCE CLASS #####################
@@ -76,6 +92,9 @@ class GuidanceClass:
         # Setpoint Publisher
         self.ctrl_setpoint_pub = rospy.Publisher(
                 self.ctrlsetpoint_topic_, ControlSetpoint, queue_size=10)
+        self.mission_pub = rospy.Publisher(
+                '/cf2/trajectory', BZCurve, queue_size=2) 
+        return
  
 
     ###### CALLBACKS
@@ -168,14 +187,7 @@ class GuidanceClass:
         return (traj_obj, t_end)
  
 
-    def gen_eight(self, rx, ry, rz, t2go):
-        X = np.zeros(4)
-        Y = np.zeros(4)
-        Z = np.zeros(4)
-        W = np.zeros(4)
-        R = np.eye(3)
-        Omega = np.zeros((3,3))
-
+    def gen_eight(self, start_position, rx, ry, rz, t2go, freq):
         r = rospy.Rate(freq)
         start_time = rospy.get_time() 
         curr_time = start_time
@@ -185,6 +197,7 @@ class GuidanceClass:
         timeSpan = t2go; 
         end_time = start_time + timeSpan 
 
+        trj_type = "eight"
         # Publishing Loop
         while (curr_time < end_time):
             # Check for preemptions
@@ -209,21 +222,17 @@ class GuidanceClass:
             output_msg.setpoint_type = "active"
             output_msg.header.stamp = rospy.Time.now()
 
-            # Evaluate the trajectory
-            trj_time = curr_time - start_time
-            (X, Y, Z, W, R, Omega) = trajectory.eval(trj_time, [0,1,2,3]) 
-             
             # Fill  the trajectory object
-            output_msg.p.x = start_position[0] + rx * sin(4.0 * pi / t2go * (curr_time - start_time))
-            output_msg.p.y = start_position[1] + ry * sin(2.0 * pi / t2go * (curr_time - start_time))
+            output_msg.p.x = start_position[0] + rx * math.sin(4.0 * math.pi / t2go * (curr_time - start_time))
+            output_msg.p.y = start_position[1] + ry * math.sin(2.0 * math.pi / t2go * (curr_time - start_time))
             output_msg.p.z = rz
 
-            output_msg.v.x = 4.0 * rx * pi / t2go * cos(4.0 * pi / t2go * (curr_time - start_time))
-            output_msg.v.y = 2.0 * ry * pi / t2go * cos(4.0 * pi / t2go * (curr_time - start_time))
+            output_msg.v.x = 4.0 * rx * math.pi / t2go * math.cos(4.0 * math.pi / t2go * (curr_time - start_time))
+            output_msg.v.y = 2.0 * ry * math.pi / t2go * math.cos(4.0 * math.pi / t2go * (curr_time - start_time))
             output_msg.v.z = 0.0 
 
-            output_msg.a.x = -16.0 * rx * (pi / t2go) * (pi / t2go) * sin(4.0 * pi / t2go * (curr_time - start_time))
-            output_msg.a.y = -4.0 * ry * (pi / t2go) * (pi / t2go) * sin(2.0 * pi / t2go * (curr_time - start_time))
+            output_msg.a.x = -16.0 * rx * (math.pi / t2go) * (math.pi / t2go) * math.sin(4.0 * math.pi / t2go * (curr_time - start_time))
+            output_msg.a.y = -4.0 * ry * (math.pi / t2go) * (math.pi / t2go) * math.sin(2.0 * math.pi / t2go * (curr_time - start_time))
             output_msg.a.z = 0.0
             
             # Action Feedback
@@ -241,20 +250,23 @@ class GuidanceClass:
             curr_time = rospy.get_time()
 
         # End Setpoint
-        output_msg = ControlSetpoint()
         output_msg.header.stamp = rospy.Time.now()
 
         output_msg.setpoint_type = "active"
-        output_msg.p.x = start_position[0] + X[0]
-        output_msg.p.y = start_position[1] + Y[0]
-        output_msg.p.z = start_position[2] + Z[0]
-
+        output_msg.v.x = 0 
+        output_msg.v.y = 0 
+        output_msg.v.z = 0 
+        output_msg.a.x = 0
+        output_msg.a.y = 0
+        output_msg.a.z = 0
+        
         self.ctrl_setpoint_pub.publish(output_msg)
 
         result = GuidanceTargetResult()
         result.ret_status = 0;
         result.mission_type = trj_type
         self.action_server.set_succeeded(result, "Mission completed succesfully")
+        return
 
     def gen_takeoff(self, h, t2go=None):
         """
@@ -327,7 +339,6 @@ class GuidanceClass:
             [-z_lim[1], z_lim[1]],
             [-9.90, z_lim[2]]])
         
-
         # Generate the polynomial
         #print("\nGenerating X")
         bz_x = bz.Bezier(waypoints=Xwp, constraints=x_cnstr, degree=ndeg, s=T, opt_der=3)
@@ -337,7 +348,6 @@ class GuidanceClass:
         bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T, opt_der=3)
         #print("\nGenerating W")
         bz_w = bz.Bezier(waypoints=Wwp, degree=ndeg, s=T, opt_der=0)
-
         
         print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
         print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
@@ -349,10 +359,18 @@ class GuidanceClass:
         print("Solution Acceleration: [%.3f, %.3f, %.3f]\n"%(bz_x.eval(T, [2]), bz_y.eval(T, [2]), bz_z.eval(T, [2])))
 
         trj_obj = bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w)
-      
+
         # Compute the absolute times for this trajectory
         t_start = rospy.get_time()
         t_end = t_start + T
+
+        # ============================
+        # Generate the BZCurve message
+        msg = BZCurve();
+        msg = genBZCurveMsg(x0, t_start, bz_x, bz_y, bz_z)
+        msg.header.stamp = rospy.Time.now();
+
+        self.mission_pub.publish(msg);
 
         return (trj_obj, t_end)
 
@@ -368,17 +386,18 @@ class GuidanceClass:
         tg_v = goal.target_v
         tg_a = goal.target_a
 
+        if (goal.mission_type == "eight"):
+            radius_x = tg_p[0]
+            radius_y = tg_p[1]
+            trj_z = tg_p[2]
+            self.gen_eight(start_point, radius_x, radius_y, trj_z, t2go, frequency)
+            return True
+
         # If the goal is relative compute the absolute before requesting 
         # the trajectory: the functions think in absolute position
         if (goal.relative):
             tg_p = tg_p + start_point
 
-        if (goal.mission_type == "eight"):
-            radius_x = tg_p[0]
-            radius_y = tg_p[1]
-            trj_z = tg_p[2]
-            (trajectory, Tend) = self.gen_eight(radius_x, radius_y, trj_z, t2go)
-            return True
 
         # Call the specific trajectory generation
         if (goal.mission_type == "goTo"):
@@ -390,13 +409,12 @@ class GuidanceClass:
         if (goal.mission_type == "takeoff"):
             h = tg_p[2]
             (trajectory, Tend) = self.gen_takeoff(h, t2go)
-
                     
-
         self.action_thread(goal.mission_type, trajectory, start_point, frequency)
 
         return True
     
+
     def action_thread(self, trj_type, trajectory, start_position, freq):
 
         X = np.zeros(4)

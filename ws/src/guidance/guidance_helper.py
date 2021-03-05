@@ -158,6 +158,21 @@ def vex(v):
     return O
 
 
+def genBZCurveMsg(mission_item, bx, by, bz):
+    bz_msg = BZCurve()
+    bz_msg.t_start  = mission_item.getStartTime()
+    start_pos = mission_item.getStart()
+    bz_msg.p0.x = start_pos[0]
+    bz_msg.p0.y = start_pos[1]
+    bz_msg.p0.z = start_pos[2]
+    bz_msg.coeff_x = bx.getControlPts()
+    bz_msg.coeff_y = by.getControlPts() 
+    bz_msg.coeff_z = bz.getControlPts() 
+    bz_msg.duration = bx.duration
+    return bz_msg
+
+
+
 def AddConstraint(A, constr):
     N = constr.size
     col_constr = constr.reshape(N,1)
