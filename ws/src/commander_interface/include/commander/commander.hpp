@@ -13,6 +13,7 @@
 #include "commander_interface/Impact.h"
 #include "commander_interface/Stop.h"
 #include "commander_interface/OffBoard.h"
+#include "commander_interface/Eight.h"
 
 #include <guidance/GuidanceTargetAction.h>
 #include <actionlib/client/simple_action_client.h>
@@ -58,6 +59,11 @@ class CommanderInterface {
                 commander_interface::OffBoard::Request  &req,
                 commander_interface::OffBoard::Response &res);
 
+	// Request Eight
+        bool eight_callback(
+                commander_interface::Eight::Request  &req,
+                commander_interface::Eight::Response &res);
+
         /*
            bool impact_callback(
            commander_interface::Impact::Request  &req,
@@ -87,6 +93,8 @@ class CommanderInterface {
         ros::ServiceServer ctrl_offboard_srv_;
 
         ros::ServiceServer stop_srv_;
+
+	ros::ServiceServer eight_srv_;
 
         //ros::ServiceServer track_srv_;
         //ros::ServiceServer impact_srv_;

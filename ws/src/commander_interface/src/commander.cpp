@@ -71,6 +71,9 @@ bool CommanderInterface::Initialize(const ros::NodeHandle& n) {
     goTo_srv_ = nh.advertiseService("goTo_srv",
             &CommanderInterface::goto_callback, this);
 
+    eight_srv_ = nh.advertiseService("eight_srv",
+            &CommanderInterface::eight_callback, this);
+
     ctrl_offboard_srv_ = nh.advertiseService("ctrl_offboard_srv",
             &CommanderInterface::ctrl_offboard_callback, this);
 
@@ -262,6 +265,44 @@ bool CommanderInterface::goto_callback(
     }
     return output;
 }
+
+
+bool CommanderInterface::eight_callback(
+        commander_interface::Eight::Request  &req,
+        commander_interface::Eight::Response &res) {
+    bool output = false;
+
+    if (off_board_controller_) {
+        ROS_INFO("%s:Eight requested [OFFBOARD]! \n", name_.c_str());
+        guidance::GuidanceTargetGoal goal;
+
+        boost::array<float, 3> v{{0.0, 0.0, 0.0}};
+
+        goal.mission_type = "eight";
+
+        goal.relative = true;
+
+        v = req.target_p;
+        goal.target_p = v; 
+
+        goal.tg_time = req.duration;
+
+        // Create a thread to call the action and monitor the outcome.
+        std::thread run_action(&CommanderInterface::action_thread, this, goal);
+        run_action.detach();
+
+        res.ack = "Roger!";
+        output = true;
+    } else {
+	ROS_INFO("%s:Eight requested [ONBOARD]! \n", name_.c_str());
+
+	    /*
+	     * Here the code for the ONBOARD
+	     */
+    }
+    return output;
+}
+
 
 
 bool CommanderInterface::ctrl_offboard_callback (
