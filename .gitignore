@@ -8,3 +8,4 @@ ws/src/CMakeLists.txt
 rosnet.config
 *.zsh
 *env/
+ws/src/cis_supervisor/config/data*
