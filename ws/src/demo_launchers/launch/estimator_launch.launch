@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-        <arg name="vehicle_frame" default="cf1" />
+        <arg name="vehicle_frame" default="cf2" />
 
 <!-- VEHICLE 1 -->
 <group ns="$(arg vehicle_frame)">
