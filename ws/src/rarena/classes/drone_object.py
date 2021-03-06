@@ -1,3 +1,4 @@
+from inspect import isfunction
 from arena import *
 from testbed_msgs.msg import CustOdometryStamped
 import rospy
@@ -8,6 +9,7 @@ from classes import ROSArenaManager
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../guidance/trjgen')))
 from trjgen.class_bz import Bezier
 from testbed_msgs.msg import BZCurve
+from testbed_msgs.msg import ControlSetpoint
 
 ###### HELPERS #####
 def posFromStateMsg(msg):
@@ -24,14 +26,34 @@ def quatFromStateMsg(msg):
 
 class RingBuffer:
     def __init__(self, size):
-        self.data = [None for i in range(size)]
+        self.data = list([None for i in range(size)])
+        self.tail = 0
+        self.head = 0
+        self.size = size
+        self.curr_size = 0
 
     def append(self, x):
-        self.data.pop(0)
-        self.data.append(x)
+        self.data[self.tail] = x;
+        self.tail = (self.tail + 1) % self.size;
+        if (self.tail == self.head):
+            self.head = (self.head + 1) % self.size
+
+        self.curr_size = min(self.curr_size + 1, self.size)
+        #self.data.pop(0)
+        #self.data.append(x)
 
     def get(self):
         return self.data
+
+    def get_tail(self):
+        return self.tail
+
+    def get_head(self):
+        return self.head
+
+    def is_full(self):
+        return self.curr_size == self.size
+
 
 
 class DroneObject(object):
@@ -68,12 +90,11 @@ class DroneObject(object):
         self.rarena_manager.add_object(
                 self.object_id,
                 **kwargs
-        #        ROSArenaObject(**kwargs)
                 )
 
         self.mission_active = False
 
-        self.trace_ = RingBuffer(25) 
+        self.trace_ = RingBuffer(50) 
 
         # Deal with the ROS stuff
         self.register_sources()
@@ -101,9 +122,16 @@ class DroneObject(object):
     def register_sources(self):
         self.state_topic = "/{}/external_codom".format(self.object_id)
         self.trj_topic = "/{}/trajectory".format(self.object_id)
+        self.setp_topic = "/{}/setpoint".format(self.object_id)
+
         rospy.Subscriber(self.state_topic,
                 CustOdometryStamped,
                 self.state_callback)
+
+        rospy.Subscriber(self.setp_topic,
+                ControlSetpoint,
+                self.sp_callback)
+
 
         rospy.Subscriber(self.trj_topic,
                 BZCurve,
@@ -137,28 +165,72 @@ class DroneObject(object):
         rot = quatFromStateMsg(state_msg)
         self.set_pose(pos, rot)
 
+        head = self.trace_.get_head()
+        tail = self.trace_.get_tail()
+
         if (np.linalg.norm(pos - self.old_pos) > 0.05):
             self.old_pos = pos
             self.trace_.append(pos)
-        
-        wake = self.trace_.get()
 
-        for (index, el) in enumerate(wake):
-            if el is not None:
-                temp_id = self.object_id + 'wake' + str(index)
+            wake = self.trace_.get()
+
+            new_p = wake[tail]
+
+            if (not self.trace_.is_full()):
+                temp_id = self.object_id + 'wake' + str(tail)
                 self.rarena_manager.add_object(
                         temp_id,
-                        #ROSArenaObject(
-                            arena_srv = self.scene,
-                            position = np.array(el),
-                            object_id = temp_id,
-                            object_type = 'sphere',
-                            color = [255, 255, 255],
-                            scale = [0.01, 0.01, 0.01]
-                        #    )
+                        arena_srv = self.scene,
+                        position = np.array(new_p),
+                        object_id = temp_id,
+                        object_type = 'sphere',
+                        color = [255, 255, 255],
+                        scale = [0.01, 0.01, 0.01]
                         )
+            else:
+                temp_id = self.object_id + 'wake' + str(head)
+                self.rarena_manager.add_object(
+                        temp_id,
+                        arena_srv = self.scene,
+                        position = np.array(new_p),
+                        object_id = temp_id,
+                        object_type = 'sphere',
+                        color = [255, 255, 255],
+                        scale = [0.01, 0.01, 0.01]
+                        )
+
+        #for (index, el) in enumerate(wake):
+        #    if el is not None:
+        #        temp_id = self.object_id + 'wake' + str(index)
+        #        self.rarena_manager.add_object(
+        #                temp_id,
+        #                    arena_srv = self.scene,
+        #                    position = np.array(el),
+        #                    object_id = temp_id,
+        #                    object_type = 'sphere',
+        #                    color = [255, 255, 255],
+        #                    scale = [0.01, 0.01, 0.01]
+        #                )
             
             
+
+    # Callback for the pose messages from ROS
+    def sp_callback(self, setpoint_msg):
+        pos = posFromStateMsg(setpoint_msg)
+        self.set_pose(pos, np.array([0,0,0,1]))
+
+        temp_id = self.object_id + 'setpoint'
+        self.rarena_manager.add_object(
+                temp_id,
+                arena_srv = self.scene,
+                position = pos,
+                object_id = temp_id,
+                object_type = 'sphere',
+                color = [100, 50, 255],
+                scale = [0.03, 0.03, 0.03]
+                )
+
+
     def update(self):
         """
         Trigger the update of the arena objects
@@ -166,6 +238,9 @@ class DroneObject(object):
         """
         self.rarena_manager.update()
 
+
+    def set_color(self, col):
+        self.rarena_manager.update_object(self.object_id, color = col)
 
     def arena_callback(self, evt):
         """
@@ -217,14 +292,12 @@ class DroneObject(object):
 
         self.rarena_manager.add_object(
                 self.object_id + 'traj',
-                #ROSArenaObject(
                     arena_srv = self.scene,
                     object_id = self.object_id + 'traj',
                     object_type = 'thickline',
                     color = [255, 0, 0],
                     path = str_path,
                     lineWidth = 5
-                #    )
                 )
         return pos 
 

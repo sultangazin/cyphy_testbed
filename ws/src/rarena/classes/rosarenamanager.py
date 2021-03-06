@@ -67,12 +67,15 @@ class ROSArenaManager(object):
             self.objects[name].arena_obj_.update_attributes(evt_handler = handler)
 
         if 'color' in kwargs:
-            pass
-
+            col = tuple(kwargs['color'])
+            self.objects[name].set_color(col)
 
         if 'opacity' in kwargs:
             self.objects[name].set_opacity(kwargs.get('opacity'))
             
+        if 'object_id' in kwargs and 'traj' in kwargs['object_id']:
+            self.objects[name].arena_obj_.update_attributes(path = kwargs['path'])
+
         return
 
 

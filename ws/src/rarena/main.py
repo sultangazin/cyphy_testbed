@@ -28,7 +28,7 @@ realm = "realm"
 # Arena Main object 
 # The scene should be specified with the environmental variable SCENE
 #arena_scene = Scene(host=host, realm=realm, scene=os.environ['SCENE'])
-arena_scene = Scene(host=host, realm=realm, scene='LandOfGG')
+arena_scene = Scene(host=host, realm=realm, scene='LandOfOz')
 
 # List of arena entities
 arena_entities = dict()
@@ -37,11 +37,11 @@ arena_entities = dict()
 
 def monitor(supervisor_msg):
     if supervisor_msg.active:
-        #arena_entities['cf2'].set_color((255, 0, 0))
-        arena_entities['cf2'].set_opacity(0.7)
+        arena_entities['cf2'].set_color((255, 255, 0))
+        #arena_entities['cf2'].set_opacity(0.7)
     else:
-        arena_entities['cf2'].set_opacity(0.0)
-        #arena_entities['cf2'].set_color((0, 255, 0))
+        arena_entities['cf2'].set_color((0, 255, 0))
+        #arena_entities['cf2'].set_opacity(0.0)
 
 
 def handler(signal_received, frame):
@@ -116,7 +116,7 @@ def setup():
     load_entities()
 
 
-@arena_scene.run_forever(interval_ms=300)
+@arena_scene.run_forever(interval_ms=100)
 def periodic():
     # Update the entities of the arena
     for key, entity in arena_entities.items():

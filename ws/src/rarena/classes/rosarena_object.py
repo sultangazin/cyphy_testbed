@@ -29,7 +29,7 @@ class ROSArenaObject(object):
         else:
             print("Must provide an object ID")
 
-        self.offset = kwargs.get('offset', np.array([-0.045, -0.15, 0]))
+        self.offset = kwargs.get('offset', np.array([0.0, 0.0, 0.0]))
         if 'offset' in kwargs: del kwargs['offset']
 
         self.clr = kwargs.get("color", [100, 100, 0])
