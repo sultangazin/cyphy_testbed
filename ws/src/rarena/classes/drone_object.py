@@ -94,7 +94,7 @@ class DroneObject(object):
 
         self.mission_active = False
 
-        self.trace_ = RingBuffer(50) 
+        self.trace_ = RingBuffer(70) 
 
         # Deal with the ROS stuff
         self.register_sources()
@@ -217,7 +217,7 @@ class DroneObject(object):
     # Callback for the pose messages from ROS
     def sp_callback(self, setpoint_msg):
         pos = posFromStateMsg(setpoint_msg)
-        self.set_pose(pos, np.array([0,0,0,1]))
+        #self.set_pose(pos, np.array([0,0,0,1]))
 
         temp_id = self.object_id + 'setpoint'
         self.rarena_manager.add_object(
@@ -257,7 +257,7 @@ class DroneObject(object):
     
     def traj_callback(self, msg):
         self.mission_active = True
-        Nsamples = 6
+        Nsamples = 8
         self.final_pos = self.draw_curve(msg, Nsamples)
             
 
