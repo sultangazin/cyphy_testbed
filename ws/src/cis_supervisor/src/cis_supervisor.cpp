@@ -236,7 +236,6 @@ bool CISSupervisor::Step(double deltaT) {
 				f_cand.begin(), f_cand.end());
 
 		if (min_el_it == f_cand.end() || *min_el_it == __DBL_MAX__) {
-			/*
 			cout << "All the optimizations failed.." << endl;
 			cout << "[fail] curr_corr: " << state_curr_.transpose() << endl;
 			cout << "[fail] next_corr: " << state_next_des_.transpose() << endl;
@@ -246,7 +245,6 @@ bool CISSupervisor::Step(double deltaT) {
 			}
 			cout << "]" << endl;
 			cout << endl;
-			*/
 			supervision_active_ = false;
 			return supervision_active_;
 		}
@@ -258,13 +256,11 @@ bool CISSupervisor::Step(double deltaT) {
 		// Make sure that next state is indeed in the next cis:
 		state_next_des_ = mdl_->Ad * state_curr_ + mdl_->Bd * u_corrected;
 		if (!isContained(state_next_des_)){
-			/*
 			cout << "Next state not in a CIS!" << endl;
 			cout << "u_corr: " << setprecision(10) << u_corrected.transpose() << endl;
 			cout << "Curr: " << setprecision(10) << state_curr_.transpose() << endl;
 			cout << "Next: " << setprecision(10) << state_next_des_.transpose() << endl;
 			cout << endl;
-			*/
 		} else {
 			/*
 			cout << "Corrected!" << endl;
