@@ -30,9 +30,10 @@
             <param name="enable_provide_distance" value="$(arg provide_distance)" type="bool" />
             <param name="enable_provide_pose" value="$(arg provide_pose)" type="bool" />
             <rosparam>
-                genericLogTopics: ["gyro"]
-                genericLogTopicFrequencies: [10]
+                genericLogTopics: ["gyro", "est"]
+                genericLogTopicFrequencies: [100, 100]
                 genericLogTopic_gyro_Variables: ["gyro.x", "gyro.y", "gyro.z"]
+                genericLogTopic_est_Variables: ["stateEstimate.x", "stateEstimate.y", "stateEstimate.z"]
             </rosparam>
 
 	    <!--

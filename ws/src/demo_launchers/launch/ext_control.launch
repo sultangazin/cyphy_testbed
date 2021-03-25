@@ -32,7 +32,7 @@
 
   <!-- 60000 12000-->
   <arg name="kR_z" value="60000.0" />
-  <arg name="kw_z" value="1200.0" />
+  <arg name="kw_z" value="12000.0" />
   <arg name="ki_m_z" value="500" />
   <arg name="i_range_m_z" value="1500" />
   
