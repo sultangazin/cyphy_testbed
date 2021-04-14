@@ -1,107 +1,206 @@
 <?xml version="1.0"?>
 <!--
-    Global Launch File to start the system.
-    The following nodes will be started:
-     - VRPN Client Node
-     - Estimator Nodes for the drones
-     - Arena Node
-     - Commander + Guidance Nodes
+Global Launch File to start the system.
+The following nodes will be started:
 -->
 <launch>
-    <arg name="vehicle_frame" default="cf2" />
-    <arg name="uri" default="radio://0/100/2M/E7E7E7E702" />
-<!--
-    <arg name="vehicle_frame" default="cf1" />
-    <arg name="uri" default="radio://0/121/2M/E7E7E7E7E7" />
--->
-    <arg name="target" default="target" />
-    <arg name="nodeB" default="nodeB" />
-    <arg name="ip" default="192.168.1.198" />
-    <arg name="port" default="3883" />
-    
-    <arg name="server" default="RS2" />
-    <arg name="provide_position" default="True" />
-    <arg name="provide_distance" default="False" />
-    <arg name="provide_pose" default="False" />
+	<!-- ======================================= -->
+        <!--    LAUNCH FILE PARAMETERS  -->
+	<!-- Crazyflie Parameters -->
+        <arg name="vehicle_frame" default="cf2" />
+        <arg name="uri" default="radio://0/100/2M/E7E7E7E702" />
+        <arg name="target" default="target" />
+	<arg name="server" default="RS2" />
+        <arg name="provide_position" default="True" />
+        <arg name="provide_distance" default="False" />
+        <arg name="provide_pose" default="False" />
+	<!-- Optitrack information -->
+        <arg name="ip" default="192.168.1.198" />
+        <arg name="port" default="3883" />
+        
+
+        <!-- ======================================= -->
+        <!--    Launch the data aquisition component 
+                Source of raw pose data: VRPN Server 
+        -->
+        <group ns="area0">
+                <group ns="sensors">
+                        <node 
+                                pkg="vrpn_client_cyphy"
+                                type="vrpn_client_node" 
+                                name="optitrack"
+                                output="screen"
+                                respawn="true"
+                                respawn_delay="3">
+                        <rosparam subst_value="true">
+                                server: $(arg ip)
+                                port: $(arg port)
+                                update_frequency: 360.0
+                                frame_id: /world
+                                use_server_time: true
+                                broadcast_tf: false
+                                refresh_tracker_frequency: 1.0
+                        </rosparam>
+                        </node>
+                </group>
+        </group>
 
 
-<!-- ===================================== -->
-<!-- Launch the data aquisition component 
-     Source of raw pose data: VRPN Server 
-     -->
-<include file="$(find demo_launchers)/launch/vrpn_launch.launch">
-    <arg name="ip" value="$(arg ip)" />
-    <arg name="port" value="$(arg port)" />
-</include>
+        <!-- ================================================== -->
+	<!-- Control and Estimation -->
+        <group ns="$(arg vehicle_frame)">
+		<!--    Launch the estimator of the object state from
+                	the VRPN raw data.
+        	-->
+                <node pkg="state_aggregator" name="aggregator" type="state_aggregator" 
+                        respawn="true"
+                        respawn_delay="3"
+                        output="screen"> 
+                        <!-- Topic parameters -->
+                <param name="sigmax" value="0.5" type='double' />
+                <param name="sigmay" value="0.0001" type='double' />
+                <param name="param/target_name" value="$(arg vehicle_frame)" />
+
+                <param name="topics/out_ext_position_topic" value="external_position" />
+                <param name="topics/out_ext_pose_topic" value="external_pose" />
+                <param name="topics/out_ext_pose_rpy_topic" value="external_pose_rpy" />
+                <param name="topics/out_ext_odom_topic" value="external_odom" />
+                <param name="topics/out_ext_codom_topic" value="external_codom" />
+
+                <param name="time_delay" value="0.0" type='double' />
+                </node>
 
 
-<!-- ===================================== -->
-<!-- Launch the estimator of the object state from
-     the VRPN raw data.
-     -->
-<include file="$(find demo_launchers)/launch/estimator_launch.launch">
-    <arg name="vehicle_frame" value="$(arg vehicle_frame)" />
-</include>
+                <!-- =========================================== -->
+                <!--    Launch the controller/guidance componets -->
+                <node name="Guidance_Node" 
+                        pkg="guidance" 
+                        type="guidance_node.py" 
+                        output="screen"
+                        respawn="true"
+                        respawn_delay="3"> 
+                <param name="target_frame" value="$(arg vehicle_frame)" type='str' />
+                <param name="topics/in_tg_pose_topic" value="target" type="str" />
+                <param name="topics/in_vehicle_odom_topic" value="external_codom" type='str' />
+                <param name="topics/in_obst_pose_topic" value="cf9" type='str'/>
+                <param name="topics/out_ctrl_setpoint" value="setpoint" type="str" />
+                </node>
+
+                <!--
+                ========================================
+                Commander Node
+                -->
+                <node name="Commander_Node" pkg="commander_interface" type="commander" output="screen">
+                        <param name="param/vehicle_name" value="$(arg vehicle_frame)" type="str"/>
+                </node>
 
 
-<!-- ======================================== -->
-<!-- Launch the controller/guidance componets -->
-<include file="$(find demo_launchers)/launch/commander_launch.launch">
-    <arg name="vehicle_frame" value="$(arg vehicle_frame)" />
-    <arg name="commander_id" value="cm3" />
-    <arg name="obst_frame" value="cf5" />
-</include>
+		<!-- GEOMETRIC EXTERNAL CONTROLLERS -->
+		<include file="$(find demo_launchers)/launch/ext_control.launch">
+			<arg name="topics/setpoint_topic" value="/$(arg vehicle_frame)/setpoint" />
+			<arg name="topics/control_topic" value="/area0/controller/geometric_ctrl/$(arg vehicle_frame)/control" />
+			<arg name="topics/ctrl_perf_topic" value="/$(arg vehicle_frame)/ctrl_perf" />
+			<arg name="topics/state_topic" value="/$(arg vehicle_frame)/external_codom" />
+			<arg name="param/vehicle_name" value="$(arg vehicle_frame)" />
+			<arg name="control_mode" value="RATES" />
+		</include>
 
-<!-- ======================================== -->
-<!-- Connection to the crazyflie vehicle -->
-<include file="$(find demo_launchers)/launch/radio_server.launch">
-    <arg name="rs_name" value="$(arg server)" />
-</include>
-
-<include file="$(find demo_launchers)/launch/cf_bridge.launch">
-        <arg name="uri" value="$(arg uri)" />
-        <arg name="frame" value="$(arg vehicle_frame)" />
-        <arg name="server" value="$(arg server)" />
-        <arg name="provide_position" value="$(arg provide_position)" />
-        <arg name="provide_distance" value="$(arg provide_distance)" />
-        <arg name="provide_pose" value="$(arg provide_pose)" />
-        <arg name="controller_type" value="Mellinger" />
-	<arg name="control_mode" value="1" />
-</include>
-
-
-<!--
-    ===================================================
-    Control Router 
-    This node manages the control switching on the network
--->
-    <node name="control_router"
-        pkg="control_router"
-        type="control_router_node"
-        output="screen">
-        <param name="param/vehicle_name" value="$(arg vehicle_frame)" />
-    </node>
-
-
-<!-- GEOMETRIC EXTERNAL CONTROLLERS -->
-   <group ns="$(arg vehicle_frame)"> 
-        <include file="$(find demo_launchers)/launch/ext_control.launch">
-            <arg name="topics/setpoint_topic" value="/$(arg vehicle_frame)/setpoint" />
-            <arg name="topics/control_topic" value="/area0/controller/geometric_ctrl/$(arg vehicle_frame)/control" />
-            <arg name="topics/ctrl_perf_topic" value="/$(arg vehicle_frame)/ctrl_perf" />
-            <arg name="topics/state_topic" value="/$(arg vehicle_frame)/external_codom" />
-            <arg name="param/vehicle_name" value="$(arg vehicle_frame)" />
-            <arg name="control_mode" value="RATES" />
-        </include>
-
-        <node name="cmd_vel_converter"
-            pkg="controller"
-            type="cmd_vel_converter_node"
-            output="screen">
-            <param name="topics/control" value="/$(arg vehicle_frame)/control" />
-            <param name="topics/cmd_vel" value="/$(arg vehicle_frame)/cmd_vel" />
+		<node name="cmd_vel_converter"
+			pkg="controller"
+			type="cmd_vel_converter_node"
+			output="screen">
+			<param name="topics/control" value="/$(arg vehicle_frame)/control" />
+			<param name="topics/cmd_vel" value="/$(arg vehicle_frame)/cmd_vel" />
+		</node>
+        </group>
+	
+	<!-- ========================================== -->
+	<!--    Connection to the crazyflie vehicle     -->
+	<!-- 
+		The function of the 'crazyflie_server' is to wait
+		for requests to add drones.
+		To add a drone it is required to launch the
+		crazyflie_add node.
+		The parameter 'rs_name' is used to use more 
+		radios. Basically, I can launch more crazyflie
+		drivers nodes on different machines to deal 
+		with different vehicles. The way it works is by
+		having a different namespace for the services such
+		that there are no conflicts on the ROS network when
+		sending requests.
+	-->
+        <node pkg="crazyflie_driver" 
+                type="crazyflie_server" 
+                name="CF_RadioServer_$(arg server)" 
+                respawn="true"
+                respawn_delay="3"
+                output="screen">
+        	<param name="rs_name" value="$(arg server)"/>
         </node>
-    </group>
 
-    <node pkg="rosbag" name="cis_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_simple  /area0/sensors/optitrack/$(arg vehicle_frame)/data   /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/setpoint /$(arg vehicle_frame)/control /$(arg vehicle_frame)/cmd_vel /$(arg vehicle_frame)/gyro /$(arg vehicle_frame)/est"/>
+        <!-- This node just prepares a request for the server
+                to add a new drone.
+        -->
+        <node pkg="crazyflie_driver"
+            type="crazyflie_add"
+            name="CF_add_node"
+            output="screen">
+            <param name="uri" value="$(arg uri)" />
+            <param name="tf_prefix" value="$(arg vehicle_frame)" />
+            <param name="server" value="$(arg server)" />
+            <param name="enable_logging" value="True" />
+            <param name="enable_logging_imu" value="False" />
+            <param name="enable_logging_temperature" value="False" />
+            <param name="enable_logging_magnetic_field" value="False" />
+            <param name="enable_logging_pressure" value="False" />
+            <param name="enable_logging_battery" value="False" />
+            <param name="enable_logging_packets" value="False" />
+            <param name="enable_logging_pose" value="False" />
+            <param name="enable_provide_position" value="$(arg provide_position)" type="bool" />
+            <param name="enable_provide_distance" value="$(arg provide_distance)" type="bool" />
+            <param name="enable_provide_pose" value="$(arg provide_pose)" type="bool" />
+            <rosparam>
+                genericLogTopics: ["gyro", "est"]
+                genericLogTopicFrequencies: [100, 100]
+                genericLogTopic_gyro_Variables: ["gyro.x", "gyro.y", "gyro.z"]
+                genericLogTopic_est_Variables: ["stateEstimate.x", "stateEstimate.y", "stateEstimate.z"]
+            </rosparam>
+        </node>
+	
+	<!-- ================================= -->
+	<!--
+        Control Router 
+        This node manages the control switching on the network
+        -->
+        <node name="control_router"
+                pkg="control_router"
+                type="control_router_node"
+                output="screen">
+        <param name="param/vehicle_name" value="$(arg vehicle_frame)" />
+        </node>
+                
+	
+	<!-- ================================= -->
+	<!-- 
+		This node configures the crazyflie.
+		It is usefull in case I want a particular
+		configuration of the vehicle before starting 
+		to issue commands. 
+		In case of scripted experiment, this part won't be
+		necessary since it the configuration can be carried out
+		directly in the experiment script.
+	-->
+        <group ns="$(arg vehicle_frame)">
+        <node name="setup_vehicle" pkg="demo_launchers" type="setup_vehicle.py" output="screen">
+            <param name="cf" value="$(arg vehicle_frame)" />
+            <param name="comm_lev" value='1' type='int' />
+            <param name="ResEstimator" value='true' type='bool' />
+            <param name="Controller" value="Mellinger" type='str' />
+            <param name="Estimator" value="EFK" type='str' />
+            <param name="stabMode" value="1" type='int' />
+        </node>
+        </group>
+
+
+        <node pkg="rosbag" name="cis_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_simple /area0/sensors/optitrack/$(arg vehicle_frame)/data   /$(arg vehicle_frame)/external_codom /$(arg vehicle_frame)/setpoint /$(arg vehicle_frame)/control /$(arg vehicle_frame)/cmd_vel /$(arg vehicle_frame)/gyro /$(arg vehicle_frame)/est"/>
 </launch>

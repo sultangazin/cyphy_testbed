@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   state_aggregator
   monitors
   guidance
+  crazyflie_py
 )
 
 ## System dependencies are found with CMake's conventions
