@@ -1,10 +1,10 @@
-[submodule "ws/src/crazyflie_ros"]
-	path = ws/src/crazyflie_ros
-	url = https://github.com/rt-2pm2/crazyflie_ros.git
-	branch = master
-	update = merge
 [submodule "ws/src/guidance/trjgen"]
 	path = ws/src/guidance/trjgen
 	url = https://github.com/rt-2pm2/trjgen
+	branch = master
+	update = merge
+[submodule "ws/src/crazyflie_ros"]
+	path = ws/src/crazyflie_ros
+	url = https://github.com/rt-2pm2/crazyflie_ros.git
 	branch = master
 	update = merge
