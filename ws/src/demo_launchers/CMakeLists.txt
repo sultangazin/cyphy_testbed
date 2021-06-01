@@ -8,11 +8,9 @@ project(demo_launchers)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  monitors
   roscpp
   rospy
   state_aggregator
-  monitors
   guidance
   crazyflie_py
 )

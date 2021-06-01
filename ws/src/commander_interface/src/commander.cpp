@@ -77,36 +77,31 @@ bool CommanderInterface::Initialize(const ros::NodeHandle& n) {
     ctrl_offboard_srv_ = nh.advertiseService("ctrl_offboard_srv",
             &CommanderInterface::ctrl_offboard_callback, this);
 
-    // Connect to the service provided by the guidance node.
-    // That node will create the guidance (produce reference points) for accomplishing the task
 
     // Connect to the services of the crazyflie_ros
     cf_ros_goto_clnt_ = ng.serviceClient<crazyflie_driver::GoTo>(
             "go_to");
-
     cf_ros_takeoff_clnt_ = ng.serviceClient<crazyflie_driver::Takeoff>(
             "takeoff");
-
     cf_ros_land_clnt_ = ng.serviceClient<crazyflie_driver::Land>(
             "land");
-
     cf_ros_stop_clnt_ = ng.serviceClient<crazyflie_driver::Stop>(
             "stop");
 
+    // Connect to the service of the Control Router
+    // (Used to switch between onboard/offboard and among different offboard controller)
     control_router_switch_client_ = ng.serviceClient<control_router::EnableNWController>("/" + vehicle_name_ + "/nw_ctrl_enable"); 
-
     ROS_INFO("%s: Waiting for Control Router Service...\n", name_.c_str());
     control_router_switch_client_.waitForExistence();
     ROS_INFO("%s: Control Router Server ready!\n", name_.c_str());
 
+    // Connect to the service provided by the guidance node.
+    // That node will create the guidance (compute reference points) for accomplishing the task
     std::string guidance_server = "GuidanceServer";
     pactc_ = new ActionClient(guidance_server, true);
-
     ROS_INFO("%s: Waiting for Guidance Server [%s]...\n", name_.c_str(), guidance_server.c_str());
     pactc_->waitForServer(); 
-
     ROS_INFO("%s: Guidance Server Replied!\n", name_.c_str());
-
 
     initialized_ = true; 
 

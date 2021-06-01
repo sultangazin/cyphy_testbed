@@ -5,10 +5,7 @@
 #include "utilities/timeutils/timeutils.hpp"
 #include "utilities/custom_conversion/custom_conversion.hpp"
 
-#include "filter/lbfilter.hpp"
 #include "filter/polyfilter.hpp"
-
-void kf_thread_fnc(void* p);
 
 // =================================================================
 // CLASS
@@ -16,14 +13,12 @@ void kf_thread_fnc(void* p);
 StateAggregator::StateAggregator():
 	received_reference_(false),
 	last_state_time_(-1.0),
-	initialized_(false),
-	ctrl_(Eigen::Vector3d::Zero()) { 
+	initialized_(false) { 
 	};
 
 StateAggregator::~StateAggregator() {};
 
 bool StateAggregator::Initialize(const ros::NodeHandle& n) {
-
 	node_ = n;
 	ros::NodeHandle nl(n);
 
@@ -44,51 +39,37 @@ bool StateAggregator::Initialize(const ros::NodeHandle& n) {
 
 	Eigen::Vector3d sigma_x(_sigmax, _sigmax, _sigmax);
 	Eigen::Vector3d sigma_y(_sigmay, _sigmay, _sigmay);
-
 	_pfilt = new PolyFilter(Eigen::Vector3d::Zero(), sigma_x, sigma_y, 0.002);
-	//_pfilt = new LBFilter(Eigen::Vector3d::Zero(), 0.002);
-	//_pfilt = new DDFilter(Eigen::Vector3d::Zero(), 5, 0.002);
 
 
+	// ======================================================================
 	// Advertise topics
 
 	// External Orientation
 	pose_rpy_pub_ =
-		nl.advertise<geometry_msgs::Vector3Stamped> (ext_pose_rpy_topic_.c_str(), 10);
-
+		nl.advertise<geometry_msgs::Vector3Stamped> (ext_att_rpy_topic_.c_str(), 10);
 	// External Position
 	ext_pos_pub_ = 
 		nl.advertise<geometry_msgs::PointStamped> (ext_position_topic_.c_str(), 10);
-
 	// External Pose
 	pose_pub_ = 
 		nl.advertise<geometry_msgs::PoseStamped> (ext_pose_topic_.c_str(), 10);
-
-	codometry_pub_ =
-		nl.advertise<testbed_msgs::CustOdometryStamped> (ext_codom_topic_.c_str(), 10);
-
-	// Fused position
-	rs_pub_ =
-		nl.advertise<testbed_msgs::CustOdometryStamped> (rs_codom_topic_.c_str(), 10);
-
-	// Temporary
-	ctrl_sub_ = nl.subscribe(ctrl_topic_.c_str(), 10, &StateAggregator::ctrl_callback, this);
+	odometry_pub_ =
+		nl.advertise<testbed_msgs::CustOdometryStamped> (ext_odom_topic_.c_str(), 10);
 
 
+	// ======================================================================
 	// Advertise Services
 	sensor_service = node_.advertiseService(
 			"control_sensors", &StateAggregator::control_sensor, this);
 
-	initialized_ = true;
 
-	arg_.period = 0.002;
-	arg_.pfilt = _pfilt;
-
-
-	//kf_thread = std::thread(kf_thread_fnc, (void*) &arg_); 
+	// ======================================================================
+	// Start discovery thread 
 	net_disc_thr = std::thread(&StateAggregator::net_discovery, this,
 			500);
 
+	initialized_ = true;
 	return true;
 }
 
@@ -106,17 +87,11 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 	np.param<std::string>("topics/out_ext_pose_topic", ext_pose_topic_,
 			"external_pose");
 	// External orientation (rpy)
-	np.param<std::string>("topics/out_ext_pose_rpy_topic", ext_pose_rpy_topic_, 
+	np.param<std::string>("topics/out_ext_pose_rpy_topic", ext_att_rpy_topic_, 
 			"external_pose_rpy");
 
-	np.param<std::string>("topics/out_ext_codom_topic", ext_codom_topic_,
+	np.param<std::string>("topics/out_ext_codom_topic", ext_odom_topic_,
 			"external_codom");
-
-	np.param<std::string>("topics/out_rs_codom_topic", rs_codom_topic_,
-			"rs_codom");
-
-	np.param<std::string>("topics/in_ctrl_topic", ctrl_topic_,
-		"/CISSupervisor/"+ target_name_ + "/cis_perf");
 
 	//    ROS_INFO("Namespace = %s", );
 	// Params
@@ -295,12 +270,10 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 		_pfilt->resetPosition(p_);
 		q_old_= q_;
 		t_old = t; 
-
 		received_reference_ = true;
 	} else {
 		dt = time_diff(t, t_old); 
 
-		_pfilt->setU(ctrl_);
 		_pfilt->prediction(dt);
 		_pfilt->update(p_);
 
@@ -312,18 +285,19 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 			ROS_ERROR("Detected NaN!");
 		}
 
-		// TODO: Filter the quaternion part...
+		// TODO: Filter the quaternion part in a better way...
 		static Eigen::Vector3d www = Eigen::Vector3d::Zero();
 		if (dt > 0.001) {
 			Eigen::Quaterniond qd_; 
 			for (int i = 0; i < 4; i++) {
 				qd_.coeffs()(i) = (q_.coeffs()(i) - q_old_.coeffs()(i)) / dt;
 			}
+			// Raw angular velocity in body frame from quaternion measurement
 			Eigen::Quaterniond tempq = q_.inverse() * qd_;
-			www = 0.5 * www + (0.5) * 2.0 * tempq.vec();
+			// A little piggy filtering...
+			www = 0.5 * www + (1 - 0.5) * 2.0 * tempq.vec();
 			w_ = www;
 		}
-
 		q_old_ = q_;
 		t_old = t;
 	}
@@ -351,53 +325,39 @@ void StateAggregator::onNewPose(const boost::shared_ptr<geometry_msgs::PoseStamp
 	ext_position_msg_.point = ext_pose_msg_.pose.position;
 
 	// Orientation RPY
-	ext_pose_rpy_msg_.header.stamp = msg->header.stamp;
-	//ext_pose_rpy_msg_.header.stamp = current_time;
-	ext_pose_rpy_msg_.vector.x = euler_(0) * 180.0 / M_PI;
-	ext_pose_rpy_msg_.vector.y = euler_(1) * 180.0 / M_PI;
-	ext_pose_rpy_msg_.vector.z = euler_(2) * 180.0 / M_PI;
+	ext_att_rpy_msg_.header.stamp = msg->header.stamp;
+	//ext_att_rpy_msg_.header.stamp = current_time;
+	ext_att_rpy_msg_.vector.x = euler_(0) * 180.0 / M_PI;
+	ext_att_rpy_msg_.vector.y = euler_(1) * 180.0 / M_PI;
+	ext_att_rpy_msg_.vector.z = euler_(2) * 180.0 / M_PI;
 
 	// Custom Odometry Topic
-	//ext_codometry_msg_.header.stamp = msg->header.stamp;
-	ext_codometry_msg_.header.stamp = current_time;
+	//ext_odometry_msg_.header.stamp = msg->header.stamp;
+	ext_odometry_msg_.header.stamp = current_time;
 
-	ext_codometry_msg_.p = ext_pose_msg_.pose.position;
+	ext_odometry_msg_.p = ext_pose_msg_.pose.position;
 
-	ext_codometry_msg_.v.x = v_(0);
-	ext_codometry_msg_.v.y = v_(1);
-	ext_codometry_msg_.v.z = v_(2);
+	ext_odometry_msg_.v.x = v_(0);
+	ext_odometry_msg_.v.y = v_(1);
+	ext_odometry_msg_.v.z = v_(2);
 
-	ext_codometry_msg_.a.x = a_(0);
-	ext_codometry_msg_.a.y = a_(1);
-	ext_codometry_msg_.a.z = a_(2);
+	ext_odometry_msg_.a.x = a_(0);
+	ext_odometry_msg_.a.y = a_(1);
+	ext_odometry_msg_.a.z = a_(2);
 
-	ext_codometry_msg_.q = ext_pose_msg_.pose.orientation;
-	ext_codometry_msg_.w.x = w_(0);
-	ext_codometry_msg_.w.y = w_(1);
-	ext_codometry_msg_.w.z = w_(2); 
+	ext_odometry_msg_.q = ext_pose_msg_.pose.orientation;
+	ext_odometry_msg_.w.x = w_(0);
+	ext_odometry_msg_.w.y = w_(1);
+	ext_odometry_msg_.w.z = w_(2); 
 
 	pose_pub_.publish(ext_pose_msg_);
-	pose_rpy_pub_.publish(ext_pose_rpy_msg_);
-	codometry_pub_.publish(ext_codometry_msg_);
+	pose_rpy_pub_.publish(ext_att_rpy_msg_);
+	odometry_pub_.publish(ext_odometry_msg_);
 	ext_pos_pub_.publish(ext_position_msg_);
-
-	static int counter = 0;
-	if (counter % 300 == 0) {
-		double dt =  current_time.toSec() - old_time.toSec();
-		old_time = current_time;
-		/*
-		   std::cout << "Optitrack msg rate = " << 300 / dt << std::endl; 
-		   std::cout << "Current Position: " << p_pf_.transpose() << std::endl;
-		   std::cout << "Current Attitude (rpy): " << (180 / M_PI) * euler_.transpose() << std::endl;
-		   std::cout << "Current Attitude (quat): " << " " << q_.vec().transpose() << q_.w() << std::endl;
-		   */
-		counter = 0;
-	}
-	counter++;
-
 
 	return;
 }
+
 
 //
 // Call back to get position messages
@@ -416,40 +376,12 @@ void StateAggregator::onNewPosition(const boost::shared_ptr<geometry_msgs::Point
 	p(1) = msg->point.y;	
 	p(2) = msg->point.z;	
 
-	static int counter = 0;
-	counter++;
-	if (counter % 15 == 0) {
-		timespec tnow;
-		clock_gettime(CLOCK_MONOTONIC, &tnow);
-		double dt = time_diff(tnow, told);
-		std::cout << "Realsense msg rate = " << 15.0 / dt << std::endl;
-		counter = 0;
-		told = tnow;
-	}
 	_pfilt->update(p);
-
-	p = _pfilt->getPos();
-	v = _pfilt->getVel();
-
-	testbed_msgs::CustOdometryStamped rs_odom_msg;
-	rs_odom_msg.header.stamp = current_time;
-	rs_odom_msg.p.x = p(0);
-	rs_odom_msg.p.y = p(1);
-	rs_odom_msg.p.z = p(2);
-
-	rs_odom_msg.v.x = v(0);
-	rs_odom_msg.v.y = v(1);
-	rs_odom_msg.v.z = v(2);
-
-	rs_pub_.publish(rs_odom_msg);
-
-	geometry_msgs::PointStamped pos_msg;
-	pos_msg.header.stamp = current_time;
-	pos_msg.point = rs_odom_msg.p; 
-	ext_pos_pub_.publish(pos_msg);
+	// Do something ...
 
 	return;
 } 
+
 
 bool StateAggregator::control_sensor(
 		state_aggregator::ControlSensor::Request& req,
@@ -478,45 +410,10 @@ bool StateAggregator::control_sensor(
 	return true;
 }
 
+
 void StateAggregator::net_discovery(int ms){
 	while (ros::ok()) {
 		RegisterCallbacks();
 		std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 	}
-}
-
-
-void StateAggregator::ctrl_callback(const cis_supervisor::PerformanceMsg::ConstPtr& msg) {
-	for (int i = 0; i < 3; i++) {
-		ctrl_(i) = msg->jerk_body[i];
-	}
-	ctrl_ = q_pf_ * ctrl_;
-}
-
-void kf_thread_fnc(void* p) {
-/*
-	// Convert the pointer to pass information to the thread.
-	kfThread_arg* pArg = (kfThread_arg*) p;
-
-	double dt = pArg->period;
-	FlatOFilter* pfilt = pArg->pfilt;
-
-	struct timespec time;
-	struct timespec next_activation;
-
-	struct timespec period_tms; 
-	create_tspec(period_tms, dt);
-
-	while (ros::ok()) {
-		// Get current time
-		clock_gettime(CLOCK_MONOTONIC, &time);
-		timespec_sum(time, period_tms, next_activation);
-
-		pfilt->prediction(ctrl_, dt);
-
-		clock_nanosleep(CLOCK_MONOTONIC,
-				TIMER_ABSTIME, &next_activation, NULL);
-	}
-	ROS_INFO("Terminating Kalman Filter Thread...\n");
-	*/
 }

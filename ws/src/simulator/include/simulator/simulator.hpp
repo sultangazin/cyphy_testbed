@@ -7,8 +7,6 @@
 #include <thread>
 #include "Eigen/Dense"
 
-//#include "simclass/simdyn.hpp"
-//#include "simulator/dyn_model.hpp"
 #include "simclass/dyn_class.hpp"
 #include "timespec_lib/timespec_lib.hpp"
 
@@ -41,6 +39,7 @@ class XSimulator {
 
         ros::Time old_time_;
 
+	std::string actuation_;
 	IDynamics* sim_;
 
         SimParams parameters_;

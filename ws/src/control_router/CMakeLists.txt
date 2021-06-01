@@ -7,37 +7,37 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 find_package(
 	catkin REQUIRED 
 	COMPONENTS
-	roscpp
-    testbed_msgs
-    std_msgs
-    crazyflie_driver
 	message_generation
+	roscpp
+	testbed_msgs
+	std_msgs
+	crazyflie_driver
 	utilities
-)
+	)
 
 add_service_files(
 	DIRECTORY srv
 	FILES 
-    EnableNWController.srv
-    SelectController.srv
+	EnableNWController.srv
+	SelectController.srv
 	)
 
 add_message_files(
-    DIRECTORY msg
-    FILES
-    NetworkStatusMsg.msg
-    )
+	DIRECTORY msg
+	FILES
+	NetworkStatusMsg.msg
+	)
 
 generate_messages(
-    DEPENDENCIES
-    std_msgs)
+	DEPENDENCIES
+	std_msgs)
 
 catkin_package(
 	CATKIN_DEPENDS roscpp
 	message_runtime
-    std_msgs
-    testbed_msgs
-    crazyflie_driver
+	std_msgs
+	testbed_msgs
+	crazyflie_driver
 	DEPENDS
 	)
 

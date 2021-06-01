@@ -72,7 +72,11 @@ bool XSimulator::Initialize(const ros::NodeHandle& n) {
 	old_time_.sec = 0;
 	old_time_.nsec = 0; 
 
-	sim_ = new Dynamics_URates(parameters_);
+	if (actuation_ == "rates") {
+		sim_ = new Dynamics_URates(parameters_);
+	} else {
+		sim_ = new Dynamics_UAngles(parameters_);
+	}
 
 	std::vector<double> x0(10, 0);
 	x0[0] = initial_pos_[0];
@@ -121,6 +125,8 @@ bool XSimulator::LoadParameters(const ros::NodeHandle& n) {
 
 	nl.param<std::string>("topics/output_simvrpn_topic", vrpn_sim_pose_topic_,
 			"/area0/sensors/optitrack/" + frame_name_ + "/data");
+
+	nl.param<std::string>("actuation", actuation_, "rates");
 
 	// Load Model Parameter of the drone
 	nl.param<double>("param/drone_mass", Mass_, 1.0);

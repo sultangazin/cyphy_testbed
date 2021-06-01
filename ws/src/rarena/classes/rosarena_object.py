@@ -10,7 +10,6 @@ class ROSArenaObject(object):
     This is the interface between the two systems.
     I wanted to decouple the reference frames differneces and other details with this class.
 
-    The ROSArenaObject "has" an Object.
 
     """
     def __init__(self, **kwargs):

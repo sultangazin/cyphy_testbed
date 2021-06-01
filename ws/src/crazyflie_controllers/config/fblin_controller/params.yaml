@@ -1,0 +1,12 @@
+param: {
+        vehicleMass: 0.034,
+        kp_xy: 35.5,
+        kd_xy: 16.5,
+        ka_xy: 5.4,
+        #
+        kp_z: 35.5,
+        kd_z: 16.5,
+        ka_z: 5.4,
+        #
+        kR_z: 1.5,
+}

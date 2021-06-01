@@ -60,6 +60,9 @@ void Dynamics_UAngles::step(double dt) {
 	double adrag = params_.a_drag;  
 
 	Vector3d i_TVect = quat_ * (Vector3d::UnitZ() * thrust_);
+
+	std::cout << "Actuated F: " << i_TVect.transpose() << std::endl;
+
 	acc_ = (i_TVect - vel_ * ldrag) / Mass - 9.81 * Vector3d::UnitZ();
 	// Integrate the dynamics
 	pos_ = pos_ + vel_ * dt + 0.5 * acc_ * dt*dt; 
@@ -162,6 +165,13 @@ void Dynamics_URates::step(double dt) {
 	double adrag = params_.a_drag;  
 
 	Vector3d i_TVect = quat_ * (Vector3d::UnitZ() * thrust_);
+
+	/*
+	std::cout << "Actuated F: " << i_TVect.transpose() << std::endl;
+	std::cout << "Actuated T: " << thrust_ << std::endl;
+	*/
+
+
 	acc_ = (i_TVect - vel_ * ldrag) / Mass - 9.81 * Vector3d::UnitZ();
 
 	// Compute the rotation axis
@@ -169,7 +179,7 @@ void Dynamics_URates::step(double dt) {
 	double dtheta = b_angvel_.norm() * dt;
 
 	// Integrate the dynamics
-	pos_ = pos_ + vel_ * dt + 0.5 * acc_ * dt*dt; 
+	pos_ = pos_ + vel_ * dt + 0.5 * acc_ * dt * dt; 
 	vel_ = vel_ + acc_ * dt;
 	quat_ = quat_ * Eigen::AngleAxis<double>(dtheta, n);
 

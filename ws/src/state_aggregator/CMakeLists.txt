@@ -40,7 +40,6 @@ include_directories(
 add_executable(state_aggregator 
 	exec/state_aggregator_node.cpp 
 	src/state_aggregator.cpp
-	src/filter/ddfilter.cpp
 	src/filter/polyfilter.cpp
 	src/filter/lbfilter.cpp
 	)

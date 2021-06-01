@@ -12,8 +12,6 @@ import time
 import rospy
 import rospkg
 
-from cis_supervisor.msg import PerformanceMsg
-
 from arena import *
 
 from classes import ROSArenaObject
@@ -34,13 +32,14 @@ arena_scene = Scene(host=host, realm=realm, scene='LandOfOz')
 arena_entities = dict()
 
 
-
-def monitor(supervisor_msg):
-    if supervisor_msg.active:
-        arena_entities['cf2'].set_color((255, 255, 0))
+def callback_monitor(mgs):
+    ent = msg.entity
+    active = msg.active
+    if active:
+        arena_entities[ent].set_color((255, 255, 0))
         #arena_entities['cf2'].set_opacity(0.7)
     else:
-        arena_entities['cf2'].set_color((0, 255, 0))
+        arena_entities[ent].set_color((0, 255, 0))
         #arena_entities['cf2'].set_opacity(0.0)
 
 
@@ -65,10 +64,11 @@ def load_entities():
     global arena_entities
     global arean_scene
     rospack = rospkg.RosPack()
-    stream = open(rospack.get_path('rarena') + '/config/atlas.json', 'r')
+
+    atlas_data = open(rospack.get_path('rarena') + '/config/atlas.json', 'r')
 
     # Load information from the configuration file
-    json_data = json.load(stream)
+    json_data = json.load(atlas_data)
     print("Loading Objects...\n")
     for el in json_data['entities']:
         pos = el["pos0"];
@@ -128,7 +128,8 @@ if __name__ == '__main__':
     rospy.init_node('RArena_node')
     # rospy.on_shutdown(remove_objects)
 
-    rospy.Subscriber("/CISSupervisor/cf2/cis_perf", PerformanceMsg, monitor)
+    # Subscribe to topics produced by the ROS framework
+    #rospy.Subscriber("/CISSupervisor/cf2/cis_perf", PerformanceMsg, callback_monitor)
 
     # Start Arena tasks
     arena_scene.run_tasks()
