@@ -102,7 +102,9 @@ namespace fblin_controller {
 		received_setpoint_ = false;
 	}
 
-	// Process an incoming setpoint point change.
+	// --------------------------------------
+	// Callback on new setpoint message
+	// -1) Update the internal data storing the current setpoint
 	void FBLinController::SetpointCallback(
 			const testbed_msgs::ControlSetpoint::ConstPtr& msg) {
 
@@ -128,7 +130,10 @@ namespace fblin_controller {
 	}
 
 	// --------------------------------------
-	// Process an incoming state measurement.
+	// Callback on new state data:
+	// -1) Fetch data from the ROS message
+	// -2) Compute the control input
+	// -3) Publish the control message
 	void FBLinController::StateCallback(
 			const testbed_msgs::CustOdometryStamped::ConstPtr& msg) {
 		// Catch no setpoint.
