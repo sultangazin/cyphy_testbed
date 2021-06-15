@@ -5,6 +5,6 @@ param: {
         sim_period: 0.002,
         sensor_period: 0.002,
         sensor_noise: 0.003,
-        x0: [-1.5, -1.1, 0.0]
+        x0: [0.0, 0.0, 0.0]
 }
 

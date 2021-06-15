@@ -13,6 +13,7 @@ The following nodes will be started:
 	<arg name="nodeB" default="nodeB" />
 	<arg name="ip" default="192.168.1.198" />
 	<arg name="port" default="3883" />
+	<arg name="controller_name" default="geometric_controller" />
 
 
 	<!-- ============================================================================ -->
@@ -71,40 +72,23 @@ The following nodes will be started:
                         <param name="param/vehicle_name" value="$(arg vehicle_frame)" type="str"/>
                 </node>
 
-		<!-- Geometric Controller -->
-		<!--
-		<node name="geometric_controller"
-		      pkg="crazyflie_controllers"
-		      type="geometric_controller_node"
+		<!-- Controller -->
+		<node name="cbf_controller"
+		      pkg="cbf_controller"
+		      type="cbf_controller_node"
 		      output="screen">
 
-		  <param name="param/vehicle_name" value="$(arg vehicle_frame)"/>
-		  <param name="control_mode" value="RATES" />
-		  
+		  <param name="vehicle_name" value="$(arg vehicle_frame)"/>
+                  <param name="vehicle_mass" value="0.032"/>
 		  <param name="topics/setpoint" value="/$(arg vehicle_frame)/setpoint" />
 		  <param name="topics/state" value="/$(arg vehicle_frame)/external_codom" />
-		  <param name="topics/control" value="/area0/controller/geometric_ctrl/$(arg vehicle_frame)/control" />
-		  <param name="topics/ctrl_perf" value="/$(arg vehicle_frame)/ctrl_perf" />
-		  <rosparam file="$(find crazyflie_controllers)/config/geometric_controller/params.yaml" />
-		</node>
-		-->
-
-		<!-- Flatoutput Controller -->
-		<node name="fblin_controller"
-		      pkg="crazyflie_controllers"
-		      type="fblin_controller_node"
-		      output="screen">
-
-		  <param name="param/vehicle_name" value="$(arg vehicle_frame)"/>
-		  <param name="topics/setpoint" value="/$(arg vehicle_frame)/setpoint" />
-		  <param name="topics/state" value="/$(arg vehicle_frame)/external_codom" />
-		  <param name="topics/control" value="/area0/controller/fblin_controller/$(arg vehicle_frame)/control" />
-		  <rosparam file="$(find crazyflie_controllers)/config/fblin_controller/params.yaml" />
+		  <param name="topics/control" value="/area0/controller/cbf_controller/$(arg vehicle_frame)/control" />
+		  <rosparam file="$(find cbf_controller)/config/cbf_controller/params.yaml" />
 		</node>
 
 		<!-- Converter node -->
 		<node name="cmd_vel_converter"
-			pkg="crazyflie_controllers"
+			pkg="cmd_vel_converter"
 			type="cmd_vel_converter_node"
 			output="screen">
 			<param name="topics/control" value="/$(arg vehicle_frame)/control" />

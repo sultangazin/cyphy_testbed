@@ -18,8 +18,8 @@ find_package(
 add_service_files(
 	DIRECTORY srv
 	FILES 
-	EnableNWController.srv
 	SelectController.srv
+	EnableNWController.srv
 	)
 
 add_message_files(
