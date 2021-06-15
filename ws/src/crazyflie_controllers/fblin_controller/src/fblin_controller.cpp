@@ -80,8 +80,7 @@ namespace fblin_controller {
 	}
 
 	// Reset variables
-	void FBLinController::Reset(void)
-	{
+	void FBLinController::Reset(void) {
 		thrust_ = 0.0;
 		u_body_ = Vector3d::Zero();
 

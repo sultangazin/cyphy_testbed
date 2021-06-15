@@ -1,0 +1,16 @@
+param: {
+        Kpos: 50.0,
+        Kvel: 500.0,
+        Kx: 20.0,
+        Kr: 3,
+        eta: 0.8,
+        delta_x: 0.1
+}
+
+obst_param: {
+        gamma: 3.0,
+        beta: 2.0,
+        b_safe: 0.3,
+        b_safe_dot: 0,
+        b_safe_ddot: 0,
+}

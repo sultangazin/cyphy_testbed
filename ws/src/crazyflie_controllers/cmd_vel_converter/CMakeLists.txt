@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(cbf_controller)
+project(cmd_vel_converter)
 add_compile_options(-std=c++17)
 
 find_package(catkin REQUIRED 
@@ -9,16 +9,14 @@ find_package(catkin REQUIRED
 	tf
 	std_msgs
 	testbed_msgs
-	cmd_vel_converter	
     	crazyflie_driver
 )
-
-find_package(CGAL)
 
 find_package (Eigen3 REQUIRED NO_MODULE)
 
 catkin_package(
 	INCLUDE_DIRS 
+	include
 	CATKIN_DEPENDS 
 	roscpp
 	message_runtime
@@ -34,20 +32,17 @@ include_directories(
 	${catkin_INCLUDE_DIRS}
 )
 
-
-add_executable(cbf_controller_node
-	exec/cbf_controller_node.cpp 
-	src/cbf_controller.cpp
-	src/cbf_controller_ros.cpp
+add_executable(cmd_vel_converter_node 
+	exec/cmd_vel_converter_node.cpp 
+	src/cmd_vel_converter.cpp
 )
 
-add_dependencies(cbf_controller_node
+add_dependencies(cmd_vel_converter_node 
 	${catkin_EXPORTED_TARGETS}
 	)
 
 target_link_libraries(
-	cbf_controller_node
+	cmd_vel_converter_node
 	Eigen3::Eigen 
 	${catkin_LIBRARIES}
-	CGAL::CGAL
 )

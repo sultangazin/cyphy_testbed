@@ -44,8 +44,6 @@
 #ifndef GEOMETRIC_CONTROLLER_H
 #define GEOMETRIC_CONTROLLER_H
 
-#include "types.h"
-#include "angles.h"
 #include <testbed_msgs/ControlSetpoint.h>
 #include <testbed_msgs/Control.h>
 #include <testbed_msgs/ControlStamped.h>
@@ -57,8 +55,6 @@
 #include <crazyflie_driver/PWM.h>
 
 #include <ros/ros.h>
-#include <std_msgs/Empty.h>
-#include <math.h>
 #include <fstream>
 #include <unordered_map>
 
@@ -76,7 +72,7 @@ class GeometricController {
   bool Initialize(const ros::NodeHandle& n);
 
   // Compute control given the current state.
-  Vector3d Control(const VectorXd& x) const;
+  Eigen::Vector3d Control(const Eigen::VectorXd& x) const;
   
 
   // Load parameters and register callbacks. These may/must be overridden
@@ -144,9 +140,9 @@ class GeometricController {
   double i_error_m_y;
   double i_error_m_z;
 
-  Vector3d sp_pos_, sp_vel_, sp_acc_, sp_r_pos_, sp_r_vel_, sp_r_acc_;
-  Vector3d sp_brates_;
-  Vector3d pos_, vel_, r_pos_, r_vel_;
+  Eigen::Vector3d sp_pos_, sp_vel_, sp_acc_, sp_r_pos_, sp_r_vel_, sp_r_acc_;
+  Eigen::Vector3d sp_brates_;
+  Eigen::Vector3d pos_, vel_, r_pos_, r_vel_;
   Eigen::Quaterniond quat_;
 
   std::string setpoint_type_;
@@ -154,16 +150,16 @@ class GeometricController {
   double sp_roll_,sp_pitch_,sp_yaw_;
 
   // Logging variables
-  Vector3d z_axis_desired;
+  Eigen::Vector3d z_axis_desired;
 
   // Dimensions of control and state spaces.
   size_t x_dim_;
   size_t u_dim_;
 
     // Integral of position error.
-  Vector3d x_int_;
-  Vector3d x_int_thresh_;
-  Vector3d integrator_k_;
+  Eigen::Vector3d x_int_;
+  Eigen::Vector3d x_int_thresh_;
+  Eigen::Vector3d integrator_k_;
 
   // Remember last time we got a state callback.
   double last_state_time_;

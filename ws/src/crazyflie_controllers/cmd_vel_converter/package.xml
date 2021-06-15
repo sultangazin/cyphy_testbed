@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-	<name>crazyflie_controllers</name>
+	<name>cmd_vel_converter</name>
 	<version>0.0.0</version>
-	<description>Package providing crazyflie controllers</description>
+	<description>Package providing conversion of control signal in the crazyflie format </description>
 
   <license>TODO</license>
 

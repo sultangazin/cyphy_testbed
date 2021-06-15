@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(cbf_controller)
+project(geometric_controller)
 add_compile_options(-std=c++17)
 
 find_package(catkin REQUIRED 
@@ -9,16 +9,12 @@ find_package(catkin REQUIRED
 	tf
 	std_msgs
 	testbed_msgs
-	cmd_vel_converter	
     	crazyflie_driver
 )
-
-find_package(CGAL)
 
 find_package (Eigen3 REQUIRED NO_MODULE)
 
 catkin_package(
-	INCLUDE_DIRS 
 	CATKIN_DEPENDS 
 	roscpp
 	message_runtime
@@ -30,24 +26,23 @@ catkin_package(
 
 
 include_directories(
-	include/
+	include
 	${catkin_INCLUDE_DIRS}
 )
 
 
-add_executable(cbf_controller_node
-	exec/cbf_controller_node.cpp 
-	src/cbf_controller.cpp
-	src/cbf_controller_ros.cpp
+# Geometric Controller
+add_executable(geometric_controller 
+	exec/geometric_controller_node.cpp 
+	src/geometric_controller.cpp
 )
 
-add_dependencies(cbf_controller_node
+add_dependencies(geometric_controller
 	${catkin_EXPORTED_TARGETS}
 	)
 
 target_link_libraries(
-	cbf_controller_node
+	geometric_controller
 	Eigen3::Eigen 
 	${catkin_LIBRARIES}
-	CGAL::CGAL
 )

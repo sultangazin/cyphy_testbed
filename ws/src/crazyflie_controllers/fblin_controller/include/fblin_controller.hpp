@@ -46,12 +46,12 @@
 #include <testbed_msgs/ControlSetpoint.h>
 #include <testbed_msgs/ControlStamped.h>
 #include <testbed_msgs/CustOdometryStamped.h>
-#include <Eigen/Geometry>
+#include <Eigen/Dense>
 
 #include <ros/ros.h>
 #include <math.h>
 
-#include "types.h"
+using namespace Eigen;
 
 namespace fblin_controller {
 

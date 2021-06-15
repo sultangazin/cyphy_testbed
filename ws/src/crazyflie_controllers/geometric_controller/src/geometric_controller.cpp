@@ -1,13 +1,14 @@
 #include <ros/ros.h>
 #include "geometric_controller.h"
 #include <math.h>
-#include "math3d.h"
 #include <stdio.h>
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <iomanip>
 
 #define GRAVITY_MAGNITUDE (9.81f)
+
+using namespace Eigen;
 
 namespace controller {
 	GeometricController::GeometricController() :
@@ -299,8 +300,8 @@ namespace controller {
 		// [xC_des]
 		// x_axis_desired = z_axis_desired x [sin(yaw), cos(yaw), 0]^T
 		Vector3d x_c_des;
-		x_c_des(0) = cosf(radians(yaw_des));
-		x_c_des(1) = sinf(radians(yaw_des));
+		x_c_des(0) = cosf(yaw_des);
+		x_c_des(1) = sinf(yaw_des);
 		x_c_des(2) = 0;
 
 		// [yB_des]
