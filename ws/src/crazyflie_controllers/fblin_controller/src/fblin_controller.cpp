@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include "fblin_controller.hpp"
+#include "fblin_controller/fblin_controller.hpp"
 #include <math.h>
 #include <stdio.h>
 #include <Eigen/Geometry>

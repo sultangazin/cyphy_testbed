@@ -59,19 +59,15 @@ namespace fblin_controller {
 		public:
 			FBLinController();
 
-			// Initialize this class by reading parameters and loading callbacks.
+			// Initialization by reading ROS parameters and defining callbacks.
 			bool Initialize(const ros::NodeHandle& n);
+
+			// Reset Function
+			void Reset(void);
 
 			// Compute control given the current state.
 			Vector3d Control(const VectorXd& x) const;
 
-
-			// Load parameters and register callbacks. These may/must be overridden
-			// by derived classes.
-			bool LoadParameters(const ros::NodeHandle& n);
-			bool RegisterCallbacks(const ros::NodeHandle& n);
-
-			void Reset(void);
 
 			// Process an incoming setpoint point.
 			void SetpointCallback(
@@ -109,7 +105,6 @@ namespace fblin_controller {
 
 			Vector3d u_body_;
 
-
 			// Logging variables
 			Vector3d z_axis_desired;
 
@@ -131,6 +126,11 @@ namespace fblin_controller {
 			std::string name_;
 
 			ros::Time previous_;
+
+			// Load parameters and register callbacks.
+			bool LoadParameters(const ros::NodeHandle& n);
+			bool RegisterCallbacks(const ros::NodeHandle& n);
+
 
 	}; //\class FBLinController
 } 
