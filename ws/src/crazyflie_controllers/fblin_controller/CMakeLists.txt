@@ -4,7 +4,6 @@ add_compile_options(-std=c++17)
 
 find_package(catkin REQUIRED 
 	COMPONENTS
-	message_generation
 	roscpp
 	tf
 	std_msgs
@@ -17,19 +16,16 @@ find_package (Eigen3 REQUIRED NO_MODULE)
 catkin_package(
 	CATKIN_DEPENDS 
 	roscpp
-	message_runtime
 	tf
 	std_msgs
 	testbed_msgs
     	crazyflie_driver
 )
 
-
 include_directories(
 	include
 	${catkin_INCLUDE_DIRS}
 )
-
 
 
 # Flat output Controller
