@@ -73,17 +73,17 @@ The following nodes will be started:
                 </node>
 
 		<!-- Controller -->
-		<node name="cbf_controller"
-		      pkg="cbf_controller"
-		      type="cbf_controller_node"
+		<node name="fblin_controller"
+		      pkg="fblin_controller"
+		      type="fblin_controller_node"
 		      output="screen">
 
 		  <param name="vehicle_name" value="$(arg vehicle_frame)"/>
                   <param name="vehicle_mass" value="0.032"/>
 		  <param name="topics/setpoint" value="/$(arg vehicle_frame)/setpoint" />
 		  <param name="topics/state" value="/$(arg vehicle_frame)/external_codom" />
-		  <param name="topics/control" value="/area0/controller/cbf_controller/$(arg vehicle_frame)/control" />
-		  <rosparam file="$(find cbf_controller)/config/cbf_controller/params.yaml" />
+		  <param name="topics/control" value="/area0/controller/fblin_controller/$(arg vehicle_frame)/control" />
+		  <rosparam file="$(find fblin_controller)/config/fblin_controller/params.yaml" />
 		</node>
 
 		<!-- Converter node -->
