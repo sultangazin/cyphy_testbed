@@ -46,10 +46,12 @@ The project was developed in *ROS Melodic* and some modules used *Eigen*. Make s
 
 Dependencies:
 - [Eigen](https://eigen.tuxfamily.org) -- a header-only linear algebra library for C++
-- [python-scipy] -- python library for math computation
-- [libusb-1.0-0-dev]
+- [libusb-1.0-0-dev] (sudo apt install libusb-1.0-0-dev)
 - [VRPN](https://github.com/vrpn/vrpn.git) -- install vrpn library from source and copy the FindX.cmake to the local cmake Module folder.
-- [scipy, cvxopt] python modules
+- [python3-scipy] (sudo apt install python3-scipy) -- python library for math computation
+- [cvxopt] (sudo apt install python3-cvxopt) 
+- [python-is-python3] (sudo apt install python-is-python3) -- python will then refer to python3
+- [arena-py] (pip install arena-py) -- python library for the ARENA
 
 
 The repository contains submodules, thus, make sure you clone *recursively*.
