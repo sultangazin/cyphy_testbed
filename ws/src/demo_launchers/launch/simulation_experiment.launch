@@ -16,7 +16,7 @@ The following nodes will be started:
 	<arg name="controller_name" default="geometric_controller" />
 
 
-	<!-- ============================================================================ -->
+	<!-- ========================================================= -->
         <!--    Launch the data aquisition component Source of raw pose data: VRPN Server -->
         <group ns="area0">
                 <group ns="sensors">
@@ -38,12 +38,28 @@ The following nodes will be started:
                         </rosparam>
                         </node>
                 </group>
-        </group>
+
+		<group ns="controller">
+			<!-- Controller -->
+			<node name="fblin_controller"
+				pkg="fblin_controller"
+				type="fblin_controller_node"
+				output="screen">
+
+			<param name="vehicle_name" value="$(arg vehicle_frame)"/>
+			<param name="controller_name" value="fblin_controller"/>
+			<param name="vehicle_mass" value="0.032"/>
+			<param name="topics/setpoint" value="/$(arg vehicle_frame)/setpoint" />
+			<param name="topics/state" value="/$(arg vehicle_frame)/external_codom" />
+			<rosparam file="$(find fblin_controller)/config/fblin_controller/params.yaml" />
+		</node>
+	</group>
+</group>
 
 
-	<!-- ============================================================================ -->
-        <!--    Launch the state estimation component that uses the VRPN data             -->
-	<group ns="$(arg vehicle_frame)">
+<!-- =============================================================== -->
+<!-- Launch the state estimation component that uses the VRPN data   -->
+<group ns="$(arg vehicle_frame)">
                 <node pkg="state_aggregator" name="aggregator" type="state_aggregator" 
                         respawn="true"
                         respawn_delay="3"
@@ -71,20 +87,6 @@ The following nodes will be started:
                 <node name="Commander_Node" pkg="commander_interface" type="commander" output="screen">
                         <param name="param/vehicle_name" value="$(arg vehicle_frame)" type="str"/>
                 </node>
-
-		<!-- Controller -->
-		<node name="fblin_controller"
-		      pkg="fblin_controller"
-		      type="fblin_controller_node"
-		      output="screen">
-
-		  <param name="vehicle_name" value="$(arg vehicle_frame)"/>
-                  <param name="vehicle_mass" value="0.032"/>
-		  <param name="topics/setpoint" value="/$(arg vehicle_frame)/setpoint" />
-		  <param name="topics/state" value="/$(arg vehicle_frame)/external_codom" />
-		  <param name="topics/control" value="/area0/controller/fblin_controller/$(arg vehicle_frame)/control" />
-		  <rosparam file="$(find fblin_controller)/config/fblin_controller/params.yaml" />
-		</node>
 
 		<!-- Converter node -->
 		<node name="cmd_vel_converter"

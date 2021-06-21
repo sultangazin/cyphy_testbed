@@ -57,9 +57,10 @@ namespace fblin_controller {
 
 	class FBLinController {
 		public:
+			// Default constructor
 			FBLinController();
 
-			// Initialization by reading ROS parameters and defining callbacks.
+			// Initialization function
 			bool Initialize(const ros::NodeHandle& n);
 
 			// Reset Function
@@ -69,14 +70,7 @@ namespace fblin_controller {
 			Vector3d Control(const VectorXd& x) const;
 
 
-			// Process an incoming setpoint point.
-			void SetpointCallback(
-					const testbed_msgs::ControlSetpoint::ConstPtr& msg);
-
-			// Process an incoming state measurement.
-			void StateCallback(
-					const testbed_msgs::CustOdometryStamped::ConstPtr& msg);
-
+			
 
 		private:
 			double vehicleMass_;
@@ -123,15 +117,20 @@ namespace fblin_controller {
 			bool initialized_;
 
 			std::string vehicle_name_;
-			std::string name_;
+			std::string namespace_;
 
 			ros::Time previous_;
 
-			// Load parameters and register callbacks.
-			bool LoadParameters(const ros::NodeHandle& n);
-			bool RegisterCallbacks(const ros::NodeHandle& n);
+			// Load parameters and Initialize Pub/Sub.
+			bool LoadParameters();
+			bool InitPubSubs(const ros::NodeHandle& n);
+			// Process an incoming setpoint point.
+			void SetpointCallback(
+					const testbed_msgs::ControlSetpoint::ConstPtr& msg);
 
-
+			// Process an incoming state measurement.
+			void StateCallback(
+					const testbed_msgs::CustOdometryStamped::ConstPtr& msg);
 	}; //\class FBLinController
 } 
 #endif

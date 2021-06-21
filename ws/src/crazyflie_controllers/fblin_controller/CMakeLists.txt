@@ -13,10 +13,10 @@ find_package(catkin REQUIRED
 find_package (Eigen3 REQUIRED NO_MODULE)
 
 catkin_package(
-	#	CATKIN_DEPENDS 
+		CATKIN_DEPENDS 
 	#	roscpp
 	#	std_msgs
-	#	testbed_msgs
+		testbed_msgs
 	#    	crazyflie_driver
 )
 
@@ -32,9 +32,9 @@ add_executable(fblin_controller_node
 	src/fblin_controller.cpp
 )
 
-#add_dependencies(fblin_controller_node
-#	${catkin_EXPORTED_TARGETS}
-#	)
+add_dependencies(fblin_controller_node
+	${catkin_EXPORTED_TARGETS}
+	)
 
 target_link_libraries(fblin_controller_node
 	Eigen3::Eigen 
