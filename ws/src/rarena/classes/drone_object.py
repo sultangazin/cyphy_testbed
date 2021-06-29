@@ -120,7 +120,7 @@ class DroneObject(object):
 
     # Register to the source of object's pose data
     def register_sources(self):
-        self.state_topic = "/{}/external_codom".format(self.object_id)
+        self.state_topic = "/{}/external_odom".format(self.object_id)
         self.trj_topic = "/{}/trajectory".format(self.object_id)
         self.setp_topic = "/{}/setpoint".format(self.object_id)
 
