@@ -32,15 +32,6 @@ generate_messages(
 	DEPENDENCIES
 	std_msgs)
 
-catkin_package(
-	CATKIN_DEPENDS roscpp
-	message_runtime
-	std_msgs
-	testbed_msgs
-	crazyflie_driver
-	DEPENDS
-	)
-
 include_directories(
 	include/
 	${catkin_INCLUDE_DIRS}
@@ -53,9 +44,18 @@ add_executable(control_router_node
 
 add_dependencies(control_router_node
 	${catkin_EXPORTED_TARGETS}
-	)
+	${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(control_router_node
 	${catkin_LIBRARIES}
 	utilities
+	)
+
+catkin_package(
+	CATKIN_DEPENDS roscpp
+	message_runtime
+	std_msgs
+	testbed_msgs
+	crazyflie_driver
+	DEPENDS
 	)
