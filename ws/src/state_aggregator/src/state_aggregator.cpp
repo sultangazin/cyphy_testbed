@@ -90,8 +90,8 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 	np.param<std::string>("topics/out_ext_pose_rpy_topic", ext_att_rpy_topic_, 
 			"external_pose_rpy");
 
-	np.param<std::string>("topics/out_ext_codom_topic", ext_odom_topic_,
-			"external_codom");
+	np.param<std::string>("topics/out_ext_odom_topic", ext_odom_topic_,
+			"external_odom");
 
 	//    ROS_INFO("Namespace = %s", );
 	// Params
@@ -117,18 +117,6 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 		ROS_INFO("No param 'sigmay' found!"); 
 		ROS_INFO("Setting default parameter %s = %f", 
 				"sigmay", _sigmay);
-	}
-
-	if (np.searchParam("time_delay", key)) {
-		ROS_INFO("Found parameter %s!", key.c_str());
-		n.getParam(key, t_delay_);
-		ROS_INFO("Setting parameter %s = %f", 
-				"time_delay", t_delay_);
-	} else {
-		t_delay_ = 0.0;
-		ROS_INFO("No param 'time_delay' found!"); 
-		ROS_INFO("Setting default parameter %s = %f", 
-				"time_delay", t_delay_);
 	}
 
 	area_name_ = "area0";

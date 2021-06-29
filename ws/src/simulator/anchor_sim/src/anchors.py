@@ -2,6 +2,7 @@
 import rospy
 import numpy as np
 import threading
+import time
 
 # Import the messages for the services
 from anchor_sim.srv import AnchorSimCtrl, AnchorSimTeleCtrl 
@@ -30,56 +31,79 @@ class Anchors(object):
         self.tele_thread.join()
 
     def initData(self):
+        # Initialize the data
+
+        # Dictionary to store the information about the anchors:
+        # key: id of the anchor
+        # value: dictionary with position of the anchor, flag for distortion and amount of distortion
         self.anchors = dict()
-        self.group_meas = dict() 
         self.NumAnchors = 0
 
+        # Flag representing the activation state of the publishing thread
         self.active_thread = True
         self.status_freq = 1
 
-        self.target_pos = np.zeros(shape = (3, 1), dtype=float)
+        # Variable storing the position of the target in world frame
+        self.target_pos = np.zeros(shape=(3, 1), dtype=float)
 
-        self.sensor_output_topic = ''
+        # Variables storing the name of the topics
+        self.sensors_output_topic = ''
         self.pose_input_topic = ''
         self.status_output_topic = ''
 
+        # ROS publisher for the simulated sensor data 
         self.sensor_output_pub = None 
 
+        # ROS publisher for the sensor status
+        self.status_output_pub = None 
+
+        # ROS services
         self.service_ctrl = None 
         self.service_status = None 
 
+        # Thread publishing sensors status
         self.tele_thread = None
+
+        # Mutex
+        self.mx = threading.Lock()
 
 
     def loadParameters(self):
-        # Topics
+        # 1)
+        # Topics name fetched from the Parameter Server
+        # I am looking for a parameter in the private namespace of the node
+        # https://wiki.ros.org/Parameter%20Server
         self.sensors_output_topic = rospy.get_param("~topics/sensors_output_topic")
         self.pose_input_topic = rospy.get_param("~topics/pose_input_topic")
         self.status_output_topic = rospy.get_param("~topics/status_output_topic")
 
-        rospy.loginfo("\n [{}]: Output topic = {}".format(rospy.get_name(), self.sensors_output_topic))
-        rospy.loginfo("\n [{}]: Input topic = {}".format(rospy.get_name(), self.pose_input_topic))
-
-        # Anchors
+        # Load Anchors from the yaml file
         a_list = rospy.get_param('~anchors')
         self.NumAnchors = len(a_list)
-        rospy.loginfo("\n [{}] {} Anchors Loaded!".format(rospy.get_name(), self.NumAnchors))
         for i in range(self.NumAnchors):
             el = a_list[i]
             self.anchors[el['id']] = {
                         'pos': np.array([el['x'], el['y'], el['z']]),
                         'distorted': False,
-                        'distortion': 0.0
+                        'distortion': 0.0,
+                        'meas': 0.0,
+                        'enable': True
                         }
+
+        rospy.loginfo("\n [{}] {} Anchors Loaded!".format(rospy.get_name(), self.NumAnchors))
+        rospy.loginfo("\n [{}]: Output topic = {}".format(rospy.get_name(), self.sensors_output_topic))
+        rospy.loginfo("\n [{}]: Input topic = {}".format(rospy.get_name(), self.pose_input_topic))
+
 
 
     def initPubSub(self):
         # Anchor Message Publisher
+        nodens = rospy.get_name()
         self.sensor_output_pub = rospy.Publisher(
-                self.sensors_output_topic, AnchorMeas, queue_size=2)
-        #Global status Publisher 
+                nodens + "/" + self.sensors_output_topic, AnchorMeas, queue_size=3)
+        # Global status Publisher 
         self.status_output_pub = rospy.Publisher(
-                self.status_output_topic, AnchorSimStatus, queue_size=2)
+                nodens + "/" + self.status_output_topic, AnchorSimStatus, queue_size=1)
 
         # Subscribe to the vehicle pose
         rospy.Subscriber(self.pose_input_topic, PoseStamped, self.poseCallback)
@@ -94,63 +118,79 @@ class Anchors(object):
 
         # Generate new measurements
         for anchor_id in range(self.NumAnchors):
+            self.mx.acquire()
             anchor_data = self.anchors[anchor_id]
 
             # Compute the distance
             anchor_pos = anchor_data['pos']
             anchor_meas = np.linalg.norm(self.target_pos - anchor_pos)
-
             # Add distortion if distorted
             if anchor_data['distorted']:
                 anchor_meas = anchor_meas + anchor_data['distortion']
-
-            # Compose the ROS message
-            anch_msg = AnchorMeas()
-            anch_msg.dist = anchor_meas
-            anch_msg.id = anchor_id
-            anch_msg.x_anchor = anchor_pos[0]
-            anch_msg.y_anchor = anchor_pos[1]
-            anch_msg.z_anchor = anchor_pos[2]
-
-            # Add the measure to the group sensor data
-            self.group_meas[anchor_id] = {'pos': anchor_pos, 'meas': anchor_meas, 'distortion': anchor_data['distortion'], 'distorted': anchor_data['distorted']}
-
-            # Publish the message
-            self.sensor_output_pub.publish(anch_msg)
+            anchor_data['meas'] =  anchor_meas
+            self.mx.release()
 
 
     def status_thread(self):
-        r = rospy.Rate(self.status_freq);
-        while(self.active_thread and not rospy.is_shutdown()):
+        while (self.active_thread and not rospy.is_shutdown()):
+            r = rospy.Rate(self.status_freq);
+
             msg = AnchorSimStatus()
             msg.header.stamp = rospy.Time.now()
             msg.anchors = []
 
-            for (index, data) in self.group_meas.items():
+            for (index, data) in self.anchors.items():
+                self.mx.acquire()
                 m = AnchorData()
-                m.id = index
+                m.id = index 
                 m.pos = data['pos']
                 m.meas = data['meas']
                 m.distortion = data['distortion']
                 m.isDistorted = data['distorted']
                 msg.anchors.append(m)
 
+                # Compose the ROS message and publish it if anchor enabled
+                if data['enable']:
+                    anch_msg = AnchorMeas()
+                    anch_msg.dist = m.meas
+                    anch_msg.id = m.id 
+                    anch_msg.x_anchor = m.pos[0]
+                    anch_msg.y_anchor = m.pos[1]
+                    anch_msg.z_anchor = m.pos[2]
+
+                    # Publish the message
+                    self.sensor_output_pub.publish(anch_msg)
+                    time.sleep(0.0001)
+                self.mx.release()
+
+            # Publish the network status
             self.status_output_pub.publish(msg)
             r.sleep()
 
 
     def registerServices(self):
+        # 3
         # Advertise Services
-        self.service_ctrl = rospy.Service('anchorSimCtrl',
+
+        # Service to control the behavior of the anchor simulation
+        # The name of the service is given with the '~' so that it will be resolved relative to the node name:
+        # /<namespaces...>/<nodename>/<servicename>
+        self.service_ctrl = rospy.Service('~anchorSimCtrl',
                 AnchorSimCtrl, self.handle_ctrl_req)
 
-        self.service_status = rospy.Service('anchorSimStatus',
+        # Service to control the status streaming
+        self.service_status = rospy.Service('~anchorSimStatus',
                 AnchorSimTeleCtrl, self.handle_status_req)
 
    
     def handle_ctrl_req(self, req):
+        # This callback is associated with the service that controls the behavior of the anchors.
+        # In the Service Message the request part containts the settings that the user
+        # wants to change. We assume that the user can request the changes for a specific anchor, so
+        # we have an ID and then the settigs.
+        # The reply part we just return a boolean.
         anchor_id = req.id
-        self.anchors[anchor_id]['enable'] = req.enable_anchor 
+        self.anchors[anchor_id]['enable'] = req.enable 
         self.anchors[anchor_id]['distorted'] = req.enable_distortion 
         self.anchors[anchor_id]['distortion'] = req.distortion 
         return True

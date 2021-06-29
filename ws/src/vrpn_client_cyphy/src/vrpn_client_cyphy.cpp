@@ -161,7 +161,7 @@ namespace vrpn_client_cyphy
 
     if (pose_pub->getTopic().empty())
     {
-      *pose_pub = nh.advertise<geometry_msgs::PoseStamped>("data", 1);
+      *pose_pub = nh.advertise<geometry_msgs::PoseStamped>("pose", 1);
     }
 
     if (pose_pub->getNumSubscribers() > 0)

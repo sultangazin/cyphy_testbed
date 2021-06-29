@@ -75,7 +75,7 @@ class GuidanceClass:
         self.ctrlsetpoint_topic_ = rospy.get_param('topics/out_ctrl_setpoint', "setpoint")
 
         # Load the name of the Input Topics
-        self.dr_odom_topic_ = rospy.get_param('topics/in_vehicle_odom_topic', 'external_codom')    
+        self.dr_odom_topic_ = rospy.get_param('topics/in_vehicle_odom_topic', 'external_odom')    
 
     def registerCallbacks(self):
         # Subscribe to vehicle state update

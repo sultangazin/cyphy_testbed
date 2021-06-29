@@ -133,9 +133,6 @@ class StateAggregator {
 		Eigen::Quaterniond q_old_;
 		Eigen::Quaterniond qd_;
 		Eigen::Quaterniond q_pf_;
-
-		double t_delay_; 
-
 }; //\class StateAggregator
 
 
