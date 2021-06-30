@@ -21,14 +21,9 @@ add_service_files(
 	ControlSensor.srv
 	)
 
-generate_messages()
+generate_messages(DEPENDENCIES
+	std_msgs)
 
-
-catkin_package(
-	INCLUDE_DIRS include/ # The package contains header files
-	CATKIN_DEPENDS roscpp tf std_msgs
-	message_runtime
-	)
 
 # Since we use eigen
 include_directories(
@@ -46,10 +41,19 @@ add_executable(state_aggregator
 
 add_dependencies(state_aggregator 
 	${catkin_EXPORTED_TARGETS}
-	)
+	${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 target_link_libraries(state_aggregator
 	${catkin_LIBRARIES}
 	utilities
 	Eigen3::Eigen 
+	)
+
+catkin_package(
+	INCLUDE_DIRS include/ # The package contains header files
+	CATKIN_DEPENDS 
+	roscpp 
+	tf
+	std_msgs
+	message_runtime
 	)
