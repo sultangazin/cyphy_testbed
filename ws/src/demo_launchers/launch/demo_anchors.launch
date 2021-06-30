@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<!--
+Launch file for the Anchor Simulator demo
+-->
+<launch>
+	<arg name="vehicle_frame" default="cf2" />
+	
+	<!-- =========================== -->
+	<!-- Launch the Simulator Node   -->
+	<group ns="$(arg vehicle_frame)">
+	    <node pkg="simulator"
+		type="simulator_node"
+		name="simulated_vehicle"
+		output="screen">
+		<param name="frame_name" value="$(arg vehicle_frame)" type='str'/>
+		<!-- Set the output topic to be the same of the Optitrack VRPN data when running real experiments -->
+		<param name="topics/input_control_topic" value="/$(arg vehicle_frame)/control" type='str'/>
+		<param name="topics/output_simvrpn_topic" value="/area0/sensors/optitrack/$(arg vehicle_frame)/pose" type='str'/>
+		<param name="topics/output_sensor_topic" value="xsim_sensors" type='str'/>
+		<param name="topics/output_state_topic" value="xsim_state" type='str'/>
+		<rosparam file="$(find simulator)/config/simulator_params.yaml" />
+	    </node>
+	</group>
+
+
+	<!-- ======= -->
+        <!-- Sensors -->
+        <group ns="area0">
+                <group ns="sensors">
+			<!-- Simulated Anchors -->
+			<!-- Groups will make the node live in the namespace: /area0/sensors/ -->
+			<node pkg="anchor_sim" name="anchors" type="anchor_sim_node.py" 
+				output="screen" respawn="false"> 
+			<!-- Node parameters: can be fetched from the private namespace of the node (or using the global name) -->
+			<param name="topics/sensors_output_topic" value="anchors_sensors"/>
+			<param name="topics/pose_input_topic" value="/area0/sensors/optitrack/$(arg vehicle_frame)/pose"/>
+			<param name="topics/status_output_topic" value="anchors_sim_status"/>
+			<rosparam file="$(find anchor_sim)/config/anchors.yaml" />
+			</node>
+                </group>
+	</group>
+
+
+	<!-- ================================= -->
+	<!-- Launch the state estimation node  -->
+	<group ns="$(arg vehicle_frame)">
+                <node pkg="state_aggregator" name="aggregator" type="state_aggregator" 
+                        respawn="true"
+                        respawn_delay="3"
+                        output="screen"> 
+                <!-- Node parameters -->
+                <param name="sigmax" value="0.5" type='double' />
+                <param name="sigmay" value="0.0001" type='double' />
+                <param name="param/target_name" value="$(arg vehicle_frame)" />
+
+                <param name="topics/out_ext_position_topic" value="external_position" />
+                <param name="topics/out_ext_pose_topic" value="external_pose" />
+                <param name="topics/out_ext_pose_rpy_topic" value="external_pose_rpy" />
+                <param name="topics/out_ext_odom_topic" value="external_odom" />
+                </node>
+	</group>
+	
+
+</launch>

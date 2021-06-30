@@ -43,15 +43,27 @@ The following nodes will be started:
                         </rosparam>
                         </node>
                 </group>
+		
+		<group ns="controller">
+			<!-- Controller -->
+			<node name="fblin_controller"
+				pkg="fblin_controller"
+				type="fblin_controller_node"
+				output="screen">
+
+			<param name="vehicle_name" value="$(arg vehicle_frame)"/>
+			<param name="controller_name" value="fblin_controller"/>
+			<param name="topics/setpoint" value="/$(arg vehicle_frame)/setpoint" />
+			<param name="topics/state" value="/$(arg vehicle_frame)/external_odom" />
+			<rosparam file="$(find fblin_controller)/config/fblin_controller/params.yaml" />
+			</node>
+		</group>
         </group>
 
 
-        <!-- ================================================== -->
-	<!-- Control and Estimation -->
-        <group ns="$(arg vehicle_frame)">
-		<!--    Launch the estimator of the object state from
-                	the VRPN raw data.
-        	-->
+	<!-- =============================================================== -->
+	<!-- Launch the state estimation component that uses the VRPN data   -->
+	<group ns="$(arg vehicle_frame)">
                 <node pkg="state_aggregator" name="aggregator" type="state_aggregator" 
                         respawn="true"
                         respawn_delay="3"
@@ -65,14 +77,28 @@ The following nodes will be started:
                 <param name="topics/out_ext_pose_topic" value="external_pose" />
                 <param name="topics/out_ext_pose_rpy_topic" value="external_pose_rpy" />
                 <param name="topics/out_ext_odom_topic" value="external_odom" />
-                <param name="topics/out_ext_codom_topic" value="external_codom" />
+                </node>
+	</group>
+	
 
-                <param name="time_delay" value="0.0" type='double' />
+	<!-- =========================================== -->
+        <!--    Launch the controller/guidance componets -->
+	<group ns="$(arg vehicle_frame)">
+		<!-- Commander Node -->
+                <node name="Commander_Node" pkg="commander_interface" type="commander" output="screen">
+                        <param name="param/vehicle_name" value="$(arg vehicle_frame)" type="str"/>
                 </node>
 
+		<!-- Converter node -->
+		<node name="cmd_vel_converter"
+			pkg="cmd_vel_converter"
+			type="cmd_vel_converter_node"
+			output="screen">
+			<param name="topics/control" value="/$(arg vehicle_frame)/control" />
+			<param name="topics/cmd_vel" value="/$(arg vehicle_frame)/cmd_vel" />
+		</node>
 
-                <!-- =========================================== -->
-                <!--    Launch the controller/guidance componets -->
+		<!-- Guidance -->
                 <node name="Guidance_Node" 
                         pkg="guidance" 
                         type="guidance_node.py" 
@@ -81,39 +107,23 @@ The following nodes will be started:
                         respawn_delay="3"> 
                 <param name="target_frame" value="$(arg vehicle_frame)" type='str' />
                 <param name="topics/in_tg_pose_topic" value="target" type="str" />
-                <param name="topics/in_vehicle_odom_topic" value="external_codom" type='str' />
+                <param name="topics/in_vehicle_odom_topic" value="external_odom" type='str' />
                 <param name="topics/in_obst_pose_topic" value="cf9" type='str'/>
                 <param name="topics/out_ctrl_setpoint" value="setpoint" type="str" />
                 </node>
-
-                <!--
-                ========================================
-                Commander Node
-                -->
-                <node name="Commander_Node" pkg="commander_interface" type="commander" output="screen">
-                        <param name="param/vehicle_name" value="$(arg vehicle_frame)" type="str"/>
-                </node>
+	</group>
 
 
-		<!-- GEOMETRIC EXTERNAL CONTROLLERS -->
-		<include file="$(find demo_launchers)/launch/ext_control.launch">
-			<arg name="topics/setpoint_topic" value="/$(arg vehicle_frame)/setpoint" />
-			<arg name="topics/control_topic" value="/area0/controller/geometric_ctrl/$(arg vehicle_frame)/control" />
-			<arg name="topics/ctrl_perf_topic" value="/$(arg vehicle_frame)/ctrl_perf" />
-			<arg name="topics/state_topic" value="/$(arg vehicle_frame)/external_codom" />
-			<arg name="param/vehicle_name" value="$(arg vehicle_frame)" />
-			<arg name="control_mode" value="RATES" />
-		</include>
+	<!-- ===================================================================== -->
+	<!-- Control Router: This node manages the control switching on the network -->
+	<node name="control_router"
+		pkg="control_router"
+		type="control_router_node"
+		output="screen">
+	<param name="param/vehicle_name" value="$(arg vehicle_frame)" />
+	</node>	
 
-		<node name="cmd_vel_converter"
-			pkg="controller"
-			type="cmd_vel_converter_node"
-			output="screen">
-			<param name="topics/control" value="/$(arg vehicle_frame)/control" />
-			<param name="topics/cmd_vel" value="/$(arg vehicle_frame)/cmd_vel" />
-		</node>
-        </group>
-	
+
 	<!-- ========================================== -->
 	<!--    Connection to the crazyflie vehicle     -->
 	<!-- 

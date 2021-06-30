@@ -37,16 +37,16 @@ add_library(timespec_lib
     )
 
 # Declare the executable to be build and the associated source
-add_executable(simulator 
+add_executable(simulator_node 
 	exec/simulator_node.cpp 
 	src/simulator.cpp
 	)
 
-add_dependencies(simulator 
+add_dependencies(simulator_node
 	${catkin_EXPORTED_TARGETS}
 	)
 
-target_link_libraries(simulator
+target_link_libraries(simulator_node
 	${catkin_LIBRARIES}
 	Eigen3::Eigen 
 	simdyn

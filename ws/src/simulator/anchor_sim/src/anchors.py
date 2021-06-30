@@ -6,6 +6,8 @@ import time
 
 # Import the messages for the services
 from anchor_sim.srv import AnchorSimCtrl, AnchorSimTeleCtrl 
+
+# Import the messages for the topics
 from anchor_sim.msg import AnchorData, AnchorSimStatus
 
 # Import the message representing the Anchor Measurement from the crazyflie_driver package
@@ -16,19 +18,22 @@ from geometry_msgs.msg import PoseStamped
 
 class Anchors(object):
     def __init__(self):
+        # Initialziation and Node setup
         self.initData()
         self.loadParameters()
-        self.registerServices()
         self.initPubSub()
+        self.registerServices()
 
         # Start thread
         self.thread = threading.Thread(target=self.status_thread)
         self.thread.start()
         rospy.loginfo("\n [%s] Anchor Simulator Initialized!"%rospy.get_name())
 
+
     def __del__(self):
         self.active_thread = False
         self.tele_thread.join()
+
 
     def initData(self):
         # Initialize the data
@@ -47,13 +52,12 @@ class Anchors(object):
         self.target_pos = np.zeros(shape=(3, 1), dtype=float)
 
         # Variables storing the name of the topics
-        self.sensors_output_topic = ''
         self.pose_input_topic = ''
+        self.sensors_output_topic = ''
         self.status_output_topic = ''
 
         # ROS publisher for the simulated sensor data 
         self.sensor_output_pub = None 
-
         # ROS publisher for the sensor status
         self.status_output_pub = None 
 
@@ -72,12 +76,14 @@ class Anchors(object):
         # 1)
         # Topics name fetched from the Parameter Server
         # I am looking for a parameter in the private namespace of the node
+        # i.e. /area0/sensors/anchors/topics/sensors_output_topic
         # https://wiki.ros.org/Parameter%20Server
         self.sensors_output_topic = rospy.get_param("~topics/sensors_output_topic")
         self.pose_input_topic = rospy.get_param("~topics/pose_input_topic")
         self.status_output_topic = rospy.get_param("~topics/status_output_topic")
 
-        # Load Anchors from the yaml file
+        # Load Anchors from the yaml file that we specified in the launch file
+        # https://riptutorial.com/ros/example/24423/launch-ros-nodes-and-load-parameters-from-yaml-file
         a_list = rospy.get_param('~anchors')
         self.NumAnchors = len(a_list)
         for i in range(self.NumAnchors):
@@ -95,7 +101,6 @@ class Anchors(object):
         rospy.loginfo("\n [{}]: Input topic = {}".format(rospy.get_name(), self.pose_input_topic))
 
 
-
     def initPubSub(self):
         # Anchor Message Publisher
         nodens = rospy.get_name()
@@ -103,13 +108,30 @@ class Anchors(object):
                 nodens + "/" + self.sensors_output_topic, AnchorMeas, queue_size=3)
         # Global status Publisher 
         self.status_output_pub = rospy.Publisher(
-                nodens + "/" + self.status_output_topic, AnchorSimStatus, queue_size=1)
+                nodens + "/" + self.status_output_topic, AnchorSimStatus, queue_size=3)
 
         # Subscribe to the vehicle pose
         rospy.Subscriber(self.pose_input_topic, PoseStamped, self.poseCallback)
 
 
-    ###### CALLBACKS
+    def registerServices(self):
+        # 3
+        # Advertise Services
+
+        # Service to control the behavior of the anchor simulation
+        # The name of the service is given with the '~' so that it 
+        # will be resolved relative to the node name: /<namespaces...>/<nodename>/<servicename>
+        # i.e. /area0/sensors/anchors/anchorSimCtrl
+        self.service_ctrl = rospy.Service('~anchorSimCtrl',
+                AnchorSimCtrl, self.handle_ctrl_req)
+
+        # Service to control the status streaming
+        self.service_status = rospy.Service('~anchorSimStatus',
+                AnchorSimTeleCtrl, self.handle_status_req)
+
+
+    #=====================
+    ###### CALLBACKS #####
     def poseCallback(self, pose_msg):
         # Update the position of the target
         self.target_pos[0] = pose_msg.pose.position.x;
@@ -166,21 +188,6 @@ class Anchors(object):
             # Publish the network status
             self.status_output_pub.publish(msg)
             r.sleep()
-
-
-    def registerServices(self):
-        # 3
-        # Advertise Services
-
-        # Service to control the behavior of the anchor simulation
-        # The name of the service is given with the '~' so that it will be resolved relative to the node name:
-        # /<namespaces...>/<nodename>/<servicename>
-        self.service_ctrl = rospy.Service('~anchorSimCtrl',
-                AnchorSimCtrl, self.handle_ctrl_req)
-
-        # Service to control the status streaming
-        self.service_status = rospy.Service('~anchorSimStatus',
-                AnchorSimTeleCtrl, self.handle_status_req)
 
    
     def handle_ctrl_req(self, req):

@@ -9,9 +9,10 @@ project(anchor_sim)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   rospy
-  message_generation
-  std_msgs
   crazyflie_driver
+
+  std_msgs
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -106,7 +107,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES anchor_sim
-  CATKIN_DEPENDS rospy message_runtime
+#  CATKIN_DEPENDS rospy message_runtime
 #  DEPENDS system_lib
 )
 
@@ -116,10 +117,10 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(
+#include_directories(
 # include
-  ${catkin_INCLUDE_DIRS}
-)
+#  ${catkin_INCLUDE_DIRS}
+#)
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}

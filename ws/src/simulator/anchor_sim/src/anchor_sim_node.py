@@ -14,6 +14,6 @@ if __name__ == '__main__':
     rospy.init_node('Anchors_Node')
 
     # Instatiate the guidance class
-    guidance = Anchors()
+    anchor = Anchors()
 
     rospy.spin()
