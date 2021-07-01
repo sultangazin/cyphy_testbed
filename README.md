@@ -110,9 +110,9 @@ When launching the nodes, the system could request a login into the Arena. You c
 
 Once everything is started, the output of the system can be visualized at https://arenaxr.org/lpannocchi/LandOfOz
 
-That scene is remote and it will be shared among all the participant. Being a collaborative environment, if you launch the experiment at the same time it will be a mess. 
+That scene is remote and it will be shared among all the participants. Being a collaborative environment, if you launch the experiment at the same time it will be a mess. 
 
-You can create your scene if you want and the documentation can be found at https://arena.conix.io/
+It is possible to create new scenes if you want. The documentation for the Arena can be found at https://arena.conix.io/
 
 In order to control the simulated drone, it is necessary to specify that the controller is an offboard one.
 This can be done calling the service provided by the commander interface for the vehicle "cf2".

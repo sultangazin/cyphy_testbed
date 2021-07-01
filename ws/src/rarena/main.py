@@ -18,8 +18,6 @@ from arena import *
 from classes import ROSArenaObject
 from classes import DroneObject 
 
-
-
 ## GLOBAL
 host = "arenaxr.org"
 realm = "realm"
