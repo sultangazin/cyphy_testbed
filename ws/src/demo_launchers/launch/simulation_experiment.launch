@@ -8,8 +8,8 @@ Global Launch File to start the system.
 	<!-- =========================== -->
 	<!-- Launch the Simulator Node   -->
 	<group ns="$(arg vehicle_frame)">
-	    <node pkg="simulator"
-		type="simulator"
+	    <node pkg="drone_simulator"
+		type="simulator_node"
 		name="Simulated_Vehicle"
 		output="screen">
 		<param name="frame_name" value="$(arg vehicle_frame)" type='str'/>
@@ -17,7 +17,7 @@ Global Launch File to start the system.
 		<param name="topics/output_sensor_topic" value="xsim_sensors" type='str'/>
 		<param name="topics/output_state_topic" value="xsim_state" type='str'/>
 		<param name="topics/output_simvrpn_topic" value="/area0/sensors/optitrack/$(arg vehicle_frame)/pose" type='str'/>
-		<rosparam file="$(find simulator)/config/simulator_params.yaml" />
+		<rosparam file="$(find drone_simulator)/config/simulator_params.yaml" />
 	    </node>
 	</group>
 
@@ -98,9 +98,7 @@ Global Launch File to start the system.
 
 	<!-- ===================================== -->
 	<!--          Launch the Arena Node	   -->
-	<!--
 	<node pkg="rarena" name="arena" type="main.py" 
 		output="screen" respawn="false"> 
 	</node>
-	-->
 </launch>

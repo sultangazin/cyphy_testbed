@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-	<name>simulator</name>
+	<name>drone_simulator</name>
 	<version>0.0.1</version>
 	<description>Plant simulator</description>
 

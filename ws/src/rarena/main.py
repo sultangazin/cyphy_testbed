@@ -2,6 +2,7 @@
 
 ## IMPORTS
 import sys
+import os
 from signal import signal, SIGINT
 from sys import exit
 import numpy as np
@@ -20,13 +21,15 @@ from classes import DroneObject
 
 
 ## GLOBAL
-host = "arena.andrew.cmu.edu"
+host = "arenaxr.org"
 realm = "realm"
+scene = os.environ['SCENE']
+#scene='LandOfOz'
 
 # Arena Main object 
 # The scene should be specified with the environmental variable SCENE
 #arena_scene = Scene(host=host, realm=realm, scene=os.environ['SCENE'])
-arena_scene = Scene(host=host, realm=realm, scene='LandOfOz')
+arena_scene = Scene(host=host, realm=realm, scene=scene)
 
 # List of arena entities
 arena_entities = dict()
