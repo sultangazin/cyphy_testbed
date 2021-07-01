@@ -106,20 +106,24 @@ This launch file will start the nodes:
 - guidance
 - rarena
 
-When launching the nodes, the system could request a login into the aren. You can use the personal google account to perform the identification.
+When launching the nodes, the system could request a login into the Arena. You can use the personal google account to perform the identification.
+
 Once everything is started, the output of the system can be visualized at https://arenaxr.org/lpannocchi/LandOfOz
-That scene is remote and it will be shared among all the participant. So if you launch the experiment at the same time it will be a mess. 
+
+That scene is remote and it will be shared among all the participant. Being a collaborative environment, if you launch the experiment at the same time it will be a mess. 
+
 You can create your scene if you want and the documentation can be found at https://arena.conix.io/
 
-In order to control the simulated drone, it is necessary to specify that the controller is an offboard one with the command:
+In order to control the simulated drone, it is necessary to specify that the controller is an offboard one.
+This can be done calling the service provided by the commander interface for the vehicle "cf2".
 ```
 rosservice call /cf2/Commander_Node/ctrl_offboard_srv "offboard_active: true"
 ```
-The previous command will call the service provided by the commander interface for the vehicle "cf2".
 
-It is possible to test the commander calling the ros service to request a goto movement for a specific drone.
-The argument for the service is a tuple of float32, representing the position [x, y, z], and a float32 representing the duration of the requested movement. 
-For example, to issua the drone cf2 a goto to [1.0, 1.0,  0.5] in 10.0 seconds relative to the current position: 
+Once the offboard control is active, it is possible to issue goto commands to the drone using the services provided by the same commander node.
+
+The argument for the service is a tuple of float32, representing the position [x, y, z], a float32 representing the duration of the requested movement and a boolean to select a "relative" or "absolute" motion. 
+For example, to issue the drone cf2 a goto to [1.0, 1.0,  0.5] in 10.0 seconds relative to the current position: 
 ```
 rosservice call /cf2/Commander_Node/goTo_srv '[1.0, 1.0, 0.5]' '10.0' 'false'
 ```
