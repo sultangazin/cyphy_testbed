@@ -53,6 +53,10 @@ Dependencies:
 
 
 The repository contains submodules, thus, make sure you clone *recursively*.
+```
+git clone --recursive <repoaddress>
+```
+
 To build the framework, navigate to the `ws/` directory (the _workspace_), and run
 ```
 catkin_make
