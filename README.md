@@ -6,9 +6,7 @@ This repository represents a testing and development framework for application i
 Currently, the "*Crazyflie*" drone by *Bitcraze* is the platform on which the test are run, but the system has been designed to include different platforms in the future. 
 The core of the framework is based on *ROS*.
 
-
-## Components
-The framework has been organized in modules (*ROS packages*) for ease of maintenance.
+## Components The framework has been organized in modules (*ROS packages*) for ease of maintenance.
 
 Currently the following modules have been implemented:
 
@@ -47,7 +45,7 @@ The project was developed in *ROS Melodic* and some modules used *Eigen*. Make s
 Dependencies:
 - [Eigen](https://eigen.tuxfamily.org) -- a header-only linear algebra library for C++
 - [libusb-1.0-0-dev] (sudo apt install libusb-1.0-0-dev)
-- [VRPN](https://github.com/vrpn/vrpn.git) -- install vrpn library from source and copy the FindX.cmake to the local cmake Module folder.
+- [VRPN](sudo apt install ros-noetic-vrpn) -- install vrpn library
 - [python3-scipy] (sudo apt install python3-scipy) -- python library for math computation
 - [cvxopt] (sudo apt install python3-cvxopt) 
 - [python-is-python3] (sudo apt install python-is-python3) -- python will then refer to python3
@@ -64,27 +62,60 @@ Every time a new terminal is started, it's necessary to reload the references to
 ```
 source devel/setup.bash
 ```
-It's possible to avoid doing this by putting the previous command in the ~/.bashrc script.
 
 ## Basic Example
-Basic test (simulation):
+Basic test simulation:
 
-The commands to launch the necessary modules are:
+The commands to launch the the system are:
+```
+roslaunch demo_launchers demo_anchors.launch
+```
+This launch file will start the nodes: 
+- state_aggregator 
+- drone simulator
+- anchor_sim 
+
+It is then possible to play with the system, such as changing the frequency of the simulator publications:
+```
+rosservice call /area0/sensors/anchors/anchorSimStatus "{freq: 40.0, active: true}"
+```
+or change the distortion of one anchor:
+```
+rosservice call /area0/sensors/anchors/anchorSimCtrl "{id: 0, enable: true, enable_distortion: true, distortion: -5.0}"
+```
+
+
+## ROS Control Example
+Example with simulated vehicle, feedback linearization controller and Arena:
+
+Before launching the system, set an environmental variable to select the scene on the arena server. From the terminal 
+```
+export SCENE='LandOfOz'
+```
+
+Then, launch the system with
 ```
 roslaunch demo_launchers simulation_experiment.launch
 ```
-This launch file will start the core nodes: 
-- vrpn client
-- estimator
-- commander
-- controller
+This launch file will start the nodes: 
+- state_aggregator 
 - drone simulator
-- arena bridge 
+- feedback linearization controller
+- control router 
+- commander interface 
+- guidance
+- rarena
 
-First it is necessary to specify that the controller is an offboard one with the command:
+When launching the nodes, the system could request a login into the aren. You can use the personal google account to perform the identification.
+Once everything is started, the output of the system can be visualized at https://arenaxr.org/lpannocchi/LandOfOz
+That scene is remote and it will be shared among all the participant. So if you launch the experiment at the same time it will be a mess. 
+You can create your scene if you want and the documentation can be found at https://arena.conix.io/
+
+In order to control the simulated drone, it is necessary to specify that the controller is an offboard one with the command:
 ```
 rosservice call /cf2/Commander_Node/ctrl_offboard_srv "offboard_active: true"
 ```
+The previous command will call the service provided by the commander interface for the vehicle "cf2".
 
 It is possible to test the commander calling the ros service to request a goto movement for a specific drone.
 The argument for the service is a tuple of float32, representing the position [x, y, z], and a float32 representing the duration of the requested movement. 
@@ -92,13 +123,3 @@ For example, to issua the drone cf2 a goto to [1.0, 1.0,  0.5] in 10.0 seconds r
 ```
 rosservice call /cf2/Commander_Node/goTo_srv '[1.0, 1.0, 0.5]' '10.0' 'false'
 ```
-
-
-## ROS Control Example
-[TO BE FILLED]
-
-# Troubleshooting
-Usually, common problems are related to the communication between nodes.
-1) Check that you are connected to the same network where the VRPN server is.
-    Check in the "demo_core.launch" or the "datastream_launch.launch" for the IP address of the VRPN server.
-2) Check that the name of the drone in the Motive software is the same used with the launch files
