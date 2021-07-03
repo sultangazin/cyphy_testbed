@@ -8,7 +8,7 @@ Launch file for the Anchor Simulator demo
 	<!-- =========================== -->
 	<!-- Launch the Simulator Node   -->
 	<group ns="$(arg vehicle_frame)">
-	    <node pkg="simulator"
+	    <node pkg="drone_simulator"
 		type="simulator_node"
 		name="simulated_vehicle"
 		output="screen">
@@ -18,7 +18,7 @@ Launch file for the Anchor Simulator demo
 		<param name="topics/output_simvrpn_topic" value="/area0/sensors/optitrack/$(arg vehicle_frame)/pose" type='str'/>
 		<param name="topics/output_sensor_topic" value="xsim_sensors" type='str'/>
 		<param name="topics/output_state_topic" value="xsim_state" type='str'/>
-		<rosparam file="$(find simulator)/config/simulator_params.yaml" />
+		<rosparam file="$(find drone_simulator)/config/simulator_params.yaml" />
 	    </node>
 	</group>
 
