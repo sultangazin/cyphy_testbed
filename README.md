@@ -112,7 +112,7 @@ This launch file will start the nodes:
 
 When launching the nodes, the system could request a login into the Arena. You can use the personal google account to perform the identification.
 
-Once everything is started, the output of the system can be visualized at https://arenaxr.org/lpannocchi/LandOfOz
+Once everything is started, the output of the system can be visualized at https://arenaxr.org/<yourusername>/LandOfOz
 
 That scene is remote and it will be shared among all the participants. Being a collaborative environment, if you launch the experiment at the same time it will be a mess. 
 
