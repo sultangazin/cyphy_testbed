@@ -131,3 +131,12 @@ For example, to issue the drone cf2 a goto to [1.0, 1.0,  0.5] in 10.0 seconds r
 ```
 rosservice call /cf2/Commander_Node/goTo_srv '[1.0, 1.0, 0.5]' '10.0' 'false'
 ```
+
+# Common problems
+1. When running python nodes, check that the python file running the node is made executable: 
+```
+chmod +x <path_to_the_file>
+```
+
+2. In case you are connected to the network where the optitrack system is streaming information, but you don't receive anything, check the firewall to enable the incoming traffic from the optitrack machine.
+
