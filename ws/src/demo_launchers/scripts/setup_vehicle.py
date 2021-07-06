@@ -29,9 +29,7 @@ def set_ctrl_gains(cf, gains):
             update_params(["ctrlDD_par/" + name])
     print("DONE!\n")
 
-def set_mellinger_gains(cf, gains):
-    print('Setting Geometric Control Gains...')
-    for (name, k) in gains.items():
+def set_mellinger_gains(cf, gains): print('Setting Geometric Control Gains...') for (name, k) in gains.items():
         print(name + " --> " +  str(k))
         while (cf.getParam("ctrlMel/" + name) != k):
             cf.setParam("ctrlMel/" + name, k)
@@ -73,8 +71,8 @@ def ext_pos_callback(ext_point_stmp):
 
 if __name__ == '__main__':
     rospy.init_node('Setup_node')
-
     rospy.loginfo(" ====== START: Vehicle Custom Setup ===== ")
+
 
     est = 2
     ctr = 2
@@ -101,19 +99,16 @@ if __name__ == '__main__':
     rospy.Subscriber(ext_pos_topic, PointStamped, ext_pos_callback)
 
     # Create CF object
-    rospy.sleep(1.0)
     cf = crazyflie.Crazyflie("/" + cf_id, "/tf")
 
     rospy.wait_for_service('update_params')
     rospy.loginfo("found update_params service")
     update_params = rospy.ServiceProxy('update_params', UpdateParams)
 
-    rospy.sleep(1.0)
     # Select the controller level
     while (cf.getParam("commander/enHighLevel") != comm_lev):
         cf.setParam("commander/enHighLevel", comm_lev)
-    rospy.loginfo("Correctly set " + str(cf.getParam("commander/enHighLevel")) + 
-        " commander level")
+    rospy.loginfo("Correctly set " + str(cf.getParam("commander/enHighLevel")) + " commander level")
 
     # Map the estimator name to index
     if (estimator == 'EKF'):
@@ -123,19 +118,11 @@ if __name__ == '__main__':
     if (estimator == 'DD'):
         est = 3
 
-    if (estimator == 'DD'):
-        pass
-    
-    time.sleep(1.0)
-
 
     # Set the estimator
     while (cf.getParam("stabilizer/estimator") != est):
         cf.setParam("stabilizer/estimator", est)
-
-    rospy.loginfo("Correctly set " + str(cf.getParam("stabilizer/estimator")) + 
-            " estimator")
-    time.sleep(1)
+    rospy.loginfo("Correctly set " + str(cf.getParam("stabilizer/estimator")) + " estimator")
 
     # If Kalman reset the estimator
     if (estimator == 'EKF' and req_reset):   
@@ -156,13 +143,13 @@ if __name__ == '__main__':
         ctr = 1
     if (controller == 'Mellinger'):
         ctr = 2
-        gains__ = {
-                'kR_xy': 7000,
-                'kw_xy': 20000
-                }
-        set_mellinger_gains(cf, gains__)
-        pass
-        time.sleep(0.5)
+        #gains__ = {
+        #        'kR_xy': 7000,
+        #        'kw_xy': 20000
+        #        }
+        #set_mellinger_gains(cf, gains__)
+        #pass
+        #time.sleep(0.5)
 
     if (controller == 'DD'):
         ctr = 4
@@ -216,8 +203,6 @@ if __name__ == '__main__':
             rospy.sleep(0.5)
             rospy.loginfo("Setting flightmode/stabModePitch = " + str(cmode))
 
-
-        
     time.sleep(1)
 
     rate = rospy.Rate(1)
@@ -227,5 +212,3 @@ if __name__ == '__main__':
         rospy.spin()
 
     rospy.loginfo(" ====== END: Vehicle Custom Setup ===== ")
-    
-    
