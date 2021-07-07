@@ -71,7 +71,7 @@ Global Launch File to start the system.
 
                 <param name="topics/out_ext_position_topic" value="external_position" />
                 <param name="topics/out_ext_pose_topic" value="external_pose" />
-                <param name="topics/out_ext_pose_rpy_topic" value="external_pose_rpy" />
+                <param name="topics/out_ext_attitude_rpy_topic" value="external_attitude_rpy" />
                 <param name="topics/out_ext_odom_topic" value="external_odom" />
                 </node>
 	</group>
@@ -94,11 +94,10 @@ Global Launch File to start the system.
                         respawn_delay="3"> 
                 <param name="target_frame" value="$(arg vehicle_frame)" type='str' />
                 <param name="topics/in_vehicle_odom_topic" value="external_odom" type='str' />
-                <param name="topics/in_obst_pose_topic" value="cf9" type='str'/>
                 <param name="topics/out_ctrl_setpoint" value="setpoint" type="str" />
                 </node>
 		
-		<!-- Converter node -->
+		<!-- Converter node: Interface between ROS actuation and Crazyflie actuation -->
 		<node name="cmd_vel_converter"
 			pkg="cmd_vel_converter"
 			type="cmd_vel_converter_node"
@@ -135,7 +134,7 @@ Global Launch File to start the system.
 		crazyflie_add node.
 		The parameter 'rs_name' is used to use more 
 		radios. Basically, I can launch more crazyflie
-		drivers nodes on different machines to deal 
+		server nodes on different machines to deal 
 		with different vehicles. The way it works is by
 		having a different namespace for the services such
 		that there are no conflicts on the ROS network when
@@ -187,8 +186,8 @@ Global Launch File to start the system.
 			<param name="comm_lev" value='1' type='int' />
 			<param name="ResEstimator" value='true' type='bool' />
 			<param name="Controller" value="Mellinger" type='str' />
-			<param name="Estimator" value="EFK" type='str' />
-			<param name="stabMode" value="0" type='int' />
+			<param name="Estimator" value="EKF" type='str' />
+			<param name="ctrlMode" value="Rates" type='str' />
 		</node>
 	</group>
 </launch>

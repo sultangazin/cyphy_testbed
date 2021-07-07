@@ -87,7 +87,7 @@ bool StateAggregator::LoadParameters(const ros::NodeHandle& n) {
 	np.param<std::string>("topics/out_ext_pose_topic", ext_pose_topic_,
 			"external_pose");
 	// External orientation (rpy)
-	np.param<std::string>("topics/out_ext_pose_rpy_topic", ext_att_rpy_topic_, 
+	np.param<std::string>("topics/out_ext_attitude_rpy_topic", ext_att_rpy_topic_, 
 			"external_pose_rpy");
 
 	np.param<std::string>("topics/out_ext_odom_topic", ext_odom_topic_,
