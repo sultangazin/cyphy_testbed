@@ -20,30 +20,21 @@ from geometry_msgs.msg import PointStamped
 ekf_initialized = False;
 init_ekf = False;
 
-def set_ctrl_gains(cf, gains):
-    print('Setting Control Gains...')
+def set_params(cf, param_namespace, gains):
+    """ 
+    Helper function to set parameters on the drone
+    Args:
+        param_namespace: name of the parameter set (defined on the crazyflie firmware)
+        gains: dictionary with the parameters
+    """
+    print('Setting {} Parameters...'.format(param_namespace))
     for (name, k) in gains.items():
-        print(name + " --> " +  str(k))
-        while (cf.getParam("ctrlDD_par/" + name) != k):
-            cf.setParam("ctrlDD_par/" + name, k)
-            update_params(["ctrlDD_par/" + name])
+        while (cf.getParam(param_namespace + '/' + name) != k):
+            cf.setParam(param_namespace + '/' + name, k)
+            update_params([param_namespace + '/' + name])
+        print("Param " + name + " --> " +  str(k))
     print("DONE!\n")
 
-def set_mellinger_gains(cf, gains): print('Setting Geometric Control Gains...') for (name, k) in gains.items():
-        print(name + " --> " +  str(k))
-        while (cf.getParam("ctrlMel/" + name) != k):
-            cf.setParam("ctrlMel/" + name, k)
-            update_params(["ctrlMel/" + name])
-    print("DONE!\n")
-
-def set_est_gains(cf, gains):
-    print('Setting Estimator Gains...')
-    for (name, k) in gains.items():
-        print(name + " --> " +  str(k))
-        while (cf.getParam("estimatorDD_par/" + name) != k):
-            cf.setParam("estimatorDD_par/" + name, k)
-            update_params(["estimatorDD_par/" + name])
-    print("DONE!\n")
 
 def ext_pos_callback(ext_point_stmp):
     global ekf_initialized
@@ -59,12 +50,9 @@ def ext_pos_callback(ext_point_stmp):
             rospy.loginfo("Initializing the KF: [" + str(x) + " " + 
                     str(y) + " " + str(z) + "]")
             
-            rospy.set_param("kalman/initialX", x)
-            rospy.set_param("kalman/initialY", y)
-            rospy.set_param("kalman/initialZ", z)
-            rospy.sleep(0.5)
-            update_params(["kalman/initialX", "kalman/initialY", "kalman/initialZ"])
-            
+            par = {'initialX': x, 'initialY': y, 'initialZ': z}
+            set_params(cf, 'kalman', par) 
+           
             ekf_initialized = True
             rospy.loginfo("Setup of Vehicle " + cf_id + " Complete!\n")
 
@@ -73,10 +61,9 @@ if __name__ == '__main__':
     rospy.init_node('Setup_node')
     rospy.loginfo(" ====== START: Vehicle Custom Setup ===== ")
 
-
-    est = 2
-    ctr = 2
-    cmode = 1
+    est = None 
+    ctr = None 
+    cmode = None 
 
     # Read the parameters
     cf_id = rospy.get_param('~cf', 'cf1')
@@ -84,45 +71,44 @@ if __name__ == '__main__':
     estimator = rospy.get_param('~Estimator', 'EKF')
     controller = rospy.get_param('~Controller', 'Mellinger')
     req_reset = rospy.get_param('~ResEstimator', True)
-    stabMode = rospy.get_param('~stabMode', '1')
+    ctrlMode = rospy.get_param('~ctrlMode', 'Angles')
 
     rospy.loginfo("Selecting CF: " + str(cf_id))
     rospy.loginfo('Selecting Commander Level: ' + str(comm_lev))
     rospy.loginfo("Selecting Estimator: " + str(estimator))
     rospy.loginfo("Selecting Controller: " + str(controller))
-    rospy.loginfo("Selecting StabMode: " + str(stabMode))
+    rospy.loginfo("Selecting Control Mode: " + str(ctrlMode))
 
     # Subscribe to the external position topic, in case it is necessary.
     ext_pos_topic = "/" + cf_id + "/external_position"
-    rospy.loginfo("Subscribing to the external position topic: " + 
-            str(ext_pos_topic))
+    rospy.loginfo("Subscribing to the external position topic: " + str(ext_pos_topic))
     rospy.Subscriber(ext_pos_topic, PointStamped, ext_pos_callback)
 
     # Create CF object
     cf = crazyflie.Crazyflie("/" + cf_id, "/tf")
 
     rospy.wait_for_service('update_params')
-    rospy.loginfo("found update_params service")
+    rospy.loginfo("Found update_params service!")
     update_params = rospy.ServiceProxy('update_params', UpdateParams)
 
     # Select the controller level
-    while (cf.getParam("commander/enHighLevel") != comm_lev):
-        cf.setParam("commander/enHighLevel", comm_lev)
-    rospy.loginfo("Correctly set " + str(cf.getParam("commander/enHighLevel")) + " commander level")
+    par = {'enHighLevel': comm_lev}
+    set_params(cf, 'commander', par)
 
     # Map the estimator name to index
-    if (estimator == 'EKF'):
-        est = 2
     if (estimator == 'CMP'):
         est = 1
-    if (estimator == 'DD'):
+    elif (estimator == 'EKF'):
+        est = 2
+    elif (estimator == 'DD'):
         est = 3
+    else:
+        rospy.loginfo('Something wrong here!')
+        est = 1
 
-
-    # Set the estimator
-    while (cf.getParam("stabilizer/estimator") != est):
-        cf.setParam("stabilizer/estimator", est)
-    rospy.loginfo("Correctly set " + str(cf.getParam("stabilizer/estimator")) + " estimator")
+    # Set the estimator on the crazyflie
+    par = {'estimator': est}
+    set_params(cf, 'stabilizer', par)
 
     # If Kalman reset the estimator
     if (estimator == 'EKF' and req_reset):   
@@ -137,26 +123,32 @@ if __name__ == '__main__':
         update_params(["kalman/resetEstimation"])
         rospy.sleep(0.5)
         init_ekf = True
+    # Map the Control Mode to index
+    if (ctrlMode == 'Angles'):
+        rospy.loginfo("Set Angles Control Mode")
+        cmode = 1
+    elif (ctrlMode == 'Rates'):
+        rospy.loginfo("Set Rates Control Mode")
+        cmode = 0
+    else:
+        rospy.loginfo("Set Angles Control Mode")
+        rospy.loginfo('Something wrong here!')
+        cmode = 1
+
     
     # Map the controller name to index
     if (controller == 'PID'):
         ctr = 1
-    if (controller == 'Mellinger'):
+    elif (controller == 'Mellinger'):
         ctr = 2
+        # If it is necessary to change the parameters...
         #gains__ = {
         #        'kR_xy': 7000,
         #        'kw_xy': 20000
         #        }
-        #set_mellinger_gains(cf, gains__)
-        #pass
-        #time.sleep(0.5)
-
-    if (controller == 'DD'):
+        #set_params(cf, "ctrlMel", gains__)
+    elif (controller == 'DD'):
         ctr = 4
-    if (controller == 'EXT' or controller == "Ext"):
-        ctr = 5
-
-    if (controller == 'DD'):
         ControlGains = {
                 'Kxy': -4.0,
                 'Kxy_d': -4.0,
@@ -167,43 +159,18 @@ if __name__ == '__main__':
                 'Kyaw': 34.0,
                 'Kyaw_d': 12.0
         }
-        set_ctrl_gains(cf, ControlGains)
-        time.sleep(1.0)
+        set_params(cf, 'ctrlDD_par', ControlGains)
+    elif (controller == 'EXT' or controller == "Ext"):
+        ctr = 5
+    else:
+        rospy.loginfo("Something is wrong with the controller selection...")
+        ctr = 1
 
-
-    # Set the controller
-    while (cf.getParam("stabilizer/controller") != ctr):
-        cf.setParam("stabilizer/controller", ctr) # 1)PID  2)Mellinger
-        update_params(["stabilizer/controller"])
-        rospy.sleep(0.2)
-
-    rospy.loginfo("Correctly set " + str(cf.getParam("stabilizer/controller")) + 
-            " controller")
-
-    
-    if ctr != 5:
-        # Setting the flight mode on the Crazyfly
-        if (stabMode == 0):
-            # Rates
-            rospy.loginfo("Set Rates Control Mode")
-            cmode = 0
-        if (stabMode == 1):
-            # Angle
-            rospy.loginfo("Set Angle Control Mode")
-            cmode = 1
-
-        while (cf.getParam("flightmode/stabModeRoll") != cmode):
-            rospy.loginfo("Setting flightmode/stabModeRoll = " + str(cmode))
-            cf.setParam("flightmode/stabModeRoll", cmode)
-            update_params(["flightmode/stabModeRoll"])
-            rospy.sleep(0.5)
-        while (cf.getParam("flightmode/stabModePitch") != cmode):
-            cf.setParam("flightmode/stabModePitch", cmode) 
-            update_params(["flightmode/stabModePitch"])
-            rospy.sleep(0.5)
-            rospy.loginfo("Setting flightmode/stabModePitch = " + str(cmode))
-
-    time.sleep(1)
+    # Set the controller on the crazyflie
+    par = {'controller': ctr}
+    set_params(cf, 'stabilizer', par)
+    par = {'stabModeRoll': cmode, 'stabModePitch':cmode}
+    set_params(cf, 'flightmode', par) 
 
     rate = rospy.Rate(1)
     while (init_ekf and not ekf_initialized and not rospy.is_shutdown()):
