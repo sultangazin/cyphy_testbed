@@ -190,4 +190,9 @@ Global Launch File to start the system.
 			<param name="ctrlMode" value="Rates" type='str' />
 		</node>
 	</group>
+	
+	<!-- Start a Recording Node -->
+	<node pkg="rosbag" name="record_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_record /area0/sensors/optitrack/$(arg vehicle_frame)/data   /$(arg vehicle_frame)/external_odom /$(arg vehicle_frame)/setpoint /$(arg vehicle_frame)/control /$(arg vehicle_frame)/cmd_vel "/>
+
 </launch>
+
