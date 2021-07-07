@@ -65,6 +65,7 @@ if __name__ == '__main__':
     ctr = None 
     cmode = None 
 
+    # ============================= 
     # Read the parameters
     cf_id = rospy.get_param('~cf', 'cf1')
     comm_lev = rospy.get_param('~comm_lev', 1);
@@ -79,11 +80,13 @@ if __name__ == '__main__':
     rospy.loginfo("Selecting Controller: " + str(controller))
     rospy.loginfo("Selecting Control Mode: " + str(ctrlMode))
 
+    # ============================= 
     # Subscribe to the external position topic, in case it is necessary.
     ext_pos_topic = "/" + cf_id + "/external_position"
     rospy.loginfo("Subscribing to the external position topic: " + str(ext_pos_topic))
     rospy.Subscriber(ext_pos_topic, PointStamped, ext_pos_callback)
 
+    # ============================= 
     # Create CF object
     cf = crazyflie.Crazyflie("/" + cf_id, "/tf")
 
@@ -91,10 +94,11 @@ if __name__ == '__main__':
     rospy.loginfo("Found update_params service!")
     update_params = rospy.ServiceProxy('update_params', UpdateParams)
 
-    # Select the controller level
-    par = {'enHighLevel': comm_lev}
-    set_params(cf, 'commander', par)
+    # ============================= 
+    # Configuring the vehicle
 
+
+    # ESTIMATOR SETUP
     # Map the estimator name to index
     if (estimator == 'CMP'):
         est = 1
@@ -105,7 +109,6 @@ if __name__ == '__main__':
     else:
         rospy.loginfo('Something wrong here!')
         est = 1
-
     # Set the estimator on the crazyflie
     par = {'estimator': est}
     set_params(cf, 'stabilizer', par)
@@ -123,6 +126,13 @@ if __name__ == '__main__':
         update_params(["kalman/resetEstimation"])
         rospy.sleep(0.5)
         init_ekf = True
+
+
+    # CONTROL SETUP
+    # Select the commander level
+    par = {'enHighLevel': comm_lev}
+    set_params(cf, 'commander', par)
+
     # Map the Control Mode to index
     if (ctrlMode == 'Angles'):
         rospy.loginfo("Set Angles Control Mode")
@@ -135,7 +145,6 @@ if __name__ == '__main__':
         rospy.loginfo('Something wrong here!')
         cmode = 1
 
-    
     # Map the controller name to index
     if (controller == 'PID'):
         ctr = 1
@@ -172,6 +181,10 @@ if __name__ == '__main__':
     par = {'stabModeRoll': cmode, 'stabModePitch':cmode}
     set_params(cf, 'flightmode', par) 
 
+    
+    #  1) Start wait for the system to fetch the initial position of the drone;
+    #  2) Initialize the state estimate on the drone
+    #  3) Die :-)
     rate = rospy.Rate(1)
     while (init_ekf and not ekf_initialized and not rospy.is_shutdown()):
         rospy.loginfo("Waiting for filter initialization...")
