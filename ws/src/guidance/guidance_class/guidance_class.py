@@ -474,6 +474,11 @@ class GuidanceClass:
                 output_msg.a.x = X[2]
                 output_msg.a.y = Y[2]
                 output_msg.a.z = Z[2]
+
+                output_msg.j.x = X[3]
+                output_msg.j.y = Y[3]
+                output_msg.j.z = Z[3]
+
                 
                 # Action Feedback
                 fb_data = GuidanceTargetFeedback()
