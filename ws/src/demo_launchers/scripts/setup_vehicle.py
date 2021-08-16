@@ -33,6 +33,7 @@ def set_params(cf, param_namespace, gains):
             cf.setParam(param_namespace + '/' + name, k)
             update_params([param_namespace + '/' + name])
         print("Param " + name + " --> " +  str(k))
+    rospy.sleep(0.5)
     print("DONE!\n")
 
 
