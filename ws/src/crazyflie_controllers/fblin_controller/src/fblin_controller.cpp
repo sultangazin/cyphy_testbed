@@ -143,61 +143,65 @@ namespace fblin_controller {
 
 		ros::Time now = ros::Time::now();
 		double dt = now.toSec() - previous_.toSec();
-		previous_ = now;
-		if (dt > 0.003) dt = 0.003;
 
-		// Compute error
-		Vector3d p_error = sp_pos_ - pos_;
-		Vector3d v_error = sp_vel_ - vel_;
-		Vector3d a_error = sp_acc_ - acc_;
+		if (dt > 0.18) {
+			dt = 0.18;
+			previous_ = now;
 
-		// Compute the control action (jerk) in world coordinates
-		Vector3d u_world = Vector3d::Zero(); 
-		u_world(0) = kp_xy_ * p_error(0) + kd_xy_ * v_error(0) + ka_xy_ * a_error(0);
-		u_world(1) = kp_xy_ * p_error(1) + kd_xy_ * v_error(1) + ka_xy_ * a_error(1);
-		u_world(2) = kp_z_ * p_error(2) + kd_z_ * v_error(2) + ka_z_ * a_error(2);
-		u_world += sp_jrk_;
+			// Compute error
+			Vector3d p_error = sp_pos_ - pos_;
+			Vector3d v_error = sp_vel_ - vel_;
+			Vector3d a_error = sp_acc_ - acc_;
 
-		// Map the control action from body to world frame
-		u_body_ = quat_.inverse() * u_world;
+			// Compute the control action (jerk) in world coordinates
+			Vector3d u_world = Vector3d::Zero(); 
+			u_world(0) = kp_xy_ * p_error(0) + kd_xy_ * v_error(0) + ka_xy_ * a_error(0);
+			u_world(1) = kp_xy_ * p_error(1) + kd_xy_ * v_error(1) + ka_xy_ * a_error(1);
+			u_world(2) = kp_z_ * p_error(2) + kd_z_ * v_error(2) + ka_z_ * a_error(2);
+			u_world += sp_jrk_;
 
-		// Extract the axis of the body frame (expressed in world frame) 
-		Matrix3d R = quat_.toRotationMatrix();
-		Vector3d x_axis = R.col(0); 
-		Vector3d z_axis = R.col(2);
+			// Map the control action from body to world frame
+			u_body_ = quat_.inverse() * u_world;
 
-		// Map the jerk into angular velocity and thrust (actual control signals) 
-		testbed_msgs::ControlStamped control_msg; // ROS message for the controls
-		if (thrust_ > 0.05) {
-			control_msg.control.roll = -(u_body_(1) / thrust_) * vehicleMass_;
-			control_msg.control.pitch = (u_body_(0) / thrust_) * vehicleMass_;
+			// Extract the axis of the body frame (expressed in world frame) 
+			Matrix3d R = quat_.toRotationMatrix();
+			Vector3d x_axis = R.col(0); 
+			Vector3d z_axis = R.col(2);
+
+			// Map the jerk into angular velocity and thrust (actual control signals) 
+			testbed_msgs::ControlStamped control_msg; // ROS message for the controls
+			if (thrust_ > 0.05) {
+				control_msg.control.roll = -(u_body_(1) / thrust_) * vehicleMass_;
+				control_msg.control.pitch = (u_body_(0) / thrust_) * vehicleMass_;
+			}
+			thrust_ = std::max(thrust_ + vehicleMass_ * u_body_(2) * dt, 0.0);
+			std::clamp(thrust_, 0.0, 2.0 * vehicleMass_ * GRAVITY_MAGNITUDE);
+
+			control_msg.control.thrust = thrust_ / vehicleMass_; // Because the library works with acc (XXX Fix this)
+
+			// Yaw control
+			Vector3d yyaw = z_axis.cross(Vector3d::UnitX());
+			Vector3d xyaw = yyaw.cross(z_axis);
+
+			Vector3d ni = x_axis.cross(xyaw); 
+			double alpha = std::asin(ni.norm());
+			ni.normalize();
+			// Express the axis in body frame
+			Vector3d nb = quat_.inverse() * ni;
+			double yaw_ctrl = kR_z_ * alpha;
+			control_msg.control.yaw_dot = yaw_ctrl;
+
+			// In case the setpoint type was a stop, put everything to zero.
+			if (setpoint_type_ == "stop") {
+				control_msg.control.thrust = 0.0;
+				control_msg.control.roll = 0.0;
+				control_msg.control.pitch = 0.0;
+				control_msg.control.yaw_dot = 0.0;
+			}
+
+			// Set the message timestamp and publish the message.
+			control_msg.header.stamp = now; 
+			control_pub_.publish(control_msg);
 		}
-		thrust_ = std::max(thrust_ + vehicleMass_ * u_body_(2) * dt, 0.0);
-
-		control_msg.control.thrust = thrust_ / vehicleMass_; // Because the library works with acc (XXX Fix this)
-
-		// Yaw control
-		Vector3d yyaw = z_axis.cross(Vector3d::UnitX());
-		Vector3d xyaw = xyaw.cross(z_axis);
-
-		Vector3d ni = x_axis.cross(xyaw); 
-		double alpha = std::asin(ni.norm());
-		ni.normalize();
-		// Express the axis in body frame
-		Vector3d nb = quat_.inverse() * ni;
-		double yaw_ctrl = kR_z_ * alpha;
-		control_msg.control.yaw_dot = yaw_ctrl;
-
-		// In case the setpoint type was a stop, put everything to zero.
-		if (setpoint_type_ == "stop") {
-			control_msg.control.thrust = 0.0;
-			control_msg.control.roll = 0.0;
-			control_msg.control.pitch = 0.0;
-			control_msg.control.yaw_dot = 0.0;
-		}
-
-		// Set the message timestamp and publish the message.
-		control_msg.header.stamp = now; 
-		control_pub_.publish(control_msg);
 	}
 }
