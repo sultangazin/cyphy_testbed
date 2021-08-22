@@ -11,8 +11,6 @@ using Eigen::VectorXd;
 using Eigen::Vector3d;
 
 namespace cis_supervisor {
-	double differentiate(double);
-
 	CISSupervisorROS::CISSupervisorROS() :
 		initialized_(false) {
 			ControllerDT_ = 0.05;
@@ -27,7 +25,17 @@ namespace cis_supervisor {
 		}
 
 		// Instatiate the CIS Supervisor class
-		cis_supervisor_ = new CISSupervisor(Ad_, Bd_, Ed_);
+		cis_supervisor_ = new CISSupervisor(Ad_, Bd_, Ed_, Vector3d::Zero());
+
+		MatrixXd As(6, 9);
+		As.block(0, 0, 3, 3) = MatrixXd::Identity(3, 3);
+		As.block(3, 0, 3, 3) = -MatrixXd::Identity(3, 3);
+		
+		MatrixXd Bs(6, 1);
+		for (int i = 0; i < 6; i++) {
+			Bs(i) = 3;
+		}
+		cis_supervisor_->AddSafeSet(As, Bs);
 
 		InitPubSubs(n);
 
@@ -45,30 +53,55 @@ namespace cis_supervisor {
 		nl.param<std::string>("vehicle_name", vehicle_name_, "cf1");
 
 		// Controller Parameters
-		if (!nl.getParam("param/ControllerDT", ControllerDT_)) return false;
+		if (!nl.getParam("param/controllerDT", ControllerDT_)) return false;
 		if (!nl.getParam("param/vehicleMass", vehicle_Mass_)) return false;
 
-		std::vector<double> acoeff;
-		if (!nl.getParam("param/A", acoeff)) return false;
-		for (auto el : acoeff) {
-			Ad_ << el; 
-		}
+		XmlRpc::XmlRpcValue XML;
+		if (!nl.getParam("param/A", XML)) return false;
+		Ad_ = MatrixXd(static_cast<int>(XML["rows"]), static_cast<int>(XML["cols"]));
 
-		std::vector<double> bcoeff;
-		if (!nl.getParam("param/B", bcoeff)) return false;
-		for (auto el : bcoeff) {
-			Bd_ << el;
+		// Load the data
+		std::vector<double> v;
+		if (!nl.getParam("param/A/data", v)) return false;
+		int counter = 0;
+		for (auto it : v) {
+			int row = counter / Ad_.cols();
+			int col = counter % Ad_.cols();
+			Ad_(row, col) = it;
+			counter++;
 		}
+		std::cout << std::endl;
+		std::cout << "Loaded Ad: " << std::endl << Ad_ << std::endl;
 
-		std::vector<double> ecoeff;
-		nl.getParam("param/E", ecoeff);
-		for (auto el : ecoeff) {
-			Ed_ << el;
+		if (!nl.getParam("param/B", XML)) return false;
+		Bd_ = MatrixXd(static_cast<int>(XML["rows"]), static_cast<int>(XML["cols"]));
+		if (!nl.getParam("param/B/data", v)) return false;
+		counter = 0;
+		for (auto it : v) {
+			int row = counter / Bd_.cols();
+			int col = counter % Bd_.cols();
+			Bd_(row, col) = it;
+			counter++;
 		}
+		std::cout << "Loaded Bd: " << std::endl << Bd_ << std::endl;
+
+		if (!nl.getParam("param/E", XML)) return false;
+		Ed_ = MatrixXd(static_cast<int>(XML["rows"]), static_cast<int>(XML["cols"]));
+		if (!nl.getParam("param/E/data", v)) return false;
+		counter = 0;
+		for (auto it : v) {
+			int row = counter / Ed_.cols();
+			int col = counter % Ed_.cols();
+			Ed_(row, col) = it;
+			counter++;
+		}
+		std::cout << "Loaded Ed: " << std::endl << Ed_ << std::endl;
 
 		// Topics
 		if (!nl.getParam("topics/state", state_topic_)) return false;
 		if (!nl.getParam("topics/ref_control", control_input_topic_)) return false;
+		if (!nl.getParam("topics/obstacles", obstacle_input_topic_)) return false;
+
 		nl.param<std::string>("topics/output_control", control_topic_, namespace_ + vehicle_name_ + "/control");
 
 		return true;
@@ -81,8 +114,9 @@ namespace cis_supervisor {
 		// Subscribe to the topics and associate a callback upon new publications.
 		state_sub_ = nl.subscribe(state_topic_.c_str(), 1, &CISSupervisorROS::StateCallback, this);
 		ctrl_setpoint_sub_ = nl.subscribe(control_input_topic_.c_str(), 1, &CISSupervisorROS::UpdateControl, this);
+		obstacle_sub_ = nl.subscribe(obstacle_input_topic_.c_str(), 1, &CISSupervisorROS::ObstacleCallback, this);
 
-		// Declare the publication of the control messages
+		// Advertise the publication of the control messages
 		control_pub_ = nl.advertise<testbed_msgs::ControlStamped>(control_topic_.c_str(), 1, false);
 
 		return true;
@@ -111,28 +145,29 @@ namespace cis_supervisor {
 		Vector3d b_jerk;
 		Vector3d b_omega_ctrl;
 		double thrust = msg->control.thrust;
-		b_omega_ctrl[0] = msg->control.roll;
-		b_omega_ctrl[1] = msg->control.pitch;
-		b_omega_ctrl[2] = msg->control.yaw_dot;
+		b_omega_ctrl(0) = msg->control.roll;
+		b_omega_ctrl(1) = msg->control.pitch;
+		b_omega_ctrl(2) = msg->control.yaw_dot;
 
 		// Compute the jerk in body frame from the omega/thrust actuation command 
-		b_jerk[X_COORD] = thrust * b_omega_ctrl[Y_COORD] / vehicle_Mass_;
-		b_jerk[Y_COORD] = -thrust * b_omega_ctrl[X_COORD] / vehicle_Mass_;
-		b_jerk[Z_COORD] = differentiate(thrust);
+		b_jerk(X_COORD) = thrust * b_omega_ctrl(Y_COORD) / vehicle_Mass_;
+		b_jerk(Y_COORD) = -thrust * b_omega_ctrl(X_COORD) / vehicle_Mass_;
+		b_jerk(Z_COORD) = differentiate(thrust);
 
 		// Compute the jerk in world frame
 		w_jerk_ = w_q_b_ * b_jerk;
 
 		// Call the supervisor
+		std::cout << "Updating control ... " << std::endl;
 		Vector3d w_jerk_filt = cis_supervisor_->UpdateControl(w_jerk_);
 		
 		// Convert the jerk into body frame
 		Vector3d b_jerk_filt_ = w_q_b_.inverse()  * w_jerk_filt;
 
 		Vector3d update_b_omega_ctrl(b_omega_ctrl);
-		update_b_omega_ctrl[X_COORD] = -(vehicle_Mass_ / thrust_) * b_jerk_filt_[Y_COORD];
-		update_b_omega_ctrl[Y_COORD] =  (vehicle_Mass_ / thrust_) * b_jerk_filt_[X_COORD];
-		double thrust_new  = thrust_ + b_jerk_filt_[Z_COORD] * ControllerDT_; 
+		update_b_omega_ctrl(X_COORD) = -(vehicle_Mass_ / thrust_) * b_jerk_filt_(Y_COORD);
+		update_b_omega_ctrl(Y_COORD) =  (vehicle_Mass_ / thrust_) * b_jerk_filt_(X_COORD);
+		double thrust_new  = thrust_ + b_jerk_filt_(Z_COORD) * ControllerDT_; 
 
 		testbed_msgs::ControlStamped control_msg;
 		if (thrust_new > 0.05) {
@@ -167,5 +202,25 @@ namespace cis_supervisor {
 		w_q_b_.vec() = Vector3d (msg->q.x, msg->q.y, msg->q.z);
 		w_q_b_.w() = msg->q.w;
 		w_q_b_.normalize();
+	}
+
+
+	// --------------------------------------
+	// Callback on new obstacle data:
+	void CISSupervisorROS::ObstacleCallback(
+			const cis_supervisor::ObstacleMsg::ConstPtr& msg) {
+
+		// Read the message into the state
+		ObstacleData obst_data;
+		obst_data.id = msg->id;
+		obst_data.pos(0) = msg->p.x; obst_data.pos(1) = msg->p.y; obst_data.pos(2) = msg->p.z;
+		obst_data.vel(0) = msg->v.x; obst_data.vel(1) = msg->v.y; obst_data.vel(2) = msg->v.z;
+		
+		cis_supervisor_->UpdateObstacle(obst_data);
+
+	}
+
+	double CISSupervisorROS::differentiate(double x) {
+		return 1;
 	}
 }

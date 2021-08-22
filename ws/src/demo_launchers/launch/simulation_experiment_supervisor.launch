@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<!--
+Global Launch File to start the system.
+-->
+<launch>
+	<arg name="vehicle_frame" default="cf2" />
+
+	<!-- =========================== -->
+	<!-- Launch the Simulator Node   -->
+	<group ns="$(arg vehicle_frame)">
+	    <node pkg="drone_simulator"
+		type="simulator_node"
+		name="Simulated_Vehicle"
+		output="screen">
+		<param name="frame_name" value="$(arg vehicle_frame)" type='str'/>
+		<param name="topics/input_control_topic" value="/$(arg vehicle_frame)/control" type='str'/>
+		<param name="topics/output_sensor_topic" value="xsim_sensors" type='str'/>
+		<param name="topics/output_state_topic" value="xsim_state" type='str'/>
+		<param name="topics/output_simvrpn_topic" value="/area0/sensors/optitrack/$(arg vehicle_frame)/pose" type='str'/>
+		<rosparam file="$(find drone_simulator)/config/simulator_params.yaml" />
+	    </node>
+	</group>
+
+
+	<!-- ====================================== -->
+	<!-- Launch the state estimation component  -->
+	<group ns="$(arg vehicle_frame)">
+                <node pkg="state_aggregator" name="aggregator" type="state_aggregator" 
+                        respawn="true"
+                        respawn_delay="3"
+                        output="screen"> 
+                <!-- Topic parameters -->
+                <param name="sigmax" value="0.5" type='double' />
+                <param name="sigmay" value="0.0001" type='double' />
+                <param name="param/target_name" value="$(arg vehicle_frame)" />
+
+                <param name="topics/out_ext_position_topic" value="external_position" />
+                <param name="topics/out_ext_pose_topic" value="external_pose" />
+                <param name="topics/out_ext_attitude_rpy_topic" value="external_attitude_rpy" />
+                <param name="topics/out_ext_odom_topic" value="external_odom" />
+                </node>
+	</group>
+	
+
+	<!-- =========================================== -->
+        <!--    Launch the commander/guidance componets -->
+	<group ns="$(arg vehicle_frame)">
+		<!-- Commander Node -->
+                <node name="Commander_Node" pkg="commander_interface" type="commander" output="screen">
+                        <param name="param/vehicle_name" value="$(arg vehicle_frame)" type="str"/>
+                </node>
+
+		<!-- Guidance -->
+                <node name="Guidance_Node" 
+                        pkg="guidance" 
+                        type="guidance_node.py" 
+                        output="screen"
+                        respawn="true"
+                        respawn_delay="3"> 
+                <param name="target_frame" value="$(arg vehicle_frame)" type='str' />
+                <param name="topics/in_vehicle_odom_topic" value="external_odom" type='str' />
+                <param name="topics/out_ctrl_setpoint" value="setpoint" type="str" />
+                </node>
+	</group>
+
+
+	<!-- ======================================= -->
+        <!--    Launch the Controller in the AREA 0  -->
+        <group ns="area0">
+		<group ns="controller">
+			<!-- Controller -->
+			<node name="fblin_controller"
+				pkg="fblin_controller"
+				type="fblin_controller_node"
+				output="screen">
+
+			<param name="vehicle_name" value="$(arg vehicle_frame)"/>
+			<param name="controller_name" value="fblin_controller"/>
+			<param name="topics/setpoint" value="/$(arg vehicle_frame)/setpoint" />
+			<param name="topics/state" value="/$(arg vehicle_frame)/external_odom" />
+			<!-- Change the topic of the controller to be filtered by the supervisor -->
+			<param name="topics/control" value="/$(arg vehicle_frame)/control_raw" />
+			<rosparam file="$(find fblin_controller)/config/fblin_controller/params.yaml" />
+			</node>
+	
+			<node name="supervisor"
+				pkg="cis_supervisor"
+				type="cis_supervisor_node"
+				output="screen">
+			<param name="vehicle_name" value="$(arg vehicle_frame)"/>
+			<param name="topics/state" value="/$(arg vehicle_frame)/external_odom" />
+			<param name="topics/ref_control" value="/$(arg vehicle_frame)/control_raw" />
+			<param name="topics/output_control" value="/$(arg vehicle_frame)/control" />
+			<param name="topics/obstacles" value="/area0/sensor/obstacles" />
+			<rosparam file="$(find cis_supervisor)/config/cis_supervisor/params.yaml" />
+			</node>
+
+		</group>
+	</group>
+
+
+	<!-- ===================================================================== -->
+	<!-- Control Router: This node manages the control switching on the network -->
+	<node name="control_router"
+		pkg="control_router"
+		type="control_router_node"
+		output="screen">
+	<param name="param/vehicle_name" value="$(arg vehicle_frame)" />
+	</node>
+
+
+	<!-- ===================================== -->
+	<!--          Launch the Arena Node	   -->
+	<node pkg="rarena" name="arena" type="main.py" 
+		output="screen" respawn="false"> 
+	</node>
+</launch>

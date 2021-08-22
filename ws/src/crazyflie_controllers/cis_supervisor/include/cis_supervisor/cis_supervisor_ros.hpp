@@ -50,6 +50,7 @@
 #include <math.h>
 
 #include "cis_supervisor/cis_supervisor.hpp"
+#include <cis_supervisor/ObstacleMsg.h>
 
 namespace cis_supervisor {
 	const int X_COORD = 0;
@@ -95,11 +96,13 @@ namespace cis_supervisor {
 			// Publishers and subscribers.
 			ros::Subscriber state_sub_;
 			ros::Subscriber ctrl_setpoint_sub_;
+			ros::Subscriber obstacle_sub_;
 			ros::Publisher control_pub_;
 
 			std::string state_topic_;
 			std::string control_input_topic_;
 			std::string control_topic_;
+			std::string obstacle_input_topic_;
 
 			// Initialized flag and name.
 			bool initialized_;
@@ -121,5 +124,10 @@ namespace cis_supervisor {
 			// Process an incoming state measurement.
 			void StateCallback(
 					const testbed_msgs::CustOdometryStamped::ConstPtr& msg);
+
+			void ObstacleCallback(
+					const cis_supervisor::ObstacleMsg::ConstPtr& msg);
+
+			double differentiate(double x);
 	}; //\class CISSupervisorROS
 } 

@@ -10,6 +10,9 @@ typedef CGAL::Gmpz ET;
 typedef CGAL::MP_Float ET;
 #endif
 
+#include "drake/geometry/optimization/iris.h"
+#include "drake/geometry/optimization/vpolytope.h"
+
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using Eigen::Vector3d;
@@ -20,27 +23,43 @@ typedef CGAL::Quadratic_program<double> Program;
 typedef CGAL::Quadratic_program_solution<ET> Solution;
 
 namespace cis_supervisor {
-	CISSupervisor::CISSupervisor(const MatrixXd& Ad, const MatrixXd& Bd, const MatrixXd& Ed) : Ad_(Ad), Bd_(Bd), Ed_(Ed) {
-		//cis_gen_ = new cis2m::CISGenerator(Ad_, Bd_, Ed_);
+	CISSupervisor::CISSupervisor(const MatrixXd& Ad, const MatrixXd& Bd, const MatrixXd& Ed, const Vector3d& x0) : Ad_(Ad), Bd_(Bd), Ed_(Ed) {
+		cis_gen_ = new cis2m::CISGenerator(Ad_, Bd_, Ed_);
+		translational_state_ = VectorXd::Zero(Ad_.rows());
+		translational_state_.head(3) = x0;
+		w_jerk_ = Vector3d::Zero();
 	}
 
 
-	CISSupervisor::CISSupervisor(const MatrixXd& A, const VectorXd& b) {
-		//cis_gen_->AddDisturbanceSet(cis2m::HPolyhedron(A, b));
+	CISSupervisor::CISSupervisor(const MatrixXd& Ad, const VectorXd& Bd, const Vector3d& x0) : Ad_(Ad), Bd_(Bd) {
+		cis_gen_->AddDisturbanceSet(cis2m::HPolyhedron(Ad, Bd));
+		translational_state_ = VectorXd::Zero(Ad_.rows());
+		translational_state_.head(3) = x0;
+		w_jerk_ = Vector3d::Zero();
+	}
+
+	void CISSupervisor::AddSafeSet(const MatrixXd& Ss_A, const VectorXd& Ss_b) {
+		domain_ = new drake::geometry::optimization::HPolyhedron(Ss_A, Ss_b);
+		SafeSet_ = cis2m::HPolyhedron(domain_->A(), domain_->b());
+		cis_gen_->computeCIS(SafeSet_, 6, 0);
 	}
 
 
 	Vector3d CISSupervisor::UpdateControl(const Vector3d w_jerk) {
-		
 		w_jerk_ = w_jerk;
-		VectorXd pred_state = predict_step(translational_state_, w_jerk_);
+		VectorXd pred_state = Predict_step(w_jerk_);
 
-		if (CIS_.contains(pred_state)) {
-			// Don't do anything, you are going to stay in the CIS
-			return w_jerk_;
-		} else {
-			// Compute the U
-			w_jerk_ = SolveOptimizationProblem(w_jerk_, CIS_.Ai(), CIS_.bi());
+		std::cout << "Cazzo 0" << std::endl;
+		if (CIS_.isValid()) {
+			if (CIS_.Contains(pred_state)) {
+				// Don't do anything, you are going to stay in the CIS
+				std::cout << "I am ok!" << std::endl;
+				return w_jerk_;
+			} else {
+				// Compute the U
+				std::cout << "Correcting..." << std::endl;	
+				w_jerk_ = SolveOptimizationProblem(w_jerk_, CIS_.Ai(), CIS_.bi());
+			}
 		}
 
 		
@@ -80,23 +99,51 @@ namespace cis_supervisor {
 	void CISSupervisor::UpdateState(
 			const Vector3d& w_pos, const Vector3d& w_vel, const Vector3d& w_acc) {
 		// Fill the current translational state vector
-		translational_state_.block(0, 0, 3, 1) = w_pos;
-		translational_state_.block(3, 0, 3, 1) = w_vel;
-		translational_state_.block(6, 0, 3, 1) = w_acc;
+		std::cout << "Cazzo 1 " << std::endl;
+		translational_state_.head(3) = w_pos;
+		translational_state_.segment(3, 3) = w_vel;
+		translational_state_.tail(3) = w_acc;
+		std::cout << "CAzzo 2 " << std::endl;
 	}
 
 
-	void CISSupervisor::UpdateObstacle(const std::vector<ObstacleData>& obsts) {
+	void CISSupervisor::UpdateObstacle(const ObstacleData& ob) {
+		// Update the obstacle map
+		if (obst_map_.count(ob.id) > 0) {
+			obst_map_[ob.id].pos = ob.pos;
+			obst_map_[ob.id].vel = ob.vel;
+		} else {
+			obst_map_.insert(std::pair<int, ObstacleData>(ob.id, ob));
+		}
+
 		// Compute the free space
-		//SafeSet_ = ComputeFreeSpace(translational_state_, obsts);
+		SafeSet_ = ComputeFreeSpace(translational_state_);
 
 		// Computing the CIS given a Safe set
-		//cis_gen_->computeCIS(SafeSet_, 6, 0);
-		//CIS_ = cis_gen_->Fetch_CIS();
+		cis_gen_->computeCIS(SafeSet_, 6, 0);
+		CIS_ = cis_gen_->Fetch_CIS();
 	}
 
-	cis2m::HPolyhedron CISSupervisor::ComputeFreeSpace(const VectorXd& x, std::vector<ObstacleData>& obst) {
-		cis2m::HPolyhedron out;
+
+	VectorXd CISSupervisor::Predict_step(const Vector3d& u) {
+		VectorXd output = Ad_ * translational_state_ + Bd_ * u; 
+		return output;
+	}
+
+	cis2m::HPolyhedron CISSupervisor::ComputeFreeSpace(const VectorXd& x) {
+
+		drake::geometry::optimization::ConvexSets obstacles;
+
+		/// XXX Should use the mpa
+		obstacles.emplace_back(
+				drake::geometry::optimization::VPolytope::MakeBox(
+					Eigen::Vector3d(-0.5, -0.5, 0.0), Eigen::Vector3d(-0.3, -0.3, 0.5)
+					)
+				);
+
+		drake::geometry::optimization::HPolyhedron SafeSet_drake = drake::geometry::optimization::Iris(obstacles, translational_state_.head(3), *domain_);
+
+		cis2m::HPolyhedron out(SafeSet_drake.A(), SafeSet_drake.b());
 		return out;
 	}
 }
