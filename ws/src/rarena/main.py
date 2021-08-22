@@ -21,8 +21,14 @@ from classes import DroneObject
 ## GLOBAL
 host = "arenaxr.org"
 realm = "realm"
-scene = os.environ['SCENE']
-#scene='LandOfOz'
+scene = None
+try:
+    scene = os.environ['SCENE']
+except:
+    print("Node Environment variable SCENE!")
+
+if (scene is None): 
+    scene='LandOfOz'
 
 # Arena Main object 
 # The scene should be specified with the environmental variable SCENE
