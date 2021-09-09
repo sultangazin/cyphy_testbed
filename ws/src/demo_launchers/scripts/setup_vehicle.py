@@ -33,6 +33,7 @@ def set_params(cf, param_namespace, gains):
             cf.setParam(param_namespace + '/' + name, k)
             update_params([param_namespace + '/' + name])
         print("Param " + name + " --> " +  str(k))
+    rospy.sleep(0.5)
     print("DONE!\n")
 
 
@@ -112,6 +113,7 @@ if __name__ == '__main__':
     # Set the estimator on the crazyflie
     par = {'estimator': est}
     set_params(cf, 'stabilizer', par)
+
 
     # If Kalman reset the estimator
     if (estimator == 'EKF' and req_reset):   
