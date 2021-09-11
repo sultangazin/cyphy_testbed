@@ -1,13 +1,13 @@
 param: {
         vehicleMass: 0.034,
         massThrust: 132000,
-        kp_xy: 15.4,
-        kd_xy: 9.2,
-        ki_xy: 0.05,
+        kp_xy: 7.0,
+        kd_xy: 5.0,
+        ki_xy: 0.0,
         i_range_xy: 0.2,
-        kp_z: 18.25,
-        kd_z: 8.4,
-        ki_z: 0.05,
+        kp_z: 16.5,
+        kd_z: 3.4,
+        ki_z: 15.5,
         i_range_z: 0.4,
         # 70000 20000 
         kR_xy: 180000.0,
@@ -21,8 +21,8 @@ param: {
         i_range_m_z: 1500,
         kd_omega_rp: 200,
         #
-        kpq_rates: 1.8,
-        kr_rates: 0.3,
+        kpq_rates: 6.0,
+        kr_rates: 2.0,
         #
         i_error_x: 0,
         i_error_y: 0,

@@ -22,21 +22,20 @@ namespace controller {
 
 	// Initialize.
 	bool GeometricController::Initialize(const ros::NodeHandle& n) {
-		name_ = ros::names::append(n.getNamespace(), "controller");
-
+		std::string namespace_ = n.getNamespace();
 		if (!LoadParameters(n)) {
-			ROS_ERROR("%s: Failed to load parameters.", name_.c_str());
+			ROS_ERROR("%s: Failed to load parameters.", namespace_.c_str());
 			return false;
 		}
 
 		if (!RegisterCallbacks(n)) {
-			ROS_ERROR("%s: Failed to register callbacks.", name_.c_str());
+			ROS_ERROR("%s: Failed to register callbacks.", namespace_.c_str());
 			return false;
 		}
 
 		// // Load K, x_ref, u_ref from disk.
 		// if (!LoadFromDisk()) {
-		//   ROS_ERROR("%s: Failed to load K, x_ref, u_ref from disk.", name_.c_str());
+		//   ROS_ERROR("%s: Failed to load K, x_ref, u_ref from disk.", namespace_.c_str());
 		//   return false;
 		// }
 
@@ -100,8 +99,9 @@ namespace controller {
 
 		nl.param<std::string>("param/vehicle_name", vehicle_name_, "cf1");
 		nl.param<std::string>("topics/control", control_topic_, "/area0/controller/controller_name/" + vehicle_name_ + "/control");
+		//nl.param<std::string>("topics/control", control_topic_, namespace_ + vehicle_name_ + "/control");
 
-		if (!nl.getParam("topics/ctrl_perf", ctrl_perf_topic_)) return false;
+		//if (!nl.getParam("topics/ctrl_perf", ctrl_perf_topic_)) return false;
 
 		nl.param<std::string>("topics/pwm_control", control_pwm_topic_, "/" + vehicle_name_ + "/cmd_pwm");
 
@@ -222,8 +222,8 @@ namespace controller {
 		// Position and Velocity error
 		Vector3d p_error = sp_pos_ - pos_;
 		Vector3d v_error = sp_vel_ - vel_;
-		std::cout << "p_error: " << p_error.transpose() << std::endl;
-		std::cout << "v_error: " << v_error.transpose() << std::endl;
+		//std::cout << "p_error: " << p_error.transpose() << std::endl;
+		//std::cout << "v_error: " << v_error.transpose() << std::endl;
 
 		testbed_msgs::CtrlPerfStamped ctrl_perf_msg;
 		ctrl_perf_msg.ep.x = p_error(0);
@@ -318,7 +318,7 @@ namespace controller {
 		//Rdes = Eigen::Matrix3d::Identity();
 
 		if (controlMode_.count(ctrl_mode_) == 0) {
-			ROS_ERROR("%s: Unable to select the control mode.", name_.c_str());
+			ROS_ERROR("%s: Unable to select the control mode.", namespace_.c_str());
 			return;
 		}
 
@@ -349,7 +349,7 @@ namespace controller {
 
 
 					control_msg.control.roll = std::atan2(Rout(2,1),Rout(2,2));
-					control_msg.control.pitch = std::asin(Rout(2,0));
+					control_msg.control.pitch = -std::asin(Rout(2,0));
 					control_msg.control.yaw_dot = -10*std::atan2(R(1,0),R(0,0)); //std::atan2(Rdes(1,0),Rdes(0,0));
 					break; 
 				}
@@ -372,9 +372,7 @@ namespace controller {
 					Quaterniond q_r = q_pq.inverse() * quat_.inverse() * Quaterniond(Rdes);
 					control_msg.control.yaw_dot = (q_r.w() > 0) ?
 						(2.0 * kr_rates_ * q_r.z()) : (-2.0 * kr_rates_ * q_r.z());
-
-					control_msg.control.yaw_dot = -1.0 * control_msg.control.yaw_dot;
-
+					
 					break;
 				}
 			case ControlMode::PWM:
@@ -416,7 +414,7 @@ namespace controller {
 					break;
 				}
 			default:
-				ROS_ERROR("%s: Unable to select the control mode.", name_.c_str());
+				ROS_ERROR("%s: Unable to select the control mode.", namespace_.c_str());
 		}
 
 		if (setpoint_type_ == "stop") {

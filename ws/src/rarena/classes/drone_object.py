@@ -3,6 +3,7 @@ from arena import *
 from testbed_msgs.msg import CustOdometryStamped
 import rospy
 import numpy as np
+import math
 
 from classes import ROSArenaManager
 
@@ -94,7 +95,7 @@ class DroneObject(object):
 
         self.mission_active = False
 
-        self.trace_ = RingBuffer(70) 
+        self.trace_ = RingBuffer(80) 
 
         # Deal with the ROS stuff
         self.register_sources()
@@ -103,6 +104,8 @@ class DroneObject(object):
         self.update_event_handler(self.arena_callback)
 
         self.old_pos = np.array([0,0,0])
+
+        self.draw_eight(100.0, 10.0, 1.0, 1.0, 0.7)
 
 
     def __del__(self):
@@ -258,7 +261,7 @@ class DroneObject(object):
     def traj_callback(self, msg):
         self.mission_active = True
         Nsamples = 8
-        self.final_pos = self.draw_curve(msg, Nsamples)
+        #self.final_pos = self.draw_curve(msg, Nsamples)
             
 
     def draw_curve(self, curve, Nsamples):
@@ -300,6 +303,38 @@ class DroneObject(object):
                     lineWidth = 5
                 )
         return pos 
+
+    def draw_eight(self, Nsamples, t2go, rx, ry, rz):
+        dt = t2go/Nsamples
+        r2z  = 0.1
+        omega_x = 4.0 * math.pi / t2go
+        omega_y = 2.0 * math.pi / t2go
+        omega_z = omega_y
+
+        path = []
+        time = 0
+        while time <= t2go:
+            x = rx * math.sin(omega_x * time)
+            y = ry * math.sin(omega_y * time)
+            z = rz + r2z * math.sin(omega_z * time)
+            pos = np.array([x,z,-y], dtype = float)
+            time = time + dt
+            path = path + [[pos]]
+
+        # Convert the list of numpy array into a 'x0 y0 z0, x1 y1 z1, ...'
+        str_path = ''
+        for el in path:
+            str_path += (np.array2string(el[0]).lstrip('[')).rstrip(']')+','
+        str_path = str_path.rstrip(',')
+
+        self.rarena_manager.add_object(
+            self.object_id + 'eight',
+            arena_srv = self.scene,
+            object_type = 'thickline',
+            color = [255, 0, 0],
+            path = str_path,
+            linewidth = 5
+        )
 
     # Virtual Function for the services (Interface)
     def register_services(self):

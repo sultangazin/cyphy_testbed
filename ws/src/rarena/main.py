@@ -21,7 +21,8 @@ from classes import DroneObject
 ## GLOBAL
 host = "arenaxr.org"
 realm = "realm"
-scene = os.environ['SCENE']
+scene = 'LandOfGG'
+#scene = 'os.environ['SCENE']'
 #scene='LandOfOz'
 
 # Arena Main object 
@@ -37,11 +38,11 @@ def callback_monitor(mgs):
     ent = msg.entity
     active = msg.active
     if active:
-        arena_entities[ent].set_color((255, 255, 0))
-        #arena_entities['cf2'].set_opacity(0.7)
+        #arena_entities[ent].set_color((255, 255, 0))
+        arena_entities['cf2'].set_opacity(0.7)
     else:
-        arena_entities[ent].set_color((0, 255, 0))
-        #arena_entities['cf2'].set_opacity(0.0)
+        #arena_entities[ent].set_color((0, 255, 0))
+        arena_entities['cf2'].set_opacity(0.0)
 
 
 def handler(signal_received, frame):

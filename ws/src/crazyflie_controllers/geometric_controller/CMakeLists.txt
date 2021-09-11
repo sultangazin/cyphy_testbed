@@ -32,17 +32,17 @@ include_directories(
 
 
 # Geometric Controller
-add_executable(geometric_controller 
+add_executable(geometric_controller_node 
 	exec/geometric_controller_node.cpp 
 	src/geometric_controller.cpp
 )
 
-add_dependencies(geometric_controller
+add_dependencies(geometric_controller_node
 	${catkin_EXPORTED_TARGETS}
 	)
 
 target_link_libraries(
-	geometric_controller
+	geometric_controller_node
 	Eigen3::Eigen 
 	${catkin_LIBRARIES}
 )

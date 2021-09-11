@@ -1,25 +1,50 @@
 #include <ros/ros.h>
-#include "fblin_controller/fblin_controller.hpp"
+#include "lfd_controller/lfd_controller.hpp"
 #include <math.h>
 #include <stdio.h>
+#include <iostream>
+#include <string>
+#include <fstream>
 #include <Eigen/Geometry>
 #include <algorithm>
 #include <iomanip>
+#include "ros/package.h"
 
 #define GRAVITY_MAGNITUDE (9.81f)
 
-namespace fblin_controller {
-	FBLinController::FBLinController() :
+// Read matrix from CSV to Eigen:
+template<typename M>
+M load_csv (const std::string& path) {
+	std::ifstream indata;
+	indata.open(path);
+	std::string line;
+	std::vector<double> values;
+	uint rows = 0;
+	while (getline(indata, line)) {
+		std::stringstream lineStream(line);
+		std::string cell;
+		while (getline(lineStream, cell, ',')) {
+			values.push_back(stod(cell));
+		}
+		++rows;
+	}
+	return Map<const Matrix<typename M::Scalar, M::RowsAtCompileTime, M::ColsAtCompileTime, RowMajor>>(values.data(), rows, values.size()/rows);
+}
+
+namespace lfd_controller {
+	LFDController::LFDController() :
 		received_setpoint_(false),
 		initialized_(false) {
 		}
 
 	// Initialize.
-	bool FBLinController::Initialize(const ros::NodeHandle& n) {
+	bool LFDController::Initialize(const ros::NodeHandle& n) {
 		std::string namespace_ = n.getNamespace();
 
+		LoadK();
+
 		if (!LoadParameters()) {
-			ROS_ERROR("FBLinController: Failed to load parameters");
+			ROS_ERROR("LFDController: Failed to load parameters");
 			return false;
 		}
 
@@ -32,7 +57,7 @@ namespace fblin_controller {
 	}
 
 	// Load parameters. This may be overridden by derived classes.
-	bool FBLinController::LoadParameters() {
+	bool LFDController::LoadParameters() {
 		// Fetch the parameter in the private namespace
 		ros::NodeHandle nl("~");
 
@@ -59,13 +84,23 @@ namespace fblin_controller {
 		return true;
 	}
 
+	void LFDController::LoadK() {
+		std::string path = ros::package::getPath("lfd_controller");
+		std::string filename = path + "/config/data/";
+		K_ = load_csv<Eigen::MatrixXd>(filename + "K.csv");
+		
+		period_ = K_.rows() / 3;
+
+		std::cout << "LFDController: Loaded K [" << K_.rows() << " x " << K_.cols() <<"]! " << std::endl;
+	}
+
 	// Register callbacks.
-	bool FBLinController::InitPubSubs(const ros::NodeHandle& n) {
+	bool LFDController::InitPubSubs(const ros::NodeHandle& n) {
 		ros::NodeHandle nl(n);
 
 		// Subscribe to the topics and associate a callback upon new publications.
-		state_sub_ = nl.subscribe(state_topic_.c_str(), 1, &FBLinController::StateCallback, this);
-		setpoint_sub_ = nl.subscribe(setpoint_topic_.c_str(), 1, &FBLinController::SetpointCallback, this);
+		state_sub_ = nl.subscribe(state_topic_.c_str(), 1, &LFDController::StateCallback, this);
+		setpoint_sub_ = nl.subscribe(setpoint_topic_.c_str(), 1, &LFDController::SetpointCallback, this);
 
 		// Declare the publication of the control messages
 		control_pub_ = nl.advertise<testbed_msgs::ControlStamped>(control_topic_.c_str(), 1, false);
@@ -74,7 +109,7 @@ namespace fblin_controller {
 	}
 
 	// Reset 
-	void FBLinController::Reset(void) {
+	void LFDController::Reset(void) {
 		thrust_ = 0.0;
 		u_body_ = Vector3d::Zero();
 
@@ -95,10 +130,14 @@ namespace fblin_controller {
 		received_setpoint_ = false;
 	}
 
+	void LFDController::InitTime(void) {
+		t0_ = ros::Time::now().toSec();
+	}
+
 	// --------------------------------------
 	// Callback on new setpoint message
 	// -1) Update the internal data storing the current setpoint
-	void FBLinController::SetpointCallback(
+	void LFDController::SetpointCallback(
 			const testbed_msgs::ControlSetpoint::ConstPtr& msg) {
 
 		setpoint_type_ = msg->setpoint_type; 
@@ -119,6 +158,9 @@ namespace fblin_controller {
 		sp_jrk_(1) = msg->j.y;
 		sp_jrk_(2) = msg->j.z;
 
+		if (received_setpoint_ == false)
+			InitTime();
+
 		received_setpoint_ = true;
 	}
 
@@ -127,7 +169,7 @@ namespace fblin_controller {
 	// -1) Fetch data from the ROS message
 	// -2) Compute the control input
 	// -3) Publish the control message
-	void FBLinController::StateCallback(
+	void LFDController::StateCallback(
 			const testbed_msgs::CustOdometryStamped::ConstPtr& msg) {
 		// Catch no setpoint.
 		if (!received_setpoint_)
@@ -154,10 +196,16 @@ namespace fblin_controller {
 
 		// Compute the control action (jerk) in world coordinates
 		Vector3d u_world = Vector3d::Zero(); 
-		u_world(0) = kp_xy_ * p_error(0) + kd_xy_ * v_error(0) + ka_xy_ * a_error(0);
-		u_world(1) = kp_xy_ * p_error(1) + kd_xy_ * v_error(1) + ka_xy_ * a_error(1);
-		u_world(2) = kp_z_ * p_error(2) + kd_z_ * v_error(2) + ka_z_ * a_error(2);
-		u_world += sp_jrk_;
+		unsigned int index = (unsigned int)((now.toSec() - t0_) * 1000) % period_;
+
+		CurrentK_ = K_.block<3, 9>(3*index, 0);
+
+		VectorXd error(9);
+		error << p_error, v_error, a_error;
+
+		u_world = -CurrentK_ * error;
+		u_world += sp_jrk_; 
+
 
 		// Map the control action from body to world frame
 		u_body_ = quat_.inverse() * u_world;
@@ -177,16 +225,17 @@ namespace fblin_controller {
 
 		control_msg.control.thrust = thrust_ / vehicleMass_; // Because the library works with acc (XXX Fix this)
 
-		// Yaw control
-		Vector3d yyaw = z_axis.cross(Vector3d::UnitX());
-		Vector3d xyaw = xyaw.cross(z_axis);
+		// Yaw control (for aesthetics)
 
-		Vector3d ni = x_axis.cross(xyaw); 
-		double alpha = std::asin(ni.norm());
-		ni.normalize();
-		// Express the axis in body frame
-		Vector3d nb = quat_.inverse() * ni;
-		double yaw_ctrl = kR_z_ * alpha;
+		Vector3d yyaw = (z_axis.cross(Vector3d::UnitX())).normalized();
+		Vector3d xyaw = (yyaw.cross(z_axis)).normalized();
+		Matrix3d Rdes;
+		Rdes << xyaw, yyaw, z_axis;
+
+		Quaterniond q_r = quat_.inverse() * Quaterniond(Rdes);
+
+		double yaw_ctrl = (q_r.w() > 0) ? (2.0 * kR_z_ * q_r.z()) : (-2.0 * kR_z_ * q_r.z());
+
 		control_msg.control.yaw_dot = yaw_ctrl;
 
 		// In case the setpoint type was a stop, put everything to zero.
@@ -200,5 +249,6 @@ namespace fblin_controller {
 		// Set the message timestamp and publish the message.
 		control_msg.header.stamp = now; 
 		control_pub_.publish(control_msg);
+		
 	}
 }

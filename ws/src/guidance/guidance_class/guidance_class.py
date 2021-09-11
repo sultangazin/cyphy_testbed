@@ -194,7 +194,12 @@ class GuidanceClass:
 
         result = GuidanceTargetResult()
 
-        timeSpan = t2go; 
+        k = 4.0 # number of laps
+        t2set = 30.0 # time at a setpoint
+        omega_x = 4.0 * k * math.pi / t2go
+        omega_y = 2.0 * k * math.pi / t2go
+        omega_z = omega_y
+        timeSpan = t2go + t2set; 
         end_time = start_time + timeSpan 
 
         trj_type = "eight"
@@ -222,23 +227,37 @@ class GuidanceClass:
             output_msg.setpoint_type = "active"
             output_msg.header.stamp = rospy.Time.now()
 
+            r2z = 0.1
             # Fill  the trajectory object
-            output_msg.p.x = start_position[0] + rx * math.sin(4.0 * math.pi / t2go * (curr_time - start_time))
-            output_msg.p.y = start_position[1] + ry * math.sin(2.0 * math.pi / t2go * (curr_time - start_time))
-            output_msg.p.z = rz
+            if curr_time - start_time <= t2go:
+                output_msg.p.x = rx * math.sin(omega_x * (curr_time - start_time))
+                output_msg.p.y = ry * math.sin(omega_y * (curr_time - start_time))
+                output_msg.p.z = rz + r2z * math.sin(omega_z * (curr_time - start_time))
 
-            output_msg.v.x = 4.0 * rx * math.pi / t2go * math.cos(4.0 * math.pi / t2go * (curr_time - start_time))
-            output_msg.v.y = 2.0 * ry * math.pi / t2go * math.cos(4.0 * math.pi / t2go * (curr_time - start_time))
-            output_msg.v.z = 0.0 
+                output_msg.v.x = rx * omega_x * math.cos(omega_x * (curr_time - start_time))
+                output_msg.v.y = ry * omega_y * math.cos(omega_y * (curr_time - start_time))
+                output_msg.v.z = r2z * omega_z * math.cos(omega_z * (curr_time - start_time)) 
 
-            output_msg.a.x = -16.0 * rx * (math.pi / t2go) * (math.pi / t2go) * math.sin(4.0 * math.pi / t2go * (curr_time - start_time))
-            output_msg.a.y = -4.0 * ry * (math.pi / t2go) * (math.pi / t2go) * math.sin(2.0 * math.pi / t2go * (curr_time - start_time))
-            output_msg.a.z = 0.0
+                output_msg.a.x = - rx * omega_x * omega_x * math.sin(omega_x * (curr_time - start_time))
+                output_msg.a.y = - ry * omega_y * omega_y * math.sin(omega_y * (curr_time - start_time))
+                output_msg.a.z = - r2z * omega_z * omega_z * math.sin(omega_z * (curr_time - start_time))
+            else:
+                output_msg.p.x = rx * math.sin(omega_x * t2go)
+                output_msg.p.y = ry * math.sin(omega_y * t2go)
+                output_msg.p.z = rz + r2z * math.sin(omega_z * t2go)
+
+                output_msg.v.x = 0
+                output_msg.v.y = 0
+                output_msg.v.z = 0
+
+                output_msg.a.x = 0
+                output_msg.a.y = 0
+                output_msg.a.z = 0
             
             # Action Feedback
             fb_data = GuidanceTargetFeedback()
             fb_data.curr_pos = [output_msg.p.x, output_msg.p.y, output_msg.p.z]
-            fb_data.curr_status = 1;
+            fb_data.curr_status = 1
             self.action_server.publish_feedback(fb_data)
 
             # Pubblish the evaluated trajectory

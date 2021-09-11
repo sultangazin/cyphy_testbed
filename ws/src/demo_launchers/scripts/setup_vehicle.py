@@ -153,11 +153,11 @@ if __name__ == '__main__':
     elif (controller == 'Mellinger'):
         ctr = 2
         # If it is necessary to change the parameters...
-        #gains__ = {
-        #        'kR_xy': 7000,
-        #        'kw_xy': 20000
-        #        }
-        #set_params(cf, "ctrlMel", gains__)
+        gains__ = {
+               'kR_xy': 0,
+               'kw_xy': 20000
+               }
+        set_params(cf, "ctrlMel", gains__)
     elif (controller == 'DD'):
         ctr = 4
         ControlGains = {

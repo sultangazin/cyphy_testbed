@@ -180,7 +180,7 @@ class GeometricController {
   // Initialized flag and name.
   bool received_setpoint_;
   bool initialized_;
-  std::string name_;
+  std::string namespace_;
 
   std::string vehicle_name_;
 
