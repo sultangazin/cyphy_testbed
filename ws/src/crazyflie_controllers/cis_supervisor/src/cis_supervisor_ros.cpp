@@ -24,18 +24,16 @@ namespace cis_supervisor {
 			return false;
 		}
 
-		// Instatiate the CIS Supervisor class
-		cis_supervisor_ = new CISSupervisor(Ad_, Bd_, Ed_, Vector3d::Zero());
-
-		MatrixXd As(6, 9);
-		As.block(0, 0, 3, 3) = MatrixXd::Identity(3, 3);
-		As.block(3, 0, 3, 3) = -MatrixXd::Identity(3, 3);
-		
-		MatrixXd Bs(6, 1);
-		for (int i = 0; i < 6; i++) {
-			Bs(i) = 3;
+		// Instatiate the CIS Supervisor class passing the model data and initial position 
+		if (Ed_.size() > 0) {
+			std::cout << "System with disturbance" << std::endl;
+			cis_supervisor_ = new CISSupervisor(Ad_, Bd_, Ed_, Vector3d::Zero());
+			cis_supervisor_->AddDisturbanceSet(DistA_, DistB_);
+		} else {
+			cis_supervisor_ = new CISSupervisor(Ad_, Bd_, Vector3d::Zero());
 		}
-		cis_supervisor_->AddSafeSet(As, Bs);
+
+		cis_supervisor_->AddSafeSet(DomA_, DomB_);
 
 		InitPubSubs(n);
 
@@ -85,17 +83,66 @@ namespace cis_supervisor {
 		}
 		std::cout << "Loaded Bd: " << std::endl << Bd_ << std::endl;
 
-		if (!nl.getParam("param/E", XML)) return false;
-		Ed_ = MatrixXd(static_cast<int>(XML["rows"]), static_cast<int>(XML["cols"]));
-		if (!nl.getParam("param/E/data", v)) return false;
+		if (nl.getParam("param/E", XML)) {
+			Ed_ = MatrixXd(static_cast<int>(XML["rows"]), static_cast<int>(XML["cols"]));
+			if (!nl.getParam("param/E/data", v)) return false;
+			counter = 0;
+			for (auto it : v) {
+				int row = counter / Ed_.cols();
+				int col = counter % Ed_.cols();
+				Ed_(row, col) = it;
+				counter++;
+			}
+			std::cout << "Loaded Ed: " << std::endl << Ed_ << std::endl;
+
+			if (!nl.getParam("param/DisturbanceA", XML)) return false;
+			DistA_ = MatrixXd(static_cast<int>(XML["rows"]), static_cast<int>(XML["cols"]));
+			if (!nl.getParam("param/DisturbanceA/data", v)) return false;
+			counter = 0;
+			for (auto it : v) {
+				int row = counter / DistA_.cols();
+				int col = counter % DistA_.cols();
+				DistA_(row, col) = it;
+				counter++;
+			}
+			std::cout << "Loaded Disturbance A: " << std::endl << DistA_ << std::endl;
+
+			if (!nl.getParam("param/DisturbanceB", XML)) return false;
+			DistB_ = VectorXd(static_cast<int>(XML["rows"]));
+			if (!nl.getParam("param/DisturbanceB/data", v)) return false;
+			counter = 0;
+			for (auto it : v) {
+				DistB_(counter) = it;
+				counter++;
+			}
+			std::cout << "Loaded Disturbance B: " << std::endl << DistB_ << std::endl;
+		} else {
+			std::cout << "No disturbance" << std::endl;
+		}
+
+
+		if (!nl.getParam("param/DomainA", XML)) return false;
+		DomA_ = MatrixXd(static_cast<int>(XML["rows"]), static_cast<int>(XML["cols"]));
+		if (!nl.getParam("param/DomainA/data", v)) return false;
 		counter = 0;
 		for (auto it : v) {
-			int row = counter / Ed_.cols();
-			int col = counter % Ed_.cols();
-			Ed_(row, col) = it;
+			int row = counter / DomA_.cols();
+			int col = counter % DomA_.cols();
+			DomA_(row, col) = it;
 			counter++;
 		}
-		std::cout << "Loaded Ed: " << std::endl << Ed_ << std::endl;
+		std::cout << "Loaded Domain A: " << std::endl << DomA_ << std::endl;
+
+		if (!nl.getParam("param/DomainB", XML)) return false;
+		DomB_ = VectorXd(static_cast<int>(XML["rows"]));
+		if (!nl.getParam("param/DomainB/data", v)) return false;
+		counter = 0;
+		for (auto it : v) {
+			DomB_(counter) = it;
+			counter++;
+		}
+		std::cout << "Loaded Domain B: " << std::endl << DomB_ << std::endl;
+
 
 		// Topics
 		if (!nl.getParam("topics/state", state_topic_)) return false;
@@ -144,44 +191,46 @@ namespace cis_supervisor {
 		
 		Vector3d b_jerk;
 		Vector3d b_omega_ctrl;
-		double thrust = msg->control.thrust;
+		double thrust = msg->control.thrust * vehicle_Mass_; // Because the message contains the normalized thrust
 		b_omega_ctrl(0) = msg->control.roll;
 		b_omega_ctrl(1) = msg->control.pitch;
 		b_omega_ctrl(2) = msg->control.yaw_dot;
 
 		// Compute the jerk in body frame from the omega/thrust actuation command 
-		b_jerk(X_COORD) = thrust * b_omega_ctrl(Y_COORD) / vehicle_Mass_;
-		b_jerk(Y_COORD) = -thrust * b_omega_ctrl(X_COORD) / vehicle_Mass_;
-		b_jerk(Z_COORD) = differentiate(thrust);
+		b_jerk(X_COORD) = thrust_ * b_omega_ctrl(Y_COORD) / vehicle_Mass_;
+		b_jerk(Y_COORD) = -thrust_ * b_omega_ctrl(X_COORD) / vehicle_Mass_;
+		b_jerk(Z_COORD) = differentiate(thrust) / vehicle_Mass_;
 
 		// Compute the jerk in world frame
 		w_jerk_ = w_q_b_ * b_jerk;
 
 		// Call the supervisor
-		std::cout << "Updating control ... " << std::endl;
+		ros::Time now = ros::Time::now();
+		std::cout << "Time before: " << now << std::endl;
 		Vector3d w_jerk_filt = cis_supervisor_->UpdateControl(w_jerk_);
-		
+
 		// Convert the jerk into body frame
 		Vector3d b_jerk_filt_ = w_q_b_.inverse()  * w_jerk_filt;
 
 		Vector3d update_b_omega_ctrl(b_omega_ctrl);
-		update_b_omega_ctrl(X_COORD) = -(vehicle_Mass_ / thrust_) * b_jerk_filt_(Y_COORD);
-		update_b_omega_ctrl(Y_COORD) =  (vehicle_Mass_ / thrust_) * b_jerk_filt_(X_COORD);
-		double thrust_new  = thrust_ + b_jerk_filt_(Z_COORD) * ControllerDT_; 
+		if (thrust_ > 0.05) {
+			update_b_omega_ctrl(X_COORD) = -(vehicle_Mass_ / thrust_) * b_jerk_filt_(Y_COORD);
+			update_b_omega_ctrl(Y_COORD) =  (vehicle_Mass_ / thrust_) * b_jerk_filt_(X_COORD);
+		}
+		thrust_ = std::max(thrust_ + vehicle_Mass_ * b_jerk_filt_(Z_COORD) * ControllerDT_, 0.0); 
+		thrust_ = std::clamp(thrust_, 0.0, 2.0 * vehicle_Mass_ * GRAVITY_MAGNITUDE);
 
 		testbed_msgs::ControlStamped control_msg;
-		if (thrust_new > 0.05) {
+		if (thrust_ > 0.05) {
 			control_msg.control.roll = update_b_omega_ctrl(X_COORD);
 			control_msg.control.pitch = update_b_omega_ctrl(Y_COORD);
 			control_msg.control.yaw_dot = update_b_omega_ctrl(Z_COORD);
 		}
-		thrust_ = std::max(thrust_new, 0.0);
-		std::clamp(thrust_new, 0.0, 2.0 * vehicle_Mass_ * GRAVITY_MAGNITUDE);
-
-		control_msg.control.thrust = thrust_new / vehicle_Mass_; // Because the library works with acc (XXX Fix this)
+		control_msg.control.thrust = thrust_ / vehicle_Mass_;
 
 		// Set the message timestamp and publish the message.
-		ros::Time now = ros::Time::now();
+		now = ros::Time::now();
+		std::cout << "Time after: " << now << std::endl;
 		control_msg.header.stamp = now; 
 		control_pub_.publish(control_msg);
 	}
@@ -198,6 +247,8 @@ namespace cis_supervisor {
 		pos_(0) = msg->p.x; pos_(1) = msg->p.y; pos_(2) = msg->p.z;
 		vel_(0) = msg->v.x; vel_(1) = msg->v.y; vel_(2) = msg->v.z;
 		acc_(0) = msg->a.x; acc_(1) = msg->a.y; acc_(2) = msg->a.z; 
+
+		cis_supervisor_->UpdateState(pos_, vel_, acc_);
 
 		w_q_b_.vec() = Vector3d (msg->q.x, msg->q.y, msg->q.z);
 		w_q_b_.w() = msg->q.w;
@@ -221,6 +272,7 @@ namespace cis_supervisor {
 	}
 
 	double CISSupervisorROS::differentiate(double x) {
-		return 1;
+		 
+		return (x - thrust_) / ControllerDT_;
 	}
 }

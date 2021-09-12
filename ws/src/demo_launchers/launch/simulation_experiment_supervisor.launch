@@ -111,7 +111,13 @@ Global Launch File to start the system.
 
 	<!-- ===================================== -->
 	<!--          Launch the Arena Node	   -->
+	<!--
 	<node pkg="rarena" name="arena" type="main.py" 
 		output="screen" respawn="false"> 
 	</node>
+	-->
+	
+	<node pkg="rosbag" name="record_$(arg vehicle_frame)" type="record" args="-O /tmp/$(arg vehicle_frame)_record /$(arg vehicle_frame)/external_odom /$(arg vehicle_frame)/setpoint /$(arg vehicle_frame)/control /$(arg vehicle_frame)/control_raw /$(arg vehicle_frame)/cmd_vel "/>
+
+
 </launch>

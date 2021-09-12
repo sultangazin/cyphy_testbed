@@ -46,6 +46,13 @@ namespace cis_supervisor {
 			void AddSafeSet(const Eigen::MatrixXd& Ss_A, const Eigen::VectorXd& Ss_b);
 
 			/**
+			 * \brief Add information about the disturbance set
+			 * \param[in]	Ss_A
+			 * \param[in]	Ss_b
+			 */
+			void AddDisturbanceSet(const Eigen::MatrixXd& Ss_A, const Eigen::VectorXd& Ss_b);
+
+			/**
 			 * \brief Update the current control command
 			 * \param[in]	w_jerk	Jerk control in world reference frame
 			 *
@@ -75,6 +82,11 @@ namespace cis_supervisor {
 			 */
 			void UpdateObstacle(const ObstacleData& obst);
 
+	
+			/**
+			 * \brief Check whether the current state, control belongs to the control invariant set
+			 */
+			bool Contains(const Eigen::VectorXd& x, const Eigen::VectorXd& u);
 			
 		private:
 			/**

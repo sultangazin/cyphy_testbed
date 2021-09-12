@@ -87,6 +87,12 @@ namespace cis_supervisor {
 
 			Eigen::Quaterniond w_q_b_;
 
+			Eigen::MatrixXd DomA_;
+			Eigen::VectorXd DomB_;
+
+			Eigen::MatrixXd DistA_;
+			Eigen::VectorXd DistB_;
+
 			/**
 			 * Control 
 			 */
