@@ -348,15 +348,14 @@ class GuidanceClass:
         bz_z = bz.Bezier(waypoints=Zwp, constraints=z_cnstr, degree=ndeg, s=T, opt_der=3)
         #print("\nGenerating W")
         bz_w = bz.Bezier(waypoints=Wwp, degree=ndeg, s=T, opt_der=0)
-        
-        print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
-        print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
-        print("Final Acceleration: [%.3f, %.3f, %.3f]"%(Xwp[2,1], Ywp[2,1], Zwp[2,1]))
 
-        print("Solution Position: [%.3f, %.3f, %.3f]"%(bz_x.eval(T), bz_y.eval(T), bz_z.eval(T)))
-        print("Solution Velocity: [%.3f, %.3f, %.3f]"%
-                (bz_x.eval(T, [1]), bz_y.eval(T, [1]), bz_z.eval(T, [1])))
-        print("Solution Acceleration: [%.3f, %.3f, %.3f]\n"%(bz_x.eval(T, [2]), bz_y.eval(T, [2]), bz_z.eval(T, [2])))
+        #print("Final Relative Position: [%.3f, %.3f, %.3f]"%(Xwp[0,1], Ywp[0,1], Zwp[0,1]))
+        #print("Final Velocity: [%.3f, %.3f, %.3f]"%(Xwp[1,1], Ywp[1,1], Zwp[1,1]))
+        #print("Final Acceleration: [%.3f, %.3f, %.3f]"%(Xwp[2,1], Ywp[2,1], Zwp[2,1]))
+
+        #print("Solution Position: [%.3f, %.3f, %.3f]"%(bz_x.eval(T), bz_y.eval(T), bz_z.eval(T)))
+        #print("Solution Velocity: [%.3f, %.3f, %.3f]"% (bz_x.eval(T, [1]), bz_y.eval(T, [1]), bz_z.eval(T, [1])))
+        #print("Solution Acceleration: [%.3f, %.3f, %.3f]\n"%(bz_x.eval(T, [2]), bz_y.eval(T, [2]), bz_z.eval(T, [2])))
 
         trj_obj = bz_t.BezierCurve(bz_x, bz_y, bz_z, bz_w)
 
