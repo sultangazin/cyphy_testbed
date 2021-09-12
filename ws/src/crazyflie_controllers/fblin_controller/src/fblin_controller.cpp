@@ -144,8 +144,8 @@ namespace fblin_controller {
 		ros::Time now = ros::Time::now();
 		double dt = now.toSec() - previous_.toSec();
 
-		if (dt > 0.18) {
-			dt = 0.18;
+		if (dt > 0.12) {
+			dt = 0.12;
 			previous_ = now;
 
 			// Compute error
