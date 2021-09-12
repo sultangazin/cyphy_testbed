@@ -72,7 +72,11 @@ void Dynamics_UAngles::step(double dt) {
 	// Consider the Ground
 	if (pos_(2) <= 0.0) {
 		pos_(2) = 0.0;
+		vel_(0) = vel_(0) / 10.0;
+		vel_(1) = vel_(1) / 10.0;
 		vel_(2) = (vel_(2) < 0) ? 0.0 : vel_(2);
+		acc_(0) = acc_(0) / 10.0;
+		acc_(1) = acc_(1) / 10.0;
 		acc_(2) = (acc_(2) < 0) ? 0.0 : acc_(2);
 	}
 	mx_.unlock();
