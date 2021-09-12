@@ -18,6 +18,8 @@ from arena import *
 from classes import ROSArenaObject
 from classes import DroneObject 
 
+from cis_supervisor.msg import ObstacleMsg
+
 ## GLOBAL
 host = "arenaxr.org"
 realm = "realm"
@@ -129,7 +131,22 @@ def periodic():
     for key, entity in arena_entities.items():
         # Update the Object
         entity.update()
+
+
+# Obstacle
+@arena_scene.run_forever(interval_ms=100)
+def obst_periodic():
+    # Update the obstacle positions
+    obs = ObstacleMsg() 
+    obs.id = 0;
+    obs.p.x = 1.0
+    obs.p.z = 0.5;
+
+    obs.header.stamp = rospy.Time.now()
+    obstacle_pub.publish(obs)
+
     
+obstacle_pub = None
 
 if __name__ == '__main__':
     rospy.init_node('RArena_node')
@@ -137,6 +154,9 @@ if __name__ == '__main__':
 
     # Subscribe to topics produced by the ROS framework
     #rospy.Subscriber("/CISSupervisor/cf2/cis_perf", PerformanceMsg, callback_monitor)
+    obstacle_pub = rospy.Publisher(
+                "/area0/sensor/obstacles", ObstacleMsg, queue_size=10)
+
 
     # Start Arena tasks
     arena_scene.run_tasks()
