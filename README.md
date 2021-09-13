@@ -81,15 +81,17 @@ The command to launch the framework with LFD controller is:
 ```
 roslaunch demo_launchers real_experiment_LFD.launch
 ```
+The command to launch the framework with the expert geometric controller is:
+```
+roslaunch demo_launchers real_expertiment_Geometric.launch
+```
 When launching the nodes, the system could request a login into the Arena. You can use the personal google account to perform the identification.
 
 Once everything is started, the output of the system can be visualized at https://arenaxr.org/<yourusername>/LandOfGG.
 
-To launch the script that commands the quadrotor to follow the figure eight, go to *ws/scripts/* and run *./figure_eight.sh*.
-    
-The command to launch the framework with the expert geometric controller is:
+To launch the script that commands the quadrotor to follow the figure eight, go to *ws/scripts/* and run:
 ```
-roslaunch demo_launchers real_expertiment_Geometric.launch
+./figure_eight.sh
 ```
 
 ## Basic Example
