@@ -87,7 +87,7 @@ roslaunch demo_launchers real_expertiment_Geometric.launch
 ```
 When launching the nodes, the system could request a login into the Arena. You can use the personal google account to perform the identification.
 
-Once everything is started, the output of the system can be visualized at https://arenaxr.org/<yourusername>/LandofGG.
+Once everything is started, the output of the system can be visualized at https://arenaxr.org/#<yourusername>#/LandofGG.
 
 To launch the script that commands the quadrotor to follow the figure eight, go to *ws/scripts/* and run:
 ```
