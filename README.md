@@ -1,4 +1,4 @@
-# Cyphy Testbed
+# Cyphy Testbed (LFD branch)
 
 ## Overall Description
 This repository represents a testing and development framework for application in the domain of cyberphysical systems. 
@@ -6,17 +6,19 @@ This repository represents a testing and development framework for application i
 Currently, the "*Crazyflie*" drone by *Bitcraze* is the platform on which the test are run, but the system has been designed to include different platforms in the future. 
 The core of the framework is based on *ROS*.
 
+This particular instance of the repository has additional files to facilitate learning control from expert demonstrations.
+
 ## Components The framework has been organized in modules (*ROS packages*) for ease of maintenance.
 
 Currently the following modules have been implemented:
 
 1. **commander_interface**
 This package provides the point of interaction between the vehicle and the user. The *commander\_node* advertises services for requesting task to the drone, such as goto, land, takeoff and full state tracking.
-These request are then managed by the Guidance that generates trajectories.
+These requests are then managed by the Guidance that generates trajectories.
 2. **control_router**
 This package takes care of selecting the controller that will control the drone. Currently, it is possible to select among onboard or offboard controller and, in case of multiple offboard controllers, which one is actually driving the vehicle.
 3. **crazyflie_controllers**
-This package contains the controllers to command the drone offboard.
+This package contains the controllers to command the drone offboard. In particular, it contains the learned control *lfd\_controller* that is based off of the expert controller contained in *geometric_controller*.
 3. **crazyflie_ros**
 This is the package providing the library and services to communicate with the *Crazyflie* drone.
 4. **demo_launchers**
@@ -25,6 +27,10 @@ Currently, the main launchers are
     1. "real_experiment": Launch file that starts all the components to run an experiment with the real drone.
 
     2. "simulation_experiment": Launch file that starts all the components to run the system in simulation. 
+    
+    3. "real_expertiment_LFD": Launch file that is exactly like "real_experiment", but uses "lfd_controller" to control the drone.
+    
+    4. "real_experiment_Geometric": Launch file that is exactly like "real_experiment", but uses "geometric_controller" to control the drone.
 5. **guidance**
 This package provides the guidance for the drone, that is, given a command and the current status of the drone, it generates the references to achieve the task. 
 6. **rarena**
@@ -67,10 +73,29 @@ Every time a new terminal is started, it's necessary to reload the references to
 source devel/setup.bash
 ```
 
+## LFD Example
+
+Prior to running the framework, run the simulation in MATLAB by running *sim\_expert.m* in *sim\_files*. This creates a file *K.csv*. Place it into *crazyflie\_controllers/lfd_controller/config/data/*.
+
+The command to launch the framework with LFD controller is:
+```
+roslaunch demo_launchers real_experiment_LFD.launch
+```
+When launching the nodes, the system could request a login into the Arena. You can use the personal google account to perform the identification.
+
+Once everything is started, the output of the system can be visualized at https://arenaxr.org/<yourusername>/LandOfGG.
+
+To launch the script that commands the quadrotor to follow the figure eight, go to *ws/scripts/* and run *./figure_eight.sh*.
+    
+The command to launch the framework with the expert geometric controller is:
+```
+roslaunch demo_launchers real_expertiment_Geometric.launch
+```
+
 ## Basic Example
 Basic test simulation:
 
-The commands to launch the the system are:
+The commands to launch the system are:
 ```
 roslaunch demo_launchers demo_anchors.launch
 ```
