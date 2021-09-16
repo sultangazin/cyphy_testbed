@@ -156,6 +156,6 @@ namespace cis_supervisor {
 			/**
 			 * \brief Compute the free space given the current position and having a map of the obstacles
 			 */
-			cis2m::HPolyhedron ComputeFreeSpace(const Eigen::VectorXd& p);
+			cis2m::HPolyhedron ComputeFreeSpace();
 	};
 }

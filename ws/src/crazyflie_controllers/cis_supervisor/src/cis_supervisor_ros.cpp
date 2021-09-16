@@ -13,6 +13,8 @@ using Eigen::Vector3d;
 namespace cis_supervisor {
 	CISSupervisorROS::CISSupervisorROS() :
 		initialized_(false) {
+			// XXX I should manage the discretization here instead of passing the discretized model as a parameter.
+			// Currently, it is error prone to have both the parameter of the DT and the discrete model decoupled...
 			ControllerDT_ = 0.05;
 		}
 
@@ -33,6 +35,7 @@ namespace cis_supervisor {
 			cis_supervisor_ = new CISSupervisor(Ad_, Bd_, Vector3d::Zero());
 		}
 
+		// Add the initial safe set to the supervisor
 		cis_supervisor_->AddSafeSet(DomA_, DomB_);
 
 		InitPubSubs(n);
@@ -158,12 +161,15 @@ namespace cis_supervisor {
 	bool CISSupervisorROS::InitPubSubs(const ros::NodeHandle& n) {
 		ros::NodeHandle nl(n);
 
-		// Subscribe to the topics and associate a callback upon new publications.
+		// Subscribe to the topics and associate a callback to new publications.
+		// Drone State callback
 		state_sub_ = nl.subscribe(state_topic_.c_str(), 1, &CISSupervisorROS::StateCallback, this);
+		// Nominal Controller callback
 		ctrl_setpoint_sub_ = nl.subscribe(control_input_topic_.c_str(), 1, &CISSupervisorROS::UpdateControl, this);
+		// Obstacle Position callback
 		obstacle_sub_ = nl.subscribe(obstacle_input_topic_.c_str(), 1, &CISSupervisorROS::ObstacleCallback, this);
 
-		// Advertise the publication of the control messages
+		// Advertise the publication of the filtered control messages
 		control_pub_ = nl.advertise<testbed_msgs::ControlStamped>(control_topic_.c_str(), 1, false);
 
 		return true;
@@ -184,11 +190,9 @@ namespace cis_supervisor {
 	}
 
 	// --------------------------------------
-	// Callback on new setpoint message
-	// -1) Update the internal data storing the current control setpoint
-	// -2) Filter the control throught the Supervisor
+	// THIS IS THE CORE OF THE SUPERVISION NODE
+	// Callback on new nominal control message:
 	void CISSupervisorROS::UpdateControl(const testbed_msgs::ControlStamped::ConstPtr& msg) {
-		
 		Vector3d b_jerk;
 		Vector3d b_omega_ctrl;
 		double thrust = msg->control.thrust * vehicle_Mass_; // Because the message contains the normalized thrust
@@ -204,16 +208,17 @@ namespace cis_supervisor {
 		// Compute the jerk in world frame
 		w_jerk_ = w_q_b_ * b_jerk;
 
-		// Call the supervisor
+		// Call the supervisor (passing the control in world frame)
 		ros::Time now = ros::Time::now();
 		std::cout << "Time before: " << now << std::endl;
 		Vector3d w_jerk_filt = cis_supervisor_->UpdateControl(w_jerk_);
 
-		// Convert the jerk into body frame
+		// Convert the filterd jerk back to body frame
 		Vector3d b_jerk_filt_ = w_q_b_.inverse()  * w_jerk_filt;
 
+		// Compute the thrust/omega command to send to the drone
 		Vector3d update_b_omega_ctrl(b_omega_ctrl);
-		if (thrust_ > 0.05) {
+		if (thrust_ > 0.05) { // Avoid numerical issues when thurst ~= 0
 			update_b_omega_ctrl(X_COORD) = -(vehicle_Mass_ / thrust_) * b_jerk_filt_(Y_COORD);
 			update_b_omega_ctrl(Y_COORD) =  (vehicle_Mass_ / thrust_) * b_jerk_filt_(X_COORD);
 		}
@@ -238,8 +243,8 @@ namespace cis_supervisor {
 	// --------------------------------------
 	// Callback on new state data:
 	// -1) Fetch data from the ROS message
-	// -2) Compute the control input
-	// -3) Publish the control message
+	// -2) Update the internal variables
+	// -3) Update the state in the CISSupervisor member
 	void CISSupervisorROS::StateCallback(
 			const testbed_msgs::CustOdometryStamped::ConstPtr& msg) {
 
@@ -258,6 +263,8 @@ namespace cis_supervisor {
 
 	// --------------------------------------
 	// Callback on new obstacle data:
+	// -1) Fetch the ROS message and create the ObstacleData structure with it
+	// -2) Pass that information to the CISSUpervisor class that will update the CIS
 	void CISSupervisorROS::ObstacleCallback(
 			const cis_supervisor::ObstacleMsg::ConstPtr& msg) {
 
@@ -271,8 +278,10 @@ namespace cis_supervisor {
 
 	}
 
+	// Differentiate a signal...
+	// I use it to compute the time derivative of the thrust
+	// XXX This is dirty: I should improve it a bit ;-)
 	double CISSupervisorROS::differentiate(double x) {
-		 
 		return (x - thrust_) / ControllerDT_;
 	}
 }

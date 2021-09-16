@@ -3,14 +3,8 @@
 #include <CGAL/QP_functions.h>
 #include <iomanip>
 
-// choose exact integral type
-//#ifdef CGAL_USE_GMP
-//#include <CGAL/Gmpz.h>
-//typedef CGAL::Gmpz ET;
-//#else
 #include <CGAL/MP_Float.h>
 typedef CGAL::MP_Float ET;
-//#endif
 
 #include "drake/geometry/optimization/iris.h"
 #include "drake/geometry/optimization/vpolytope.h"
@@ -62,30 +56,35 @@ namespace cis_supervisor {
 
 	Vector3d CISSupervisor::UpdateControl(const Vector3d w_jerk) {
 		w_jerk_ = w_jerk;
+
+		// Predict the next state using the nominal control
 		VectorXd pred_state = Predict_step(w_jerk_);
 
 		if (CIS_.isValid()) {
-			cis2m::HPolyhedron Acis = cis_gen_->Fetch_CIS();
-			MatrixXd bcis = CIS_.bi();
+			// Check if the next state would be in the CIS
 			if (Contains(translational_state_, w_jerk)) {
-				std::cout << "IN" << std::endl;
+				std::cout << "IN THE CIS (predicted)" << std::endl;
 				std::cout << "I am @: " << translational_state_.transpose() << std::endl;
-				std::cout << "U.   @: " << w_jerk_.transpose() << std::endl;
-				std::cout << "Nom. @: " << pred_state.transpose() << std::endl;
+				std::cout << "Nom U: " << w_jerk_.transpose() << std::endl;
+				std::cout << "I will be @: " << pred_state.transpose() << std::endl;
 			} else {
-				std::cout << "OUT" << std::endl;
+				std::cout << "OUT THE CIS (predicted)" << std::endl;
 				std::cout << "I am @: " << translational_state_.transpose() << std::endl;
-				std::cout << "Nom. @: " << pred_state.transpose() << std::endl;
+				std::cout << "I will be @: " << pred_state.transpose() << std::endl;
 
+				cis2m::HPolyhedron Acis = cis_gen_->Fetch_CIS();
+				// Solve the optimization problem to stay in the CIS
 				w_jerk_ = SolveOptimizationProblem(w_jerk_, Acis.Ai(), Acis.bi());
+				
+				// Double check that with the supervised input I stay inside the safe set
 				VectorXd test_x = Predict_step(w_jerk_);
 
-				std::cout << "Cor. @: " << test_x.transpose() << std::endl;
-				std::cout << "U.   @: " << w_jerk_.transpose() << std::endl;
+				std::cout << "After Corr. I should be @: " << test_x.transpose() << std::endl;
+				std::cout << "Corr. U: " << w_jerk_.transpose() << std::endl;
 				std::cout << "Acis: " << std::endl << Acis.Ai() << std::endl;
 				std::cout << "Bcis: " << std::endl << Acis.bi().transpose() << std::endl;
 				if (!Contains(translational_state_, w_jerk_)) {
-					std::cout << " ===== Cazzo! ====" << std::endl;
+					std::cout << " PROBLEM! The corrected input is not keeping me in the CIS..." << std::endl;
 				}
 			}
 			std::cout << std::endl << std::endl;
@@ -97,16 +96,22 @@ namespace cis_supervisor {
 	}
 
 
-	Vector3d CISSupervisor::SolveOptimizationProblem(
-			const Vector3d& jerk, const MatrixXd& A, const VectorXd& b) {
+	// Solve the supervision problem (Find the nearest control input to the nominal one that keeps me in the CIS)
+	Vector3d CISSupervisor::SolveOptimizationProblem(const Vector3d& jerk, const MatrixXd& A, const VectorXd& b) {
 		const int X = 0; const int Y = 1; const int Z = 2;
 
 		// Transform the jerk into the Brunovsky coordinates
 		Vector3d nu = cis_gen_->TransformU2B(jerk, translational_state_);
 
-		// Take the A referring to the virtual inputs
+		// Take the A referring to the  inputs
+		// 			       |                          |
+		// A is partitioned as [A_state, A_current_u, A_periodic_u]
 		MatrixXd A_prime = A.rightCols(cis_gen_->GetExtendedDim());
+
+		// Move the state part on the rhs of the equation Ax + Au < b ==> Au < b - Ax
 		VectorXd b_prime = b - A.leftCols(cis_gen_->GetStateDim()) * translational_state_;
+
+		// Prepare the optimization problem (Fill the A matrix)
 		Program qp (CGAL::SMALLER, true, -100.0, true, 100.0);
 		for (int i = 0; i < A_prime.rows(); i++) {
 			qp.set_b(i, b_prime(i));
@@ -115,7 +120,8 @@ namespace cis_supervisor {
 			}
 		}
 
-		// cost: x' D x + c' x + c0 
+		// cost: x' D x + c' x + c0  (The optimization variable in our case is the u...)
+		// In practice:
 		// cost: <Hu, Hu> -2*<Hu, u0> + <u0, u0>
 		int L = cis_gen_->GetLevel();
 		qp.set_d(0, 0, 2); qp.set_d (L, L, 2); qp.set_d(2 * L, 2 * L, 2);// !!specify 2D!!
@@ -124,6 +130,7 @@ namespace cis_supervisor {
 		// solve the program, using ET as the exact type
 		Solution s = CGAL::solve_quadratic_program(qp, ET());
 
+		// Fetch the solution from the optimization variable
 		Vector3d nu_opt(Vector3d::Zero());
 		Vector3d output(Vector3d::Zero());
 		if (s.is_optimal()) {
@@ -133,7 +140,7 @@ namespace cis_supervisor {
 			nu_opt(1) = CGAL::to_double(*(it + 6));
 			nu_opt(2) = CGAL::to_double(*(it + 12));
 			
-			// Map back to the original space
+			// Map back to the original space (there is the brunovksy stuff in between)
 			output = cis_gen_->TransformU2O(nu_opt, translational_state_);
 		} else {
 			std::cout << "Optimization failed!" << std::endl;
@@ -143,6 +150,7 @@ namespace cis_supervisor {
 	}
 
 
+	// Just update the current state...
 	void CISSupervisor::UpdateState(
 			const Vector3d& w_pos, const Vector3d& w_vel, const Vector3d& w_acc) {
 		// Fill the current translational state vector
@@ -152,6 +160,7 @@ namespace cis_supervisor {
 	}
 
 
+	// Update the maps of the obstacles 
 	void CISSupervisor::UpdateObstacle(const ObstacleData& ob) {
 		// Update the obstacle map
 		if (obst_map_.count(ob.id) > 0) {
@@ -162,7 +171,7 @@ namespace cis_supervisor {
 		}
 
 		// Compute the free space
-		SafeSet_ = ComputeFreeSpace(translational_state_);
+		SafeSet_ = ComputeFreeSpace();
 
 		// Computing the CIS given a Safe set
 		cis_gen_->computeCIS(SafeSet_, 6, 0);
@@ -170,6 +179,7 @@ namespace cis_supervisor {
 	}
 
 
+	// Compute if the system is in the CIS
 	bool CISSupervisor::Contains(const VectorXd& x, const VectorXd& u) {
 		int stateDim = cis_gen_->GetStateDim();
 		int extendedDim = cis_gen_->GetExtendedDim();
@@ -224,27 +234,33 @@ namespace cis_supervisor {
 	}
 
 
+	// Prediction step assuming linear, discrete time model
 	VectorXd CISSupervisor::Predict_step(const Vector3d& u) {
 		VectorXd output = Ad_ * translational_state_ + Bd_ * u; 
 		return output;
 	}
 
-	cis2m::HPolyhedron CISSupervisor::ComputeFreeSpace(const VectorXd& x) {
+	// Update the CIS given the obstacles and the drone positions
+	cis2m::HPolyhedron CISSupervisor::ComputeFreeSpace() {
 
 		drake::geometry::optimization::ConvexSets obstacles;
 
-		/// XXX Should use the map with the obstacles obtained from the System
+		/// XXX Should use the map with the obstacles obtained from the System (obst_map_)
+		// For testing purposes I am putting a static object...
 		obstacles.emplace_back(
 				drake::geometry::optimization::VPolytope::MakeBox(
 					Eigen::Vector3d(-0.5, -0.5, 0.0), Eigen::Vector3d(-0.3, -0.3, 0.5)
 					)
 				);
 
+		// CALL IRIS to compute the SafeSet
 		drake::geometry::optimization::HPolyhedron SafeSet_drake = drake::geometry::optimization::Iris(obstacles, translational_state_.head(3), *domain_);
 
+		// Copy back to our format...
 		MatrixXd A_out = MatrixXd::Zero(SafeSet_drake.A().rows(), Ad_.cols());
 		A_out.leftCols(SafeSet_drake.A().cols()) = SafeSet_drake.A();
 
+		// Return the Polyhedron representing the largest Safeset
 		cis2m::HPolyhedron out(A_out, SafeSet_drake.b());
 		return out;
 	}
